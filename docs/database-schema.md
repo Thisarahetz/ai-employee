@@ -38,16 +38,24 @@ doesn't branch on business type. `Integration`, `Channel`, `Conversation`, and
 `Workflow` all optionally scope to a `businessId` for tenants running multiple
 locations under one account.
 
-### Users, roles, RBAC — `Role`, `User`
+### Users, tenant membership, RBAC — `User`, `TenantMembership`
 
-`Role` is per-tenant (`@@unique([tenantId, name])`) with a plain `permissions
-String[]` column — there is no `Role` enum; tenants can define custom roles. The
-conventional default role names (`OWNER`, `ADMIN`, `AGENT`, `VIEWER`) and their default
-permission sets live in code, not the schema — see
-[`packages/shared/src/constants/permissions.ts`](../packages/shared/src/constants/permissions.ts).
-`User` belongs to exactly one `Role` and is unique per `(tenantId, email)` — the same
-email can exist in two different tenants as two unrelated users. `passwordHash` and
-`refreshTokenHash` never leave `apps/api`.
+`User` is a **global identity**, not tenant-scoped — `email` is unique across the whole
+platform, and `id` is what every other model's `userId`/`assignedUserId` points at.
+`passwordHash` and `refreshTokenHash` never leave `apps/api`. `platformRole`
+(`NONE | SUPER_ADMIN`) is platform-level access, unrelated to any tenant — see
+"Platform Administration & Tenant Management" in
+[`docs/architecture.md`](architecture.md).
+
+`TenantMembership` (mapped to table `tenant_users`, `@@unique([tenantId, userId])`) is
+where a person's relationship to one specific tenant lives: `role`
+(`OWNER | ADMIN | MANAGER | EMPLOYEE`, a fixed enum — no per-tenant custom `Role` table)
+and `status` (`ACTIVE | INVITED | DISABLED`). One `User` can have many
+`TenantMembership` rows — the same person can own one business and be an `EMPLOYEE` on
+another. Default permission sets per `TenantRole` live in code, not the schema — see
+[`packages/shared/src/constants/permissions.ts`](../packages/shared/src/constants/permissions.ts)
+(mirrors `apps/api/src/modules/auth/auth.service.ts`'s `TENANT_ROLE_PERMISSIONS`, the
+actual source of truth enforced by `RolesGuard`).
 
 ### Customers — `Customer`
 
@@ -177,20 +185,27 @@ Every scoped model above carries `tenantId String` plus a relation to `Tenant` w
 `onDelete: Cascade`, and at least `@@index([tenantId])` (many add a composite index for
 their dominant query pattern, e.g. `Message` on `(tenantId, conversationId, createdAt)`).
 This is necessary but not sufficient on its own — the schema *allows* correct scoping,
-it doesn't *enforce* it. Enforcement is an application-layer concern, owned by
-`apps/api`'s tenant module (see [`docs/architecture.md`](architecture.md#multi-tenancy)):
+it doesn't *enforce* it. Enforcement is an application-layer **convention**, owned by
+`apps/api`'s tenant middleware/guards (see
+[`docs/architecture.md`](architecture.md#multi-tenancy)):
 
-1. An authenticated request resolves a `TenantContext` from the JWT.
-2. A Prisma Client extension injects `tenantId` into every query automatically, so
-   individual service methods never hand-write `where: { tenantId }` (and can't forget
-   to).
-3. Any lookup for a resource whose `tenantId` doesn't match the caller's tenant returns
-   404 (not 403), so a cross-tenant ID guess can't even confirm the resource exists.
+1. An authenticated request resolves a `TenantContext` (`{ tenantId, userId, role,
+   permissions, platformRole }`) from the JWT, via `TenantMiddleware`.
+2. Every tenant-scoped service method takes `tenantId` as an explicit parameter and
+   includes it in its `where` clause (`{ id, tenantId }`, never a bare `{ id }`) — this
+   is hand-written per service, not injected automatically by a Prisma extension or
+   middleware, so it's the one thing worth checking in review for any new tenant-scoped
+   module.
+3. Lookups for a resource whose `tenantId` doesn't match the caller's tenant are written
+   to return 404 (not 403), so a cross-tenant ID guess can't even confirm the resource
+   exists.
 
-The one place this pattern *cannot* apply automatically is raw SQL — the
-`document_chunks.embedding` queries described above bypass the Prisma Client extension
-entirely, so every hand-written `$queryRaw`/`$executeRaw` against `document_chunks`
-(or any other table) must include `tenant_id = $n` explicitly. This is the single
+The one deliberate, narrow exception is `apps/api/src/modules/admin` (gated by
+`PlatformAdminGuard`, keyed off `User.platformRole`, not any tenant's `TenantContext`)
+— see "Platform Administration & Tenant Management" in
+[`docs/architecture.md`](architecture.md). Every hand-written `$queryRaw`/`$executeRaw`
+against `document_chunks` (the RAG vector-search queries described above) must also
+include `tenant_id = $n` explicitly, same as any other tenant-scoped query. This is the single
 sharpest edge in the schema from a security standpoint and is worth a code-review
 checklist item wherever raw SQL touches a tenant-scoped table.
 

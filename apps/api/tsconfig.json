@@ -6,7 +6,7 @@
     "module": "commonjs",
     "moduleResolution": "node",
     "allowJs": false,
-    "incremental": true,
+    "incremental": false,
     "types": ["node", "multer"],
     "strictPropertyInitialization": false
   },

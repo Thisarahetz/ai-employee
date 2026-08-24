@@ -49,6 +49,17 @@ export type BusinessType = (typeof BusinessType)[keyof typeof BusinessType];
 export const UserStatus = { ACTIVE: 'ACTIVE', INVITED: 'INVITED', DISABLED: 'DISABLED' } as const;
 export type UserStatus = (typeof UserStatus)[keyof typeof UserStatus];
 
+/** Platform-level access, unrelated to any tenant. See PlatformAdminGuard. */
+export const PlatformRole = { NONE: 'NONE', SUPER_ADMIN: 'SUPER_ADMIN' } as const;
+export type PlatformRole = (typeof PlatformRole)[keyof typeof PlatformRole];
+
+/** A tenant's fixed roles — see docs/architecture.md's RBAC section. */
+export const TenantRole = { OWNER: 'OWNER', ADMIN: 'ADMIN', MANAGER: 'MANAGER', EMPLOYEE: 'EMPLOYEE' } as const;
+export type TenantRole = (typeof TenantRole)[keyof typeof TenantRole];
+
+export const MembershipStatus = { ACTIVE: 'ACTIVE', INVITED: 'INVITED', DISABLED: 'DISABLED' } as const;
+export type MembershipStatus = (typeof MembershipStatus)[keyof typeof MembershipStatus];
+
 export const ConversationStatus = {
   OPEN: 'OPEN',
   AI_HANDLING: 'AI_HANDLING',
@@ -163,18 +174,16 @@ export interface Business {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Users, roles, RBAC
+// Users, tenant membership, RBAC
+//
+// User is a global identity (one row per person, one globally-unique email)
+// — NOT tenant-scoped. A person's relationship to any given tenant (role,
+// membership status) lives in TenantMembership, so one person can belong to
+// multiple tenants with different roles in each. Platform-level access
+// (platformRole) is separate again, unrelated to any tenant role. See the
+// "Platform Administration & Tenant Management" section of
+// docs/architecture.md.
 // ─────────────────────────────────────────────────────────────────────────
-
-export interface Role {
-  id: string;
-  tenantId: string;
-  name: string;
-  permissions: string[];
-  isSystem: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
 
 /**
  * `passwordHash` and `refreshTokenHash` exist on the underlying `users` table (see
@@ -184,15 +193,25 @@ export interface Role {
  */
 export interface User {
   id: string;
-  tenantId: string;
   email: string;
   passwordHash: string;
   firstName: string;
   lastName: string;
-  roleId: string;
   status: UserStatus;
   refreshTokenHash?: string | null;
   lastLoginAt?: string | null;
+  platformRole: PlatformRole;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** The tenant_users join table — a User's role and status within one Tenant. */
+export interface TenantMembership {
+  id: string;
+  tenantId: string;
+  userId: string;
+  role: TenantRole;
+  status: MembershipStatus;
   createdAt: string;
   updatedAt: string;
 }

@@ -25,6 +25,7 @@ import { AiAgentModule } from './modules/ai-agent/ai-agent.module';
 import { KnowledgeBaseModule } from './modules/knowledge-base/knowledge-base.module';
 import { IntegrationModule } from './modules/integration/integration.module';
 import { WorkflowModule } from './modules/workflow/workflow.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -58,6 +59,7 @@ import { WorkflowModule } from './modules/workflow/workflow.module';
     KnowledgeBaseModule,
     IntegrationModule,
     WorkflowModule,
+    AdminModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

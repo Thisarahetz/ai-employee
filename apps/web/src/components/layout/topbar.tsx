@@ -8,16 +8,43 @@ import { cn, formatDateTime } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 export function Topbar() {
-  const { user, logout } = useAuth();
+  const { user, activeTenant, activeTenantId, memberships, switchTenant, logout } = useAuth();
   const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [isSwitching, setIsSwitching] = useState(false);
   const { data: notifications } = useNotifications();
   const markRead = useMarkNotificationRead();
   const unreadCount = notifications?.filter((n) => !n.isRead).length ?? 0;
 
+  async function handleSwitch(tenantId: string) {
+    if (tenantId === activeTenantId || isSwitching) return;
+    setIsSwitching(true);
+    try {
+      await switchTenant(tenantId);
+    } finally {
+      setIsSwitching(false);
+    }
+  }
+
   return (
     <header className="flex h-16 shrink-0 items-center justify-between border-b border-line bg-white px-6">
       <div>
-        <p className="text-sm font-medium text-ink-primary">{user?.tenant?.name ?? "Your workspace"}</p>
+        {memberships.length > 1 ? (
+          <select
+            aria-label="Switch tenant"
+            value={activeTenantId ?? ""}
+            disabled={isSwitching}
+            onChange={(e) => handleSwitch(e.target.value)}
+            className="rounded-md border-none bg-transparent p-0 text-sm font-medium text-ink-primary focus:outline-none focus:ring-1 focus:ring-brand-500"
+          >
+            {memberships.map((m) => (
+              <option key={m.tenantId} value={m.tenantId}>
+                {m.tenant.name}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <p className="text-sm font-medium text-ink-primary">{activeTenant?.name ?? "Your workspace"}</p>
+        )}
         <p className="text-xs text-ink-muted">{user ? `${user.firstName} ${user.lastName} · ${user.email}` : ""}</p>
       </div>
 

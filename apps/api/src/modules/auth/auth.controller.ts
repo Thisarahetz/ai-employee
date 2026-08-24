@@ -6,6 +6,7 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { SignupDto } from './dto/signup.dto';
+import { SwitchTenantDto } from './dto/switch-tenant.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -35,5 +36,11 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   logout(@CurrentTenant() tenant: TenantContext) {
     return this.authService.logout(tenant.userId);
+  }
+
+  @Post('switch-tenant')
+  @HttpCode(HttpStatus.OK)
+  switchTenant(@CurrentTenant() tenant: TenantContext, @Body() dto: SwitchTenantDto) {
+    return this.authService.switchTenant(tenant.userId, dto.tenantId);
   }
 }

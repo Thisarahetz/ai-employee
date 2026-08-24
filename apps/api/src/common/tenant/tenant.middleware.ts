@@ -1,18 +1,20 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { PlatformRole, TenantRole } from '@prisma/client';
 import { NextFunction, Request, Response } from 'express';
 import { TenantContext } from './tenant-context';
 
 interface AccessTokenClaims {
   sub: string;
-  tenantId: string;
-  roleId: string;
+  tenantId: string | null;
+  role: TenantRole | null;
   permissions?: string[];
+  platformRole?: PlatformRole;
 }
 
 /**
  * Populates `request.tenantContext` from the caller's access-token claims
- * (`sub` -> userId, `tenantId`, `roleId`, `permissions`).
+ * (`sub` -> userId, `tenantId`, `role`, `permissions`, `platformRole`).
  *
  * NestJS runs middleware before guards, so this middleware verifies the
  * token itself (same secret/strategy as `JwtStrategy`) rather than relying
@@ -36,10 +38,13 @@ export class TenantMiddleware implements NestMiddleware {
         });
 
         (req as Request & { tenantContext?: TenantContext }).tenantContext = {
-          tenantId: claims.tenantId,
+          // See the doc-comment on TenantContext — genuinely nullable at
+          // runtime for a platform admin with no tenant memberships.
+          tenantId: claims.tenantId as string,
           userId: claims.sub,
-          roleId: claims.roleId,
+          role: claims.role,
           permissions: claims.permissions ?? [],
+          platformRole: claims.platformRole ?? 'NONE',
         };
       } catch {
         // invalid/expired token: leave tenantContext unset, JwtAuthGuard rejects downstream

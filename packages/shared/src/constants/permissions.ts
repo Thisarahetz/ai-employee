@@ -1,62 +1,106 @@
 /**
- * RBAC permission-string catalogue.
+ * RBAC permission-string catalogue and default role grants.
  *
- * `Role.permissions` (see `prisma/schema.prisma`) is a plain `String[]` column — Prisma
- * has no `Role` enum, and `Role.name` is a free-text, per-tenant value (tenants can
- * define custom roles). The strings below are the canonical, coarse, action-level
- * permission vocabulary that `apps/api`'s authorization guards check against; they are
- * *not* enforced by the database, only by convention + the guard layer, so keep this
- * list as the single source of truth for valid permission strings.
+ * Kept in sync by hand with `apps/api/src/modules/auth/auth.service.ts`'s
+ * `TENANT_ROLE_PERMISSIONS` map — that map is the actual source of truth
+ * enforced by `RolesGuard`; this file mirrors it for non-NestJS consumers
+ * (the web app, SDKs) that want the catalogue without importing the API.
  *
- * This is distinct from the per-action permissions checked when the AI executes an
- * external action (see `docs/integration-api-contract.md` and
+ * `TenantRole` (`OWNER`/`ADMIN`/`MANAGER`/`EMPLOYEE`) is a fixed Prisma enum,
+ * not a customizable per-tenant table — see the "Platform Administration &
+ * Tenant Management" section of docs/architecture.md for why. Distinct from
+ * `PlatformRole` (`NONE`/`SUPER_ADMIN`), which gates the cross-tenant
+ * `/admin/*` API and is unrelated to any tenant role.
+ *
+ * Also distinct from the per-action permissions checked when the AI executes
+ * an external action (see `docs/integration-api-contract.md` and
  * `apps/api/src/modules/external-action`) — those are scoped to individual
  * `IntegrationAction` rows, not this coarse catalogue.
- *
- * `OWNER` / `ADMIN` / `AGENT` / `VIEWER` are not a Prisma enum either — they are the
- * conventional seed role names AI Employee provisions for a new tenant (see the future
- * tenant-bootstrap/seed script in `apps/api`). Tenants may rename or add roles; these
- * are just sane defaults to seed with.
  */
 export const PERMISSIONS = [
+  'tenant:read',
+  'tenant:write',
+  'businesses:read',
+  'businesses:write',
+  'users:read',
+  'users:write',
+  'users:invite',
   'conversations:read',
   'conversations:write',
-  'customers:read',
-  'customers:write',
+  'conversations:takeover',
+  'messages:read',
+  'messages:write',
+  'human_handoffs:read',
+  'human_handoffs:write',
+  'notifications:read',
+  'integrations:read',
   'integrations:manage',
+  'channels:read',
   'channels:manage',
-  'ai-config:manage',
-  'knowledge-base:manage',
+  'ai:configure',
   'workflows:manage',
-  'users:manage',
-  'roles:manage',
-  'billing:manage',
-  'audit-log:read',
+  'audit_logs:read',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
 
-export type DefaultRoleName = 'OWNER' | 'ADMIN' | 'AGENT' | 'VIEWER';
+export type TenantRole = 'OWNER' | 'ADMIN' | 'MANAGER' | 'EMPLOYEE';
 
 /**
- * Default permission sets used when seeding a new tenant's roles. `OWNER` always gets
- * every known permission (kept in sync automatically); the others are curated subsets.
+ * `OWNER` gets `['*']` (RolesGuard treats it as "every permission") rather
+ * than the literal `PERMISSIONS` array — matches the API's own representation.
  */
-export const DEFAULT_ROLE_PERMISSIONS: Record<DefaultRoleName, Permission[]> = {
-  OWNER: [...PERMISSIONS],
+export const TENANT_ROLE_PERMISSIONS: Record<TenantRole, string[]> = {
+  OWNER: ['*'],
   ADMIN: [
+    'tenant:read',
+    'tenant:write',
+    'users:read',
+    'users:write',
+    'users:invite',
+    'businesses:read',
+    'businesses:write',
     'conversations:read',
     'conversations:write',
-    'customers:read',
-    'customers:write',
+    'conversations:takeover',
+    'messages:read',
+    'messages:write',
+    'human_handoffs:read',
+    'human_handoffs:write',
+    'notifications:read',
+    'integrations:read',
     'integrations:manage',
+    'channels:read',
     'channels:manage',
-    'ai-config:manage',
-    'knowledge-base:manage',
+    'ai:configure',
     'workflows:manage',
-    'users:manage',
-    'audit-log:read',
+    'audit_logs:read',
   ],
-  AGENT: ['conversations:read', 'conversations:write', 'customers:read', 'customers:write'],
-  VIEWER: ['conversations:read', 'customers:read', 'audit-log:read'],
+  MANAGER: [
+    'tenant:read',
+    'businesses:read',
+    'users:read',
+    'users:invite',
+    'conversations:read',
+    'conversations:write',
+    'conversations:takeover',
+    'messages:read',
+    'messages:write',
+    'human_handoffs:read',
+    'human_handoffs:write',
+    'notifications:read',
+    'audit_logs:read',
+  ],
+  EMPLOYEE: [
+    'conversations:read',
+    'conversations:write',
+    'conversations:takeover',
+    'messages:read',
+    'messages:write',
+    'human_handoffs:read',
+    'human_handoffs:write',
+    'notifications:read',
+  ],
 };
+
+export type PlatformRole = 'NONE' | 'SUPER_ADMIN';

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS: { href: string; label: string }[] = [
@@ -12,10 +13,18 @@ const NAV_ITEMS: { href: string; label: string }[] = [
   { href: "/integrations", label: "Integrations" },
   { href: "/ai-configuration", label: "AI Configuration" },
   { href: "/workflows", label: "Workflows" },
+  { href: "/team", label: "Team" },
+];
+
+const ADMIN_NAV_ITEMS = [
+  { href: "/admin", label: "Tenants" },
+  { href: "/admin/users", label: "Platform Users" },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const navItems = user && user.platformRole !== "NONE" ? [...NAV_ITEMS, ...ADMIN_NAV_ITEMS] : NAV_ITEMS;
 
   return (
     <aside className="hidden w-60 shrink-0 flex-col border-r border-line bg-white px-4 py-6 sm:flex">
@@ -26,7 +35,7 @@ export function Sidebar() {
         <span className="text-base font-semibold text-ink-primary">AI Employee</span>
       </div>
       <nav className="flex flex-1 flex-col gap-1">
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`);
           return (
             <Link

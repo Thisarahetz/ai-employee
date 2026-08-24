@@ -27,9 +27,9 @@ export class NotificationService {
   async handleHumanHandoffRequested(
     payload: HumanHandoffRequestedPayload & { tenantId: string },
   ): Promise<void> {
-    const recipients = await this.prisma.user.findMany({
-      where: { tenantId: payload.tenantId, role: { name: { in: ['OWNER', 'ADMIN'] } } },
-      select: { id: true },
+    const recipients = await this.prisma.tenantMembership.findMany({
+      where: { tenantId: payload.tenantId, status: 'ACTIVE', role: { in: ['OWNER', 'ADMIN'] } },
+      select: { userId: true },
     });
 
     if (recipients.length === 0) {
@@ -37,9 +37,9 @@ export class NotificationService {
     }
 
     await this.prisma.notification.createMany({
-      data: recipients.map((user) => ({
+      data: recipients.map((member) => ({
         tenantId: payload.tenantId,
-        userId: user.id,
+        userId: member.userId,
         type: EVENT_TYPES.HUMAN_HANDOFF_REQUESTED,
         title: 'Human handoff requested',
         body: `Conversation ${payload.conversationId} needs human attention.`,

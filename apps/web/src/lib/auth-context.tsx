@@ -3,13 +3,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { apiClient, clearStoredTokens, getStoredTokens, setStoredTokens } from "./api-client";
-import type { AuthResponse, AuthUser } from "./types";
+import type { AuthResponse, AuthUser, Tenant, TenantRole } from "./types";
 
-// NOTE: the user profile is cached in localStorage alongside the tokens
-// (see api-client.ts) purely so the dashboard shell can render the tenant
-// name / user email without an extra round trip on every load. It is
-// refreshed on every login/signup response.
+// NOTE: the user profile + memberships are cached in localStorage alongside
+// the tokens (see api-client.ts) purely so the dashboard shell can render
+// the tenant switcher / user email without an extra round trip on every
+// load. Refreshed on every login/signup/switch-tenant response.
 const USER_STORAGE_KEY = "ai-employee.user";
+const SESSION_STORAGE_KEY = "ai-employee.session";
 
 export interface SignupInput {
   tenantName: string;
@@ -19,13 +20,28 @@ export interface SignupInput {
   lastName: string;
 }
 
+export interface Membership {
+  tenantId: string;
+  role: TenantRole;
+  tenant: Tenant;
+}
+
+interface SessionInfo {
+  activeTenantId: string | null;
+  memberships: Membership[];
+}
+
 interface AuthContextValue {
   user: AuthUser | null;
+  activeTenantId: string | null;
+  activeTenant: Tenant | null;
+  memberships: Membership[];
   /** True while hydrating from localStorage on first client render. */
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   signup: (input: SignupInput) => Promise<void>;
+  switchTenant: (tenantId: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -33,14 +49,17 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [session, setSession] = useState<SessionInfo>({ activeTenantId: null, memberships: [] });
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     try {
       const tokens = getStoredTokens();
       const rawUser = window.localStorage.getItem(USER_STORAGE_KEY);
+      const rawSession = window.localStorage.getItem(SESSION_STORAGE_KEY);
       if (tokens?.accessToken && rawUser) {
         setUser(JSON.parse(rawUser) as AuthUser);
+        if (rawSession) setSession(JSON.parse(rawSession) as SessionInfo);
       }
     } catch {
       // Malformed/blocked storage — treat as logged out.
@@ -52,7 +71,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const persistSession = useCallback((data: AuthResponse) => {
     setStoredTokens({ accessToken: data.accessToken, refreshToken: data.refreshToken });
     window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(data.user));
+    const sessionInfo: SessionInfo = { activeTenantId: data.activeTenantId, memberships: data.memberships };
+    window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessionInfo));
     setUser(data.user);
+    setSession(sessionInfo);
   }, []);
 
   const login = useCallback(
@@ -71,15 +93,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [persistSession],
   );
 
+  const switchTenant = useCallback(
+    async (tenantId: string) => {
+      const { data } = await apiClient.post<AuthResponse>("/auth/switch-tenant", { tenantId });
+      persistSession(data);
+    },
+    [persistSession],
+  );
+
   const logout = useCallback(() => {
     clearStoredTokens();
     window.localStorage.removeItem(USER_STORAGE_KEY);
+    window.localStorage.removeItem(SESSION_STORAGE_KEY);
     setUser(null);
+    setSession({ activeTenantId: null, memberships: [] });
   }, []);
 
+  const activeTenant = session.memberships.find((m) => m.tenantId === session.activeTenantId)?.tenant ?? null;
+
   const value = useMemo<AuthContextValue>(
-    () => ({ user, isLoading, isAuthenticated: !!user, login, signup, logout }),
-    [user, isLoading, login, signup, logout],
+    () => ({
+      user,
+      activeTenantId: session.activeTenantId,
+      activeTenant,
+      memberships: session.memberships,
+      isLoading,
+      isAuthenticated: !!user,
+      login,
+      signup,
+      switchTenant,
+      logout,
+    }),
+    [user, session, activeTenant, isLoading, login, signup, switchTenant, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -43,6 +43,11 @@ if ! pnpm prisma:migrate -- --name init --skip-seed; then
   pnpm --filter @ai-employee/api exec prisma db push
 fi
 
+echo "-- Seeding demo accounts (idempotent — safe to re-run)"
+pnpm prisma:seed
+
 echo
 echo "✔ Install complete."
+echo "  Log in with: admin@davinlabs.com / ChangeMe123! (super admin)"
+echo "           or: owner@acme.test / ChangeMe123! (salon tenant owner)"
 echo "  Next: ./start.sh"

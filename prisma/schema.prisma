@@ -33,8 +33,7 @@ model Tenant {
   updatedAt DateTime     @updatedAt
 
   businesses            Business[]
-  roles                 Role[]
-  users                 User[]
+  memberships           TenantMembership[]
   customers             Customer[]
   conversations         Conversation[]
   messages              Message[]
@@ -92,27 +91,15 @@ model Business {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Users, roles, RBAC
+// Users, tenant membership, RBAC
+//
+// User is a global identity (one row per person, one globally-unique email) —
+// NOT tenant-scoped. A person's relationship to any given tenant (their role,
+// membership status) lives in TenantMembership, so one person can belong to
+// multiple tenants with different roles in each (see docs/architecture.md's
+// "Platform Administration & Tenant Management" section). Platform-level
+// access (platformRole) is separate again — unrelated to any tenant role.
 // ─────────────────────────────────────────────────────────────────────────
-
-model Role {
-  id          String   @id @default(cuid())
-  tenantId    String
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  name        String
-  /// Coarse permission strings, e.g. "conversations:write", "integrations:manage".
-  /// Combined with AI action-level permissions checked separately in ExternalActionModule.
-  permissions String[]
-  isSystem    Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  users User[]
-
-  @@unique([tenantId, name])
-  @@index([tenantId])
-  @@map("roles")
-}
 
 enum UserStatus {
   ACTIVE
@@ -120,30 +107,68 @@ enum UserStatus {
   DISABLED
 }
 
-model User {
-  id                String     @id @default(cuid())
-  tenantId          String
-  tenant            Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  email             String
-  passwordHash      String
-  firstName         String
-  lastName          String
-  roleId            String
-  role              Role       @relation(fields: [roleId], references: [id])
-  status            UserStatus @default(ACTIVE)
-  refreshTokenHash  String?
-  lastLoginAt       DateTime?
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
+/// Platform-level access, unrelated to any tenant. Deliberately just one real
+/// tier for the MVP (see PlatformAdminGuard) — PLATFORM_ADMIN/SUPPORT_ADMIN
+/// are natural future additions that don't require a schema change.
+enum PlatformRole {
+  NONE
+  SUPER_ADMIN
+}
 
-  assignedConversations Conversation[]  @relation("AssignedAgent")
-  assignedHandoffs      HumanHandoff[]  @relation("AssignedAgent")
+model User {
+  id               String       @id @default(cuid())
+  email            String       @unique
+  passwordHash     String
+  firstName        String
+  lastName         String
+  status           UserStatus   @default(ACTIVE)
+  refreshTokenHash String?
+  lastLoginAt      DateTime?
+  platformRole     PlatformRole @default(NONE)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  memberships           TenantMembership[]
+  assignedConversations Conversation[]     @relation("AssignedAgent")
+  assignedHandoffs      HumanHandoff[]     @relation("AssignedAgent")
   notifications         Notification[]
   auditLogs             AuditLog[]
 
-  @@unique([tenantId, email])
-  @@index([tenantId])
   @@map("users")
+}
+
+/// Fixed roles for the MVP — see docs/architecture.md for the full hierarchy
+/// and permission rationale. Kept as an enum (not a customizable Role table)
+/// deliberately, to avoid over-engineering RBAC before it's needed.
+enum TenantRole {
+  OWNER
+  ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+enum MembershipStatus {
+  ACTIVE
+  INVITED
+  DISABLED
+}
+
+/// The tenant_users join table — a User's role and status within one Tenant.
+model TenantMembership {
+  id        String           @id @default(cuid())
+  tenantId  String
+  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      TenantRole
+  status    MembershipStatus @default(ACTIVE)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@unique([tenantId, userId])
+  @@index([tenantId])
+  @@index([userId])
+  @@map("tenant_users")
 }
 
 // ─────────────────────────────────────────────────────────────────────────

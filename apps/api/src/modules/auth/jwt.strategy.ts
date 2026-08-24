@@ -1,13 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
+import { PlatformRole, TenantRole } from '@prisma/client';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 
 export interface JwtPayload {
   sub: string;
-  tenantId: string;
-  roleId: string;
+  tenantId: string | null;
+  role: TenantRole | null;
   permissions: string[];
   email: string;
+  platformRole: PlatformRole;
 }
 
 @Injectable()

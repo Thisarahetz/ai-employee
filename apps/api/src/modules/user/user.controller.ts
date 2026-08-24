@@ -2,11 +2,11 @@ import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/commo
 import { RequirePermissions } from '../../common/decorators/roles.decorator';
 import { CurrentTenant } from '../../common/tenant/current-tenant.decorator';
 import { TenantContext } from '../../common/tenant/tenant-context';
-import { CreateUserDto } from './dto/create-user.dto';
 import { InviteUserDto } from './dto/invite-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateMembershipDto } from './dto/update-membership.dto';
 import { UserService } from './user.service';
 
+/** Tenant "Team" management — see UserService's doc comment. */
 @Controller('users')
 export class UserController {
   constructor(private readonly userService: UserService) {}
@@ -21,12 +21,6 @@ export class UserController {
     return this.userService.get(tenant.tenantId, id);
   }
 
-  @RequirePermissions('users:write')
-  @Post()
-  create(@CurrentTenant() tenant: TenantContext, @Body() dto: CreateUserDto) {
-    return this.userService.create(tenant.tenantId, dto);
-  }
-
   @RequirePermissions('users:invite')
   @Post('invite')
   invite(@CurrentTenant() tenant: TenantContext, @Body() dto: InviteUserDto) {
@@ -38,7 +32,7 @@ export class UserController {
   update(
     @CurrentTenant() tenant: TenantContext,
     @Param('id') id: string,
-    @Body() dto: UpdateUserDto,
+    @Body() dto: UpdateMembershipDto,
   ) {
     return this.userService.update(tenant.tenantId, id, dto);
   }

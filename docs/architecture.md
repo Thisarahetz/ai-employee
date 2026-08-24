@@ -44,13 +44,80 @@ hard dependency.
 ## Multi-tenancy
 
 Every tenant-scoped Prisma model carries `tenantId` (see `prisma/schema.prisma`).
-`apps/api`'s `TenantModule` derives a `TenantContext` from the authenticated JWT and:
+`TenantMiddleware` (`apps/api/src/common/tenant/tenant.middleware.ts`) verifies the
+caller's access JWT on every request and populates `request.tenantContext` — a
+`{ tenantId, userId, role, permissions, platformRole }` object every tenant-scoped
+service takes as an explicit parameter and filters its Prisma queries by
+(`where: { id, tenantId }`, never a bare `where: { id }`). This is a *convention*
+enforced by consistent service-layer code, not a database-level or Prisma-extension
+guarantee — reviewers should treat "does this query include `tenantId`" as the one
+recurring thing to check in any new tenant-scoped module.
 
-1. Injects `tenantId` into every Prisma query via a Prisma Client extension —
-   application code never has to remember to filter by tenant, and cross-tenant reads
-   are structurally prevented rather than relying on per-service discipline.
-2. Rejects any request whose resource `tenantId` doesn't match the caller's tenant
-   (404, not 403, to avoid confirming the resource exists in another tenant).
+## Platform Administration & Tenant Management
+
+AI Employee runs as a SaaS product with two independent, deliberately separate levels
+of access — mixing them up (e.g. checking a platform role where a tenant role was
+meant) is the one RBAC mistake this design is built to make structurally awkward:
+
+```
+AI Employee Platform
+        │
+        ├── Platform Admin(s) — User.platformRole, e.g. SUPER_ADMIN
+        │
+        ├── Tenant A — Salon
+        │     ├── Ada  — TenantMembership.role: OWNER
+        │     ├── Mo   — TenantMembership.role: MANAGER
+        │     └── ...
+        ├── Tenant B — Hotel
+        └── Tenant C — Clinic
+```
+
+**`User` is a global identity, not a tenant-scoped row.** One person (one email,
+globally unique) can belong to multiple tenants with different roles in each — an
+agency managing several businesses, or a platform admin who is also a paying tenant
+owner. `email` is the join key precisely because there's no tenant to disambiguate it
+by.
+
+**`TenantMembership`** (the `tenant_users` table) is where a person's relationship to
+one specific tenant lives: `{ tenantId, userId, role, status }`. Deleting someone from
+a tenant deletes their membership row, never their `User` — they may still belong to
+other tenants. A tenant can never end up with zero active `OWNER` memberships
+(`UserService.guardLastOwner`, `apps/api/src/modules/user/user.service.ts`).
+
+**Two independent role enums, checked by two independent guards:**
+
+| | Values | Where it's checked | Settable via |
+|---|---|---|---|
+| `TenantRole` | `OWNER > ADMIN > MANAGER > EMPLOYEE` | `RolesGuard`, against a static `TENANT_ROLE_PERMISSIONS` map (`auth.service.ts`) — `OWNER` gets `['*']` | `POST /users/invite`, `PATCH /users/:id` (tenant "Team" management) |
+| `PlatformRole` | `NONE \| SUPER_ADMIN` | `PlatformAdminGuard`, gating `/admin/*` only | Never via the API — `pnpm --filter @ai-employee/api promote-admin <email>` only |
+
+`TenantRole` is a fixed enum rather than a customizable per-tenant table on purpose —
+avoids over-engineering RBAC before there's a real need for custom permission sets.
+`PlatformRole` only has one real tier for the MVP; `PLATFORM_ADMIN`/`SUPPORT_ADMIN` are
+natural additions later that don't require a schema change (see the enum's doc comment
+in `schema.prisma`).
+
+**Auth flow**: `POST /auth/login` looks the `User` up by its now-globally-unique email,
+loads all their active `TenantMembership`s, and issues a JWT scoped to one of them
+(their first/oldest by default) — the response also includes the full membership list
+so the web app can render a tenant switcher. `POST /auth/switch-tenant` re-issues
+tokens scoped to a different membership without a second password prompt. A platform
+admin with zero tenant memberships can still log in and use `/admin/*` — their token
+just carries `tenantId: null`.
+
+`POST /auth/signup` (public, unauthenticated) always creates a brand-new `User` and
+**rejects an already-registered email** rather than silently attaching a new tenant to
+it — doing otherwise would let anyone who merely knows someone's email address get
+issued a session as them. `POST /admin/tenants` (trusted, `PlatformAdminGuard`-gated)
+is the one place that *can* attach a new tenant to an existing identity, since it never
+logs the caller in as that user.
+
+**Platform admin capabilities today**: create/list tenants, view any tenant's members,
+edit a tenant's name/plan/status, list every platform-wide user
+(`apps/api/src/modules/admin`). **Explicitly not built yet** (real, standalone
+features, not stubbed): subscription plans, billing, system health monitoring, an
+error-log viewer, and platform-wide AI usage/cost dashboards — see
+`docs/mvp-implementation-plan.md`.
 
 ## Multi-agent pipeline (see `docs/multi-agent-architecture.md`)
 

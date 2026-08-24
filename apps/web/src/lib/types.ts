@@ -97,8 +97,21 @@ export type HandoffReason =
 
 export type HandoffStatus = "PENDING" | "ACTIVE" | "RESOLVED";
 
+/** A tenant's fixed roles — see docs/architecture.md's RBAC section. */
+export type TenantRole = "OWNER" | "ADMIN" | "MANAGER" | "EMPLOYEE";
+
+export type MembershipStatus = "ACTIVE" | "INVITED" | "DISABLED";
+
+/** Platform-level access, unrelated to any tenant. */
+export type PlatformRole = "NONE" | "SUPER_ADMIN";
+
 // ─────────────────────────────────────────────────────────────────────────
 // Tenancy / auth
+//
+// User is a global identity (one row per person) — their relationship to any
+// given tenant (role, status) lives in TenantMembership, so one person can
+// belong to multiple tenants. Platform-level access (platformRole) is
+// separate again, unrelated to any tenant role. See docs/architecture.md.
 // ─────────────────────────────────────────────────────────────────────────
 
 export interface Tenant {
@@ -111,33 +124,102 @@ export interface Tenant {
   updatedAt: string;
 }
 
-export interface User {
+/** GET /admin/tenants — platform-admin-only, cross-tenant. */
+export interface AdminTenant extends Tenant {
+  userCount: number;
+  conversationCount: number;
+  integrationCount: number;
+}
+
+/** GET /admin/tenants/:id/users, GET /users — a membership joined with its User. */
+export interface TenantMembership {
   id: string;
   tenantId: string;
+  role: TenantRole;
+  status: MembershipStatus;
+  createdAt: string;
+  user: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    status: UserStatus;
+    lastLoginAt?: string | null;
+    createdAt: string;
+  };
+}
+
+/** GET /admin/users — platform-admin-only, every global identity. */
+export interface AdminUser {
+  id: string;
   email: string;
   firstName: string;
   lastName: string;
-  roleId: string;
+  status: UserStatus;
+  platformRole: PlatformRole;
+  lastLoginAt?: string | null;
+  createdAt: string;
+  membershipCount: number;
+}
+
+/** POST /admin/tenants — creating a tenant on someone's behalf. */
+export interface CreateTenantInput {
+  tenantName: string;
+  tenantSlug?: string;
+  ownerEmail: string;
+  ownerFirstName: string;
+  ownerLastName: string;
+  /** Omit to have the server generate one. */
+  ownerPassword?: string;
+}
+
+export interface CreateTenantResult {
+  tenant: Tenant;
+  owner: { id: string; email: string };
+  createdNewUser: boolean;
+  /** Only present when a brand-new identity was created and no password was given — shown once. */
+  temporaryPassword?: string;
+}
+
+/** POST /users/invite — adding a member to the current tenant. */
+export interface InviteMemberInput {
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: Exclude<TenantRole, "OWNER">;
+}
+
+export interface InviteMemberResult {
+  membership: TenantMembership;
+  /** Only present when the invitee didn't already have an account — shown once. */
+  temporaryPassword?: string;
+}
+
+export interface User {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
   status: UserStatus;
   lastLoginAt?: string | null;
   createdAt: string;
   updatedAt: string;
+  platformRole: PlatformRole;
 }
 
 /**
- * The user object returned alongside auth tokens. The exact contract only
- * guarantees the base User fields — `tenant` is optional because it's not
- * explicitly documented whether /auth/login nests it. The UI falls back
- * gracefully (see Topbar) when it's absent.
+ * The user object returned alongside auth tokens, plus every tenant this
+ * account belongs to (for the tenant switcher) and which one the current
+ * session is scoped to.
  */
-export interface AuthUser extends User {
-  tenant?: Tenant;
-}
+export interface AuthUser extends User {}
 
 export interface AuthResponse {
   accessToken: string;
   refreshToken: string;
   user: AuthUser;
+  activeTenantId: string | null;
+  memberships: { tenantId: string; role: TenantRole; status: MembershipStatus; tenant: Tenant }[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────

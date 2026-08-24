@@ -5,14 +5,17 @@
   "description": "AI Employee — NestJS API (core infra, auth, tenancy, conversations, integrations glue).",
   "license": "UNLICENSED",
   "prisma": {
-    "schema": "../../prisma/schema.prisma"
+    "schema": "../../prisma/schema.prisma",
+    "seed": "ts-node --transpile-only scripts/seed.ts"
   },
   "scripts": {
     "start": "nest start",
     "start:dev": "nest start --watch",
     "dev": "nest start --watch",
     "build": "nest build",
-    "typecheck": "tsc --noEmit -p tsconfig.build.json"
+    "typecheck": "tsc --noEmit -p tsconfig.build.json",
+    "promote-admin": "ts-node --transpile-only scripts/promote-admin.ts",
+    "seed": "ts-node --transpile-only scripts/seed.ts"
   },
   "dependencies": {
     "@ai-employee/ai-core": "workspace:*",
