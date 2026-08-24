@@ -1,0 +1,32 @@
+{
+  "name": "ai-employee",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI Employee — reusable multi-tenant AI Employee platform, connectable to any business system.",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.12.0",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "prisma:generate": "pnpm --filter @ai-employee/api exec prisma generate",
+    "prisma:migrate": "pnpm --filter @ai-employee/api exec prisma migrate dev",
+    "prisma:studio": "pnpm --filter @ai-employee/api exec prisma studio"
+  },
+  "dependencies": {
+    "@prisma/client": "5.22.0"
+  },
+  "devDependencies": {
+    "turbo": "^2.1.3",
+    "typescript": "^5.6.3",
+    "prettier": "^3.3.3",
+    "prisma": "5.22.0"
+  }
+}

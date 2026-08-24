@@ -1,0 +1,113 @@
+{
+  "name": "Example - New Customer Lead",
+  "nodes": [
+    {
+      "id": "b1a1c2d3-0000-4000-8000-000000000001",
+      "name": "Webhook - AI Employee Event",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "example-new-customer-lead",
+      "notes": "Receives the {tenantId, businessId, customerId, conversationId, eventType, data} envelope sent by N8nService.triggerWorkflow(). Wire Workflow.triggerEventType (e.g. \"customer.created\") to this workflow's n8nWorkflowId via POST /workflows.",
+      "parameters": {
+        "path": "example-new-customer-lead",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "options": {}
+      }
+    },
+    {
+      "id": "b1a1c2d3-0000-4000-8000-000000000002",
+      "name": "Check CRM For Existing Lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 300],
+      "notes": "Simulates looking the customer up in an external CRM before creating a duplicate lead.",
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.CRM_BASE_URL }}/leads",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "customerId", "value": "={{ $json.customerId }}" },
+            { "name": "tenantId", "value": "={{ $json.tenantId }}" }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      }
+    },
+    {
+      "id": "b1a1c2d3-0000-4000-8000-000000000003",
+      "name": "Create Lead Record",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [680, 300],
+      "notes": "Simulates creating a new lead record from the event payload (in a real workflow this would branch on the CRM lookup result via an IF node first).",
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            { "name": "leadId", "value": "={{ $json.id || $('Webhook - AI Employee Event').item.json.customerId }}", "type": "string" },
+            { "name": "leadSource", "value": "AI Employee", "type": "string" },
+            { "name": "leadStatus", "value": "NEW", "type": "string" },
+            { "name": "tenantId", "value": "={{ $('Webhook - AI Employee Event').item.json.tenantId }}", "type": "string" },
+            { "name": "customerId", "value": "={{ $('Webhook - AI Employee Event').item.json.customerId }}", "type": "string" },
+            { "name": "conversationId", "value": "={{ $('Webhook - AI Employee Event').item.json.conversationId }}", "type": "string" }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "b1a1c2d3-0000-4000-8000-000000000004",
+      "name": "Notify Sales (Slack)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 300],
+      "notes": "Simulates posting a new-lead notification to a Slack (or email) webhook.",
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SLACK_WEBHOOK_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"text\": \"New lead created: \" + $json.leadId + \" (conversation \" + $json.conversationId + \")\" } }}",
+        "options": {
+          "timeout": 10000
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook - AI Employee Event": {
+      "main": [
+        [
+          { "node": "Check CRM For Existing Lead", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Check CRM For Existing Lead": {
+      "main": [
+        [
+          { "node": "Create Lead Record", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Create Lead Record": {
+      "main": [
+        [
+          { "node": "Notify Sales (Slack)", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "description": "Scaffold example workflow: reacts to an AI Employee event (e.g. customer.created) via Workflow.triggerEventType, checks an external CRM for an existing lead, creates one if missing, and notifies sales. Not a production-ready import — a reasonable approximation of n8n's export shape for scaffold purposes.",
+    "templateCredsSetupCompleted": false
+  }
+}

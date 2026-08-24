@@ -1,0 +1,57 @@
+"use client";
+
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+import { apiClient } from "@/lib/api-client";
+import type { Conversation, ConversationStatus, Message, PaginatedResponse } from "@/lib/types";
+
+export function useConversations(status: ConversationStatus | "ALL" = "ALL", page = 1) {
+  return useQuery({
+    queryKey: ["conversations", status, page],
+    queryFn: async () => {
+      const { data } = await apiClient.get<PaginatedResponse<Conversation>>("/conversations", {
+        params: { status: status === "ALL" ? undefined : status, page },
+      });
+      return data;
+    },
+  });
+}
+
+export function useConversation(id: string | undefined) {
+  return useQuery({
+    queryKey: ["conversation", id],
+    queryFn: async () => (await apiClient.get<Conversation>(`/conversations/${id}`)).data,
+    enabled: !!id,
+  });
+}
+
+export function useConversationMessages(id: string | undefined, page = 1) {
+  return useQuery({
+    queryKey: ["conversation-messages", id, page],
+    queryFn: async () =>
+      (await apiClient.get<PaginatedResponse<Message>>(`/conversations/${id}/messages`, { params: { page } })).data,
+    enabled: !!id,
+  });
+}
+
+export function useTakeControl(conversationId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => (await apiClient.post<Conversation>(`/conversations/${conversationId}/take-control`)).data,
+    onSuccess: (conversation) => {
+      queryClient.setQueryData(["conversation", conversationId], conversation);
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+    },
+  });
+}
+
+export function useReturnToAi(conversationId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => (await apiClient.post<Conversation>(`/conversations/${conversationId}/return-to-ai`)).data,
+    onSuccess: (conversation) => {
+      queryClient.setQueryData(["conversation", conversationId], conversation);
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+    },
+  });
+}

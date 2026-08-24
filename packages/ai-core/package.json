@@ -1,0 +1,25 @@
+{
+  "name": "@ai-employee/ai-core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Provider-agnostic AI abstraction (OpenAI, Anthropic) — the rest of AI Employee never depends on a single AI provider directly.",
+  "license": "UNLICENSED",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "echo \"(no lint configured for ai-core)\"",
+    "test": "echo \"(no tests yet for ai-core)\""
+  },
+  "dependencies": {
+    "openai": "^4.68.4",
+    "@anthropic-ai/sdk": "^0.32.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "@types/node": "^20.16.5"
+  }
+}

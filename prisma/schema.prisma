@@ -1,0 +1,700 @@
+// AI Employee — multi-tenant platform schema.
+// Every tenant-scoped model carries `tenantId` + an index; the API layer's
+// TenantContext/Prisma extension enforces it on every query (see apps/api TenantModule).
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgvector(map: "vector")]
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Tenancy
+// ─────────────────────────────────────────────────────────────────────────
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  TRIAL
+}
+
+model Tenant {
+  id        String       @id @default(cuid())
+  name      String
+  slug      String       @unique
+  status    TenantStatus @default(TRIAL)
+  plan      String       @default("free")
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  businesses            Business[]
+  roles                 Role[]
+  users                 User[]
+  customers             Customer[]
+  conversations         Conversation[]
+  messages              Message[]
+  conversationSummaries ConversationSummary[]
+  knowledgeBases        KnowledgeBase[]
+  documents             Document[]
+  documentChunks        DocumentChunk[]
+  integrations          Integration[]
+  integrationActions    IntegrationAction[]
+  channels              Channel[]
+  aiAgents              AiAgent[]
+  aiConfigurations      AiConfiguration[]
+  aiUsageLogs           AiUsageLog[]
+  workflows             Workflow[]
+  workflowExecutions    WorkflowExecution[]
+  humanHandoffs         HumanHandoff[]
+  notifications         Notification[]
+  events                Event[]
+  auditLogs             AuditLog[]
+
+  @@map("tenants")
+}
+
+/// A business unit under a tenant (usually one, occasionally several
+/// locations/brands). Carried alongside tenant_id in n8n workflow payloads.
+enum BusinessType {
+  SALON
+  HOTEL
+  CLINIC
+  ECOMMERCE
+  CRM
+  VEHICLE_SERVICE
+  ERP
+  CUSTOM
+}
+
+model Business {
+  id        String       @id @default(cuid())
+  tenantId  String
+  tenant    Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
+  type      BusinessType @default(CUSTOM)
+  timezone  String       @default("UTC")
+  settings  Json         @default("{}")
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  integrations  Integration[]
+  channels      Channel[]
+  conversations Conversation[]
+  workflows     Workflow[]
+
+  @@index([tenantId])
+  @@map("businesses")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Users, roles, RBAC
+// ─────────────────────────────────────────────────────────────────────────
+
+model Role {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  /// Coarse permission strings, e.g. "conversations:write", "integrations:manage".
+  /// Combined with AI action-level permissions checked separately in ExternalActionModule.
+  permissions String[]
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users User[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("roles")
+}
+
+enum UserStatus {
+  ACTIVE
+  INVITED
+  DISABLED
+}
+
+model User {
+  id                String     @id @default(cuid())
+  tenantId          String
+  tenant            Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  email             String
+  passwordHash      String
+  firstName         String
+  lastName          String
+  roleId            String
+  role              Role       @relation(fields: [roleId], references: [id])
+  status            UserStatus @default(ACTIVE)
+  refreshTokenHash  String?
+  lastLoginAt       DateTime?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  assignedConversations Conversation[]  @relation("AssignedAgent")
+  assignedHandoffs      HumanHandoff[]  @relation("AssignedAgent")
+  notifications         Notification[]
+  auditLogs             AuditLog[]
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@map("users")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Customers (the tenant's end customers, i.e. who messages in)
+// ─────────────────────────────────────────────────────────────────────────
+
+model Customer {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// ID of this customer in the connected external business system, if known.
+  externalId String?
+  name       String?
+  email      String?
+  phone      String?
+  metadata   Json     @default("{}")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  conversations Conversation[]
+
+  @@index([tenantId])
+  @@index([tenantId, externalId])
+  @@map("customers")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Conversations & messages
+// ─────────────────────────────────────────────────────────────────────────
+
+enum ConversationStatus {
+  OPEN
+  AI_HANDLING
+  HUMAN_HANDLING
+  CLOSED
+}
+
+enum AgentType {
+  ROUTER
+  SUPPORT
+  KNOWLEDGE
+  ACTION
+  HUMAN
+}
+
+model Conversation {
+  id             String             @id @default(cuid())
+  tenantId       String
+  tenant         Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  businessId     String?
+  business       Business?          @relation(fields: [businessId], references: [id])
+  customerId     String
+  customer       Customer           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  channelId      String
+  channel        Channel            @relation(fields: [channelId], references: [id])
+  status         ConversationStatus @default(OPEN)
+  currentAgent   AgentType?
+  assignedUserId String?
+  assignedUser   User?              @relation("AssignedAgent", fields: [assignedUserId], references: [id])
+  lastMessageAt  DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  messages     Message[]
+  summaries    ConversationSummary[]
+  humanHandoffs HumanHandoff[]
+  aiUsageLogs  AiUsageLog[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, customerId])
+  @@map("conversations")
+}
+
+enum MessageSender {
+  CUSTOMER
+  AI
+  HUMAN_AGENT
+  SYSTEM
+}
+
+enum MessageContentType {
+  TEXT
+  IMAGE
+  FILE
+  AUDIO
+  LOCATION
+  SYSTEM_EVENT
+}
+
+model Message {
+  id             String             @id @default(cuid())
+  tenantId       String
+  tenant         Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversationId String
+  conversation   Conversation       @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         MessageSender
+  agentType      AgentType?
+  content        String
+  contentType    MessageContentType @default(TEXT)
+  metadata       Json               @default("{}")
+  createdAt      DateTime           @default(now())
+
+  aiUsageLog AiUsageLog?
+
+  @@index([tenantId])
+  @@index([tenantId, conversationId, createdAt])
+  @@map("messages")
+}
+
+/// Rolling summary of older messages so the full history is never resent to the AI.
+model ConversationSummary {
+  id                 String       @id @default(cuid())
+  tenantId           String
+  tenant             Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversationId     String
+  conversation       Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  summary            String
+  /// Messages up to (and including) this timestamp are covered by `summary`.
+  coveredUntil       DateTime
+  createdAt          DateTime     @default(now())
+
+  @@index([tenantId])
+  @@index([tenantId, conversationId, coveredUntil])
+  @@map("conversation_summaries")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Knowledge base / RAG
+// ─────────────────────────────────────────────────────────────────────────
+
+model KnowledgeBase {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  documents Document[]
+
+  @@index([tenantId])
+  @@map("knowledge_bases")
+}
+
+enum DocumentSourceType {
+  PDF
+  DOCX
+  TEXT
+  FAQ
+  URL
+}
+
+enum DocumentStatus {
+  PENDING
+  PROCESSING
+  READY
+  FAILED
+}
+
+model Document {
+  id              String             @id @default(cuid())
+  tenantId        String
+  tenant          Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  knowledgeBaseId String
+  knowledgeBase   KnowledgeBase      @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  title           String
+  sourceType      DocumentSourceType
+  fileUrl         String?
+  status          DocumentStatus     @default(PENDING)
+  errorMessage    String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  chunks DocumentChunk[]
+
+  @@index([tenantId])
+  @@index([tenantId, knowledgeBaseId])
+  @@map("documents")
+}
+
+model DocumentChunk {
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  documentId      String
+  document        Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  knowledgeBaseId String
+  content         String
+  /// text-embedding-3-small / voyage dimensionality; adjust per provider if changed.
+  embedding       Unsupported("vector(1536)")?
+  chunkIndex      Int
+  tokenCount      Int
+  createdAt       DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([tenantId, knowledgeBaseId])
+  @@map("document_chunks")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Integrations (generic Integration Layer — connects to any external system)
+// ─────────────────────────────────────────────────────────────────────────
+
+enum IntegrationType {
+  STANDARD_API
+  REST_API
+  WEBHOOK
+  N8N
+}
+
+enum IntegrationStatus {
+  CONNECTED
+  DISCONNECTED
+  ERROR
+}
+
+model Integration {
+  id         String            @id @default(cuid())
+  tenantId   String
+  tenant     Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  businessId String?
+  business   Business?         @relation(fields: [businessId], references: [id])
+  name       String
+  type       IntegrationType
+  baseUrl    String?
+  /// REST_API type: endpoint/header/auth/request-response mapping config.
+  config     Json              @default("{}")
+  status     IntegrationStatus @default(DISCONNECTED)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  credentials IntegrationCredential[]
+  actions     IntegrationAction[]
+
+  @@index([tenantId])
+  @@map("integrations")
+}
+
+enum CredentialType {
+  API_KEY
+  OAUTH2
+  BASIC_AUTH
+  BEARER_TOKEN
+}
+
+model IntegrationCredential {
+  id                String         @id @default(cuid())
+  tenantId          String
+  integrationId     String
+  integration       Integration    @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  type              CredentialType
+  /// AES-encrypted JSON payload (see CREDENTIALS_ENCRYPTION_KEY). Never store plaintext.
+  encryptedPayload  String
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@index([tenantId])
+  @@map("integration_credentials")
+}
+
+/// Actions discovered from `GET /ai/actions` on the external system, or
+/// registered directly via the Integration SDK's `registerAction()`.
+model IntegrationAction {
+  id              String      @id @default(cuid())
+  tenantId        String
+  tenant          Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  integrationId   String
+  integration     Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  name            String
+  description     String
+  /// JSON-schema-like parameter definition, matches the Integration API Contract.
+  parameters      Json        @default("{}")
+  isEnabled       Boolean     @default(true)
+  lastDiscoveredAt DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@unique([integrationId, name])
+  @@index([tenantId])
+  @@map("integration_actions")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Channels (WhatsApp, website chat, email, ...)
+// ─────────────────────────────────────────────────────────────────────────
+
+enum ChannelType {
+  WHATSAPP
+  WEBSITE_CHAT
+  EMAIL
+  FACEBOOK_MESSENGER
+  INSTAGRAM
+  TELEGRAM
+  SMS
+  VOICE
+}
+
+enum ChannelStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Channel {
+  id         String        @id @default(cuid())
+  tenantId   String
+  tenant     Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  businessId String?
+  business   Business?     @relation(fields: [businessId], references: [id])
+  type       ChannelType
+  name       String
+  status     ChannelStatus @default(ACTIVE)
+  config     Json          @default("{}")
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  credentials   ChannelCredential[]
+  conversations Conversation[]
+
+  @@index([tenantId])
+  @@map("channels")
+}
+
+model ChannelCredential {
+  id               String   @id @default(cuid())
+  tenantId         String
+  channelId        String
+  channel          Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  /// AES-encrypted JSON payload (tokens, webhook secrets, SMTP creds, ...).
+  encryptedPayload String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("channel_credentials")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// AI agents & configuration
+// ─────────────────────────────────────────────────────────────────────────
+
+model AiAgent {
+  id           String    @id @default(cuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  type         AgentType
+  name         String
+  systemPrompt String    @default("")
+  isEnabled    Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  configuration AiConfiguration?
+
+  @@unique([tenantId, type])
+  @@index([tenantId])
+  @@map("ai_agents")
+}
+
+enum AiProviderName {
+  OPENAI
+  ANTHROPIC
+}
+
+model AiConfiguration {
+  id           String         @id @default(cuid())
+  tenantId     String
+  tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  aiAgentId    String         @unique
+  aiAgent      AiAgent        @relation(fields: [aiAgentId], references: [id], onDelete: Cascade)
+  provider     AiProviderName
+  model        String
+  temperature  Float          @default(0.3)
+  maxTokens    Int            @default(1024)
+  extraParams  Json           @default("{}")
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([tenantId])
+  @@map("ai_configurations")
+}
+
+/// Per-call token/cost tracking — the core observability signal for token optimization.
+model AiUsageLog {
+  id               String         @id @default(cuid())
+  tenantId         String
+  tenant           Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversationId   String?
+  conversation     Conversation?  @relation(fields: [conversationId], references: [id])
+  messageId        String?        @unique
+  message          Message?       @relation(fields: [messageId], references: [id])
+  agentType        AgentType
+  provider         AiProviderName
+  model            String
+  inputTokens      Int
+  outputTokens     Int
+  estimatedCostUsd Decimal        @db.Decimal(10, 6)
+  executionTimeMs  Int
+  createdAt        DateTime       @default(now())
+
+  @@index([tenantId])
+  @@index([tenantId, agentType, createdAt])
+  @@map("ai_usage_logs")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// n8n workflows
+// ─────────────────────────────────────────────────────────────────────────
+
+model Workflow {
+  id             String   @id @default(cuid())
+  tenantId       String
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  businessId     String?
+  business       Business? @relation(fields: [businessId], references: [id])
+  name           String
+  n8nWorkflowId  String
+  /// Event type (see Event.type) that triggers this workflow, e.g. "human_handoff.requested".
+  triggerEventType String
+  isEnabled      Boolean  @default(true)
+  description    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  executions WorkflowExecution[]
+
+  @@index([tenantId])
+  @@map("workflows")
+}
+
+enum WorkflowExecutionStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+model WorkflowExecution {
+  id            String                   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workflowId    String
+  workflow      Workflow                 @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  eventId       String?
+  event         Event?                   @relation(fields: [eventId], references: [id])
+  status        WorkflowExecutionStatus  @default(PENDING)
+  n8nExecutionId String?
+  input         Json                     @default("{}")
+  output        Json?
+  errorMessage  String?
+  startedAt     DateTime                 @default(now())
+  finishedAt    DateTime?
+
+  @@index([tenantId])
+  @@index([tenantId, workflowId, startedAt])
+  @@map("workflow_executions")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Human handoff
+// ─────────────────────────────────────────────────────────────────────────
+
+enum HandoffReason {
+  CUSTOMER_REQUEST
+  LOW_CONFIDENCE
+  UNSUPPORTED_REQUEST
+  SENSITIVE_REQUEST
+  REPEATED_FAILURE
+}
+
+enum HandoffStatus {
+  PENDING
+  ACTIVE
+  RESOLVED
+}
+
+model HumanHandoff {
+  id             String        @id @default(cuid())
+  tenantId       String
+  tenant         Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversationId String
+  conversation   Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  reason         HandoffReason
+  status         HandoffStatus @default(PENDING)
+  assignedUserId String?
+  assignedUser   User?         @relation("AssignedAgent", fields: [assignedUserId], references: [id])
+  notes          String?
+  requestedAt    DateTime      @default(now())
+  resolvedAt     DateTime?
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("human_handoffs")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Notifications, events, audit log
+// ─────────────────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  type      String
+  title     String
+  body      String
+  isRead    Boolean  @default(false)
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([tenantId, userId, isRead])
+  @@map("notifications")
+}
+
+/// Internal event bus log — every emitted event (message.received, action.executed, ...)
+/// is persisted here and can fan out to n8n workflows / webhooks / BullMQ jobs.
+model Event {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  type          String
+  payload       Json     @default("{}")
+  sourceService String?
+  createdAt     DateTime @default(now())
+
+  workflowExecutions WorkflowExecution[]
+
+  @@index([tenantId])
+  @@index([tenantId, type, createdAt])
+  @@map("events")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String
+  entityType String
+  entityId   String
+  changes    Json     @default("{}")
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([tenantId, entityType, entityId])
+  @@map("audit_logs")
+}
