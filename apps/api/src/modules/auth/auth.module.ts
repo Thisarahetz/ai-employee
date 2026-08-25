@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -15,9 +16,11 @@ import { JwtStrategy } from './jwt.strategy';
     // these defaults (e.g. refresh tokens use JWT_REFRESH_SECRET).
     JwtModule.registerAsync({
       global: true,
-      useFactory: () => ({
-        secret: process.env.JWT_ACCESS_SECRET,
-        signOptions: { expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m' },
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_ACCESS_SECRET') || process.env.JWT_ACCESS_SECRET || 'fallback-secret',
+        signOptions: { expiresIn: configService.get<string>('JWT_ACCESS_EXPIRES_IN') || process.env.JWT_ACCESS_EXPIRES_IN || '15m' },
       }),
     }),
   ],
