@@ -11,6 +11,7 @@ const NAV_ITEMS: { href: string; label: string }[] = [
   { href: "/conversations", label: "Conversations" },
   { href: "/knowledge-base", label: "Knowledge Base" },
   { href: "/integrations", label: "Integrations" },
+  { href: "/channels", label: "Channels" },
   { href: "/ai-configuration", label: "AI Configuration" },
   { href: "/workflows", label: "Workflows" },
   { href: "/team", label: "Team" },
