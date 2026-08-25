@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { PrismaModule } from '../../prisma/prisma.module';
 import { AiProviderModule } from '../ai-provider/ai-provider.module';
 import { AiToolsModule } from '../ai-tools/ai-tools.module';
 import { RagModule } from '../rag/rag.module';
@@ -11,24 +12,12 @@ import { SupportAgentService } from './support-agent.service';
 import { KnowledgeAgentService } from './knowledge-agent.service';
 import { ActionAgentService } from './action-agent.service';
 import { AgentOrchestratorService } from './agent-orchestrator.service';
+import { AiAgentConfigService } from './ai-agent-config.service';
+import { AiAgentController } from './ai-agent.controller';
 
-/**
- * Wires up the full multi-agent pipeline. AgentOrchestratorService is
- * registered as a provider (not exported — nothing needs to inject it
- * directly) purely so its @OnEvent(MESSAGE_RECEIVED) listener is
- * instantiated and active app-wide once this module is imported into
- * AppModule.
- *
- * Assumes ConversationModule, ExternalActionModule, HumanHandoffModule and
- * MessageModule each export the service named in the ownership doc
- * (ConversationModule -> ResponseService, ExternalActionModule ->
- * ExternalActionService, HumanHandoffModule -> HumanHandoffService,
- * MessageModule -> MessageService) and live at these conventional paths —
- * built by Agent 1 / Agent 3 in parallel. If any of those module/file names
- * differ, only the import paths here need to change.
- */
 @Module({
   imports: [
+    PrismaModule,
     AiProviderModule,
     AiToolsModule,
     RagModule,
@@ -37,13 +26,15 @@ import { AgentOrchestratorService } from './agent-orchestrator.service';
     HumanHandoffModule,
     MessageModule,
   ],
+  controllers: [AiAgentController],
   providers: [
     RouterAgentService,
     SupportAgentService,
     KnowledgeAgentService,
     ActionAgentService,
     AgentOrchestratorService,
+    AiAgentConfigService,
   ],
-  exports: [RouterAgentService, SupportAgentService, KnowledgeAgentService, ActionAgentService],
+  exports: [RouterAgentService, SupportAgentService, KnowledgeAgentService, ActionAgentService, AiAgentConfigService],
 })
 export class AiAgentModule {}

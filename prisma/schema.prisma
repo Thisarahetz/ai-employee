@@ -232,10 +232,10 @@ model Conversation {
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
 
-  messages     Message[]
-  summaries    ConversationSummary[]
+  messages      Message[]
+  summaries     ConversationSummary[]
   humanHandoffs HumanHandoff[]
-  aiUsageLogs  AiUsageLog[]
+  aiUsageLogs   AiUsageLog[]
 
   @@index([tenantId])
   @@index([tenantId, status])
@@ -281,15 +281,15 @@ model Message {
 
 /// Rolling summary of older messages so the full history is never resent to the AI.
 model ConversationSummary {
-  id                 String       @id @default(cuid())
-  tenantId           String
-  tenant             Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  conversationId     String
-  conversation       Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  summary            String
+  id             String       @id @default(cuid())
+  tenantId       String
+  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  summary        String
   /// Messages up to (and including) this timestamp are covered by `summary`.
-  coveredUntil       DateTime
-  createdAt          DateTime     @default(now())
+  coveredUntil   DateTime
+  createdAt      DateTime     @default(now())
 
   @@index([tenantId])
   @@index([tenantId, conversationId, coveredUntil])
@@ -352,18 +352,18 @@ model Document {
 }
 
 model DocumentChunk {
-  id              String   @id @default(cuid())
+  id              String                       @id @default(cuid())
   tenantId        String
-  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant          Tenant                       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   documentId      String
-  document        Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  document        Document                     @relation(fields: [documentId], references: [id], onDelete: Cascade)
   knowledgeBaseId String
   content         String
   /// text-embedding-3-small / voyage dimensionality; adjust per provider if changed.
   embedding       Unsupported("vector(1536)")?
   chunkIndex      Int
   tokenCount      Int
-  createdAt       DateTime @default(now())
+  createdAt       DateTime                     @default(now())
 
   @@index([tenantId])
   @@index([tenantId, knowledgeBaseId])
@@ -417,15 +417,15 @@ enum CredentialType {
 }
 
 model IntegrationCredential {
-  id                String         @id @default(cuid())
-  tenantId          String
-  integrationId     String
-  integration       Integration    @relation(fields: [integrationId], references: [id], onDelete: Cascade)
-  type              CredentialType
+  id               String         @id @default(cuid())
+  tenantId         String
+  integrationId    String
+  integration      Integration    @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  type             CredentialType
   /// AES-encrypted JSON payload (see CREDENTIALS_ENCRYPTION_KEY). Never store plaintext.
-  encryptedPayload  String
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
+  encryptedPayload String
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 
   @@index([tenantId])
   @@map("integration_credentials")
@@ -434,19 +434,19 @@ model IntegrationCredential {
 /// Actions discovered from `GET /ai/actions` on the external system, or
 /// registered directly via the Integration SDK's `registerAction()`.
 model IntegrationAction {
-  id              String      @id @default(cuid())
-  tenantId        String
-  tenant          Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  integrationId   String
-  integration     Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
-  name            String
-  description     String
+  id               String      @id @default(cuid())
+  tenantId         String
+  tenant           Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  integrationId    String
+  integration      Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  name             String
+  description      String
   /// JSON-schema-like parameter definition, matches the Integration API Contract.
-  parameters      Json        @default("{}")
-  isEnabled       Boolean     @default(true)
+  parameters       Json        @default("{}")
+  isEnabled        Boolean     @default(true)
   lastDiscoveredAt DateTime?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
 
   @@unique([integrationId, name])
   @@index([tenantId])
@@ -532,21 +532,22 @@ model AiAgent {
 enum AiProviderName {
   OPENAI
   ANTHROPIC
+  GEMINI
 }
 
 model AiConfiguration {
-  id           String         @id @default(cuid())
-  tenantId     String
-  tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  aiAgentId    String         @unique
-  aiAgent      AiAgent        @relation(fields: [aiAgentId], references: [id], onDelete: Cascade)
-  provider     AiProviderName
-  model        String
-  temperature  Float          @default(0.3)
-  maxTokens    Int            @default(1024)
-  extraParams  Json           @default("{}")
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  id          String         @id @default(cuid())
+  tenantId    String
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  aiAgentId   String         @unique
+  aiAgent     AiAgent        @relation(fields: [aiAgentId], references: [id], onDelete: Cascade)
+  provider    AiProviderName
+  model       String
+  temperature Float          @default(0.3)
+  maxTokens   Int            @default(1024)
+  extraParams Json           @default("{}")
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 
   @@index([tenantId])
   @@map("ai_configurations")
@@ -580,19 +581,19 @@ model AiUsageLog {
 // ─────────────────────────────────────────────────────────────────────────
 
 model Workflow {
-  id             String   @id @default(cuid())
-  tenantId       String
-  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  businessId     String?
-  business       Business? @relation(fields: [businessId], references: [id])
-  name           String
-  n8nWorkflowId  String
+  id               String    @id @default(cuid())
+  tenantId         String
+  tenant           Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  businessId       String?
+  business         Business? @relation(fields: [businessId], references: [id])
+  name             String
+  n8nWorkflowId    String
   /// Event type (see Event.type) that triggers this workflow, e.g. "human_handoff.requested".
   triggerEventType String
-  isEnabled      Boolean  @default(true)
-  description    String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  isEnabled        Boolean   @default(true)
+  description      String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   executions WorkflowExecution[]
 
@@ -608,20 +609,20 @@ enum WorkflowExecutionStatus {
 }
 
 model WorkflowExecution {
-  id            String                   @id @default(cuid())
-  tenantId      String
-  tenant        Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  workflowId    String
-  workflow      Workflow                 @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-  eventId       String?
-  event         Event?                   @relation(fields: [eventId], references: [id])
-  status        WorkflowExecutionStatus  @default(PENDING)
+  id             String                  @id @default(cuid())
+  tenantId       String
+  tenant         Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workflowId     String
+  workflow       Workflow                @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  eventId        String?
+  event          Event?                  @relation(fields: [eventId], references: [id])
+  status         WorkflowExecutionStatus @default(PENDING)
   n8nExecutionId String?
-  input         Json                     @default("{}")
-  output        Json?
-  errorMessage  String?
-  startedAt     DateTime                 @default(now())
-  finishedAt    DateTime?
+  input          Json                    @default("{}")
+  output         Json?
+  errorMessage   String?
+  startedAt      DateTime                @default(now())
+  finishedAt     DateTime?
 
   @@index([tenantId])
   @@index([tenantId, workflowId, startedAt])

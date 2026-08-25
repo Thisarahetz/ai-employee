@@ -6,7 +6,7 @@
  * calling code.
  */
 
-export type AIProviderName = 'openai' | 'anthropic';
+export type AIProviderName = 'openai' | 'anthropic' | 'gemini';
 
 export interface AIMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';

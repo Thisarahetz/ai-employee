@@ -80,7 +80,7 @@ export type ChannelType =
 
 export type ChannelStatus = "ACTIVE" | "INACTIVE";
 
-export type AiProviderName = "OPENAI" | "ANTHROPIC";
+export type AiProviderName = "OPENAI" | "ANTHROPIC" | "GEMINI";
 
 export type WorkflowExecutionStatus =
   | "PENDING"

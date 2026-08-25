@@ -1,6 +1,7 @@
 import type { AIProvider, AIProviderName } from './types';
 import { OpenAIProvider } from './providers/openai.provider';
 import { ClaudeProvider } from './providers/anthropic.provider';
+import { GeminiProvider } from './providers/gemini.provider';
 
 const cache = new Map<AIProviderName, AIProvider>();
 
@@ -21,6 +22,9 @@ export function getProvider(name: AIProviderName): AIProvider {
       break;
     case 'anthropic':
       provider = new ClaudeProvider();
+      break;
+    case 'gemini':
+      provider = new GeminiProvider();
       break;
     default: {
       const exhaustive: never = name;

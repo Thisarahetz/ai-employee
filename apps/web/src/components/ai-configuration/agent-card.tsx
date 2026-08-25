@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-const PROVIDERS: AiProviderName[] = ["OPENAI", "ANTHROPIC"];
+const PROVIDERS: AiProviderName[] = ["OPENAI", "ANTHROPIC", "GEMINI"];
 
 const AGENT_DESCRIPTIONS: Record<AgentType, string> = {
   ROUTER: "Classifies intent and hands off to the right specialist agent.",

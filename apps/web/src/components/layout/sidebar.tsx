@@ -24,7 +24,12 @@ const ADMIN_NAV_ITEMS = [
 export function Sidebar() {
   const pathname = usePathname();
   const { user } = useAuth();
-  const navItems = user && user.platformRole !== "NONE" ? [...NAV_ITEMS, ...ADMIN_NAV_ITEMS] : NAV_ITEMS;
+  
+  const isSuperAdmin = user && user.platformRole !== "NONE";
+  const inAdminPanel = pathname?.startsWith("/admin");
+  
+  // Show only relevant items for the current view
+  const navItems = inAdminPanel ? ADMIN_NAV_ITEMS : NAV_ITEMS;
 
   return (
     <aside className="hidden w-60 shrink-0 flex-col border-r border-line bg-white px-4 py-6 sm:flex">
@@ -34,9 +39,17 @@ export function Sidebar() {
         </span>
         <span className="text-base font-semibold text-ink-primary">AI Employee</span>
       </div>
+      
       <nav className="flex flex-1 flex-col gap-1">
+        <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-wider text-ink-muted">
+          {inAdminPanel ? "Super Admin" : "Workspace"}
+        </div>
+        
         {navItems.map((item) => {
-          const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`);
+          const isActive = item.href === "/admin" 
+            ? pathname === "/admin" 
+            : (pathname === item.href || pathname?.startsWith(`${item.href}/`));
+            
           return (
             <Link
               key={item.href}
@@ -51,6 +64,19 @@ export function Sidebar() {
           );
         })}
       </nav>
+
+      {/* Switcher for Super Admins to jump between views */}
+      {isSuperAdmin && (
+        <div className="mb-4 border-t border-line pt-4">
+          <Link
+            href={inAdminPanel ? "/dashboard" : "/admin"}
+            className="block rounded-md px-3 py-2 text-sm font-medium text-ink-secondary transition-colors hover:bg-surface-page hover:text-ink-primary"
+          >
+            {inAdminPanel ? "← Back to Workspace" : "→ Super Admin Panel"}
+          </Link>
+        </div>
+      )}
+
       <p className="px-2 text-xs text-ink-muted">v0.1.0 — scaffold</p>
     </aside>
   );
