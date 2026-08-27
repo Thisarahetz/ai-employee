@@ -10,4 +10,13 @@ export class UploadDocumentDto {
   @IsOptional()
   @IsIn(Object.values(DocumentSourceType))
   sourceType?: DocumentSourceType;
+
+  @IsOptional()
+  @IsString()
+  content?: string;
+
+  @IsOptional()
+  @IsString()
+  url?: string;
 }
+

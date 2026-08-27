@@ -28,17 +28,34 @@ export class N8nService {
     try {
       let response;
       if (n8nWorkflowId.includes('-')) {
-        // It's a webhook path
+        // It's a webhook path (e.g., "example-new-customer-lead")
         const webhookUrl = process.env.N8N_WEBHOOK_URL || 'http://localhost:5678/';
-        // Use webhook-test for now since the example workflow is not explicitly activated
-        response = await axios.post(
-          `${webhookUrl.replace(/\/+$/, '')}/webhook-test/${n8nWorkflowId}`,
-          payload,
-          {
-            headers: { 'Content-Type': 'application/json' },
-            timeout: 10_000,
-          },
-        );
+        const cleanBase = webhookUrl.replace(/\/+$/, '');
+        try {
+          // Try active production webhook endpoint first
+          response = await axios.post(
+            `${cleanBase}/webhook/${n8nWorkflowId}`,
+            payload,
+            {
+              headers: { 'Content-Type': 'application/json' },
+              timeout: 10_000,
+            },
+          );
+        } catch (webhookErr: any) {
+          // If 404, fall back to test webhook endpoint (for manual testing in n8n editor)
+          if (webhookErr.response?.status === 404) {
+            response = await axios.post(
+              `${cleanBase}/webhook-test/${n8nWorkflowId}`,
+              payload,
+              {
+                headers: { 'Content-Type': 'application/json' },
+                timeout: 10_000,
+              },
+            );
+          } else {
+            throw webhookErr;
+          }
+        }
       } else {
         // It's a standard ID for the REST API
         response = await axios.post(
@@ -54,8 +71,12 @@ export class N8nService {
         );
       }
 
-      // If hitting webhook-test, n8n responds with a success message but not necessarily an executionId
-      const executionId = response.data?.executionId ?? response.data?.id ?? response.data?.data?.id ?? `exec-${Date.now()}`;
+      // n8n responds with a success message or execution details
+      const executionId =
+        response.data?.executionId ??
+        response.data?.id ??
+        response.data?.data?.id ??
+        (response.status >= 200 && response.status < 300 ? `exec-${Date.now()}` : undefined);
       return { executionId: typeof executionId === 'string' ? executionId : undefined };
     } catch (error) {
       this.logger.error(

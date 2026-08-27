@@ -8,8 +8,15 @@ import type {
   AIToolCall,
 } from '../types';
 
-const DEFAULT_EMBEDDING_MODEL = 'text-embedding-004';
-const DEFAULT_CHAT_MODEL = 'gemini-2.5-flash';
+const DEFAULT_EMBEDDING_MODEL = 'gemini-embedding-001';
+const DEFAULT_CHAT_MODEL = 'gemini-3.6-flash';
+
+/**
+ * Output dimensionality requested for embeddings. Matches the platform's
+ * `DocumentChunk.embedding` column (`Unsupported("vector(1536)")`), so vectors
+ * from this provider drop straight in without a schema migration.
+ */
+const EMBEDDING_DIMENSIONS = 1536;
 
 /**
  * GeminiProvider — wraps the `@google/genai` SDK behind the AIProvider interface.
@@ -95,6 +102,7 @@ export class GeminiProvider implements AIProvider {
     const response = await client.models.embedContent({
       model,
       contents: text,
+      config: { outputDimensionality: EMBEDDING_DIMENSIONS },
     });
 
     return {

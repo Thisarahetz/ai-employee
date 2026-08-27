@@ -9,8 +9,18 @@ async function bootstrap() {
 
   app.use(helmet());
 
+  // `origin: true` reflects any request origin. The embedded website-chat widget
+  // loads on arbitrary customer domains and calls the public
+  // /channels/website-chat/* endpoints; the app itself authenticates with
+  // `Authorization: Bearer` + localStorage (no cookies), so there's no CSRF
+  // surface to protect by pinning origins. Set CORS_ORIGINS to a comma-listed
+  // allow-list (no `*`) to lock this down in production.
+  const corsOrigins = process.env.CORS_ORIGINS?.split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+  const restrictCors = corsOrigins && corsOrigins.length > 0 && !corsOrigins.includes('*');
   app.enableCors({
-    origin: process.env.CORS_ORIGINS?.split(','),
+    origin: restrictCors ? corsOrigins : true,
   });
 
   app.useGlobalPipes(

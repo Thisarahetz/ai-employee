@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConversationStatus, MessageContentType, MessageSender } from '@prisma/client';
+import { paginationSkip, toPaginatedResponse, toPaginationRequest } from '@ai-employee/shared';
 import { EventService } from '../../events/event.service';
 import { EVENT_TYPES, MessageReceivedPayload } from '../../events/event-types.const';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -33,23 +34,33 @@ export class ConversationService {
     private readonly messageService: MessageService,
   ) {}
 
-  list(tenantId: string, query: ListConversationsQueryDto) {
-    return this.prisma.conversation.findMany({
-      where: {
-        tenantId,
-        status: query.status,
-        customerId: query.customerId,
-        channelId: query.channelId,
-      },
-      include: { customer: true },
-      orderBy: { lastMessageAt: 'desc' },
-    });
+  async list(tenantId: string, query: ListConversationsQueryDto) {
+    const pagination = toPaginationRequest({ page: query.page, pageSize: query.pageSize });
+    const where = {
+      tenantId,
+      status: query.status,
+      customerId: query.customerId,
+      channelId: query.channelId,
+    };
+
+    const [data, total] = await Promise.all([
+      this.prisma.conversation.findMany({
+        where,
+        include: { customer: true, channel: true },
+        orderBy: { lastMessageAt: 'desc' },
+        skip: paginationSkip(pagination),
+        take: pagination.pageSize,
+      }),
+      this.prisma.conversation.count({ where }),
+    ]);
+
+    return toPaginatedResponse(data, total, pagination);
   }
 
   async get(tenantId: string, id: string) {
     const conversation = await this.prisma.conversation.findFirst({
       where: { id, tenantId },
-      include: { customer: true },
+      include: { customer: true, channel: true },
     });
     if (!conversation) {
       throw new NotFoundException('Conversation not found');

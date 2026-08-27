@@ -35,11 +35,17 @@ const AGENT_COLORS: Record<AgentType, string> = {
   HUMAN: "bg-gray-500",
 };
 
+const DEFAULT_MODELS: Record<AiProviderName, string> = {
+  GEMINI: "gemini-2.5-flash",
+  OPENAI: "gpt-4o-mini",
+  ANTHROPIC: "claude-3-5-sonnet-20241022",
+};
+
 export function AgentConfigCard({ type, agent }: { type: AgentType; agent: AiAgent }) {
   const updateConfiguration = useUpdateAgentConfiguration(type);
 
-  const [provider, setProvider] = useState<AiProviderName>(agent.configuration?.provider ?? "OPENAI");
-  const [model, setModel] = useState(agent.configuration?.model ?? "");
+  const [provider, setProvider] = useState<AiProviderName>(agent.configuration?.provider ?? "GEMINI");
+  const [model, setModel] = useState(agent.configuration?.model ?? "gemini-2.5-flash");
   const [temperature, setTemperature] = useState(agent.configuration?.temperature ?? 0.3);
   const [maxTokens, setMaxTokens] = useState(agent.configuration?.maxTokens ?? 1024);
   const [systemPrompt, setSystemPrompt] = useState(agent.systemPrompt ?? "");
@@ -48,12 +54,21 @@ export function AgentConfigCard({ type, agent }: { type: AgentType; agent: AiAge
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
-    setProvider(agent.configuration?.provider ?? "OPENAI");
-    setModel(agent.configuration?.model ?? "");
+    setProvider(agent.configuration?.provider ?? "GEMINI");
+    setModel(agent.configuration?.model ?? "gemini-2.5-flash");
     setTemperature(agent.configuration?.temperature ?? 0.3);
     setMaxTokens(agent.configuration?.maxTokens ?? 1024);
     setSystemPrompt(agent.systemPrompt ?? "");
   }, [agent]);
+
+  function handleProviderChange(newProvider: AiProviderName) {
+    setProvider(newProvider);
+    // If the model matches any provider default or is empty, suggest the new default
+    const isOldDefault = Object.values(DEFAULT_MODELS).includes(model) || !model;
+    if (isOldDefault) {
+      setModel(DEFAULT_MODELS[newProvider]);
+    }
+  }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -76,7 +91,7 @@ export function AgentConfigCard({ type, agent }: { type: AgentType; agent: AiAge
       {/* Top half: Avatar area */}
       <div className="relative flex h-32 items-center justify-center bg-[#252838] border-b border-slate-700/30">
         <div className={`absolute h-20 w-20 rounded-full blur-xl opacity-40 ${glowColor}`} />
-        <img src={avatarUrl} alt={name} className="relative z-10 h-16 w-16 rounded-xl object-cover bg-white/10" />
+        <img src={avatarUrl} alt={name} className="relative z-10 h-16 w-16 rounded-xl object-cover bg-white/10 shadow-md" />
       </div>
 
       {/* Bottom half: Info area */}
@@ -87,26 +102,35 @@ export function AgentConfigCard({ type, agent }: { type: AgentType; agent: AiAge
           </span>
           <button 
             onClick={() => setIsEditing(!isEditing)}
-            className="text-xs font-medium text-slate-400 hover:text-white transition-colors"
+            className="text-xs font-medium text-blue-400 hover:text-blue-300 transition-colors"
           >
-            {isEditing ? 'Cancel' : 'Configure ⚙️'}
+            {isEditing ? 'Close' : 'Configure ⚙️'}
           </button>
         </div>
         
-        <h3 className="mb-2 text-base font-semibold text-white">
+        <h3 className="mb-1 text-base font-semibold text-white">
           {type.charAt(0) + type.slice(1).toLowerCase()} Agent
         </h3>
         
-        <p className="text-sm text-slate-400 line-clamp-2 min-h-[40px]">
+        <p className="text-xs text-slate-400 line-clamp-2 min-h-[32px] mb-3">
           {AGENT_DESCRIPTIONS[type]}
         </p>
 
-        {!isEditing && (
-          <div className="mt-4 flex justify-end">
-            <span className="text-xs text-slate-500 font-medium tracking-wide">
-              ↓ {Math.floor(Math.random() * 500) + 100}+
-            </span>
-          </div>
+        {/* Active Configuration Badges */}
+        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+          <span className="rounded bg-blue-500/20 px-2 py-0.5 text-[11px] font-medium text-blue-300 border border-blue-500/30">
+            {agent.configuration?.provider ?? "GEMINI"}
+          </span>
+          <span className="rounded bg-purple-500/20 px-2 py-0.5 text-[11px] font-mono text-purple-300 border border-purple-500/30 truncate max-w-[130px]" title={agent.configuration?.model ?? "gemini-2.5-flash"}>
+            {agent.configuration?.model ?? "gemini-2.5-flash"}
+          </span>
+          <span className="rounded bg-slate-700/60 px-1.5 py-0.5 text-[10px] text-slate-400">
+            t: {agent.configuration?.temperature ?? 0.3}
+          </span>
+        </div>
+
+        {savedAt && Date.now() - savedAt < 5000 && !isEditing && (
+          <p className="mt-3 text-xs text-emerald-400 font-medium">✓ Changes saved</p>
         )}
       </div>
 
@@ -121,7 +145,7 @@ export function AgentConfigCard({ type, agent }: { type: AgentType; agent: AiAge
                 <label className="block text-xs font-medium text-slate-400 mb-1">Provider</label>
                 <select
                   value={provider}
-                  onChange={(e) => setProvider(e.target.value as AiProviderName)}
+                  onChange={(e) => handleProviderChange(e.target.value as AiProviderName)}
                   className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
                 >
                   {PROVIDERS.map((p) => (
@@ -135,7 +159,7 @@ export function AgentConfigCard({ type, agent }: { type: AgentType; agent: AiAge
                   type="text"
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
-                  placeholder="gpt-4o-mini"
+                  placeholder={DEFAULT_MODELS[provider]}
                   required
                   className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none"
                 />
@@ -182,6 +206,9 @@ export function AgentConfigCard({ type, agent }: { type: AgentType; agent: AiAge
               <Button type="submit" size="sm" isLoading={updateConfiguration.isPending} className="bg-blue-600 text-white hover:bg-blue-700">
                 Save changes
               </Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setIsEditing(false)} className="text-slate-400 hover:text-white">
+                Cancel
+              </Button>
             </div>
           </form>
         </div>
@@ -189,3 +216,4 @@ export function AgentConfigCard({ type, agent }: { type: AgentType; agent: AiAge
     </div>
   );
 }
+

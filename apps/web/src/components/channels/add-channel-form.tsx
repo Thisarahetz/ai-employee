@@ -1,66 +1,80 @@
-import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@/lib/api-client";
+"use client";
+
+import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
+
+import { useCreateChannel } from "@/lib/hooks/use-channels";
+import type { ChannelType } from "@/lib/types";
+import { getErrorMessage } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+
+const CHANNEL_TYPES: { value: ChannelType; label: string }[] = [
+  { value: "WEBSITE_CHAT", label: "Website Chat" },
+  { value: "WHATSAPP", label: "WhatsApp" },
+  { value: "EMAIL", label: "Email" },
+  { value: "SMS", label: "SMS" },
+];
 
 export function AddChannelForm({ onDone }: { onDone: () => void }) {
+  const router = useRouter();
+  const createChannel = useCreateChannel();
   const [name, setName] = useState("");
-  const [type, setType] = useState<string>("WHATSAPP");
-  const queryClient = useQueryClient();
+  const [type, setType] = useState<ChannelType>("WEBSITE_CHAT");
+  const [error, setError] = useState<string | null>(null);
 
-  const addChannel = useMutation({
-    mutationFn: async () => {
-      await apiClient.post("/channels", {
-        name,
-        type,
-        config: {},
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["channels"] });
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    if (!name.trim()) {
+      setError("Give the channel a name.");
+      return;
+    }
+    try {
+      const channel = await createChannel.mutateAsync({ name: name.trim(), type });
       onDone();
-    },
-  });
+      // Land on the detail page to finish connecting it.
+      router.push(`/channels/${channel.id}`);
+    } catch (err) {
+      setError(getErrorMessage(err, "Could not create the channel."));
+    }
+  }
 
   return (
-    <div className="rounded-lg border border-border-soft bg-surface-base p-6 shadow-sm">
-      <h2 className="mb-4 text-lg font-medium text-ink-primary">Add a new channel</h2>
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-ink-primary mb-1">Channel Name</label>
-          <input
-            type="text"
-            className="w-full rounded-md border border-border-strong px-3 py-2 text-sm text-ink-primary placeholder-ink-muted"
-            placeholder="e.g. My Website Chat"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-ink-primary mb-1">Type</label>
-          <select
-            className="w-full rounded-md border border-border-strong px-3 py-2 text-sm text-ink-primary"
-            value={type}
-            onChange={(e) => setType(e.target.value)}
-          >
-            <option value="WHATSAPP">WhatsApp</option>
-            <option value="WEBSITE_CHAT">Website Chat</option>
-            <option value="SMS">SMS</option>
-            <option value="EMAIL">Email</option>
-          </select>
-        </div>
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={onDone} disabled={addChannel.isPending}>
-            Cancel
-          </Button>
-          <Button
-            onClick={() => addChannel.mutate()}
-            disabled={!name || addChannel.isPending}
-          >
-            {addChannel.isPending ? "Saving..." : "Add Channel"}
-          </Button>
-        </div>
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-4 rounded-lg border border-line bg-white p-6 shadow-sm"
+    >
+      <h2 className="text-sm font-semibold text-ink-primary">Add a new channel</h2>
+
+      {error && (
+        <p className="rounded-md bg-status-critical/10 px-3 py-2 text-sm text-status-critical">{error}</p>
+      )}
+
+      <Input
+        label="Channel name"
+        placeholder="e.g. Website Chat"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+      />
+
+      <Select label="Type" value={type} onChange={(e) => setType(e.target.value as ChannelType)}>
+        {CHANNEL_TYPES.map((t) => (
+          <option key={t.value} value={t.value}>
+            {t.label}
+          </option>
+        ))}
+      </Select>
+
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="secondary" onClick={onDone} disabled={createChannel.isPending}>
+          Cancel
+        </Button>
+        <Button type="submit" isLoading={createChannel.isPending} disabled={!name.trim()}>
+          Create channel
+        </Button>
       </div>
-    </div>
+    </form>
   );
 }

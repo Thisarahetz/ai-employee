@@ -53,6 +53,12 @@ export class AgentOrchestratorService {
           conversationId,
           route.agent === 'human_handoff' ? HandoffReason.CUSTOMER_REQUEST : HandoffReason.LOW_CONFIDENCE,
         );
+        await this.responseService.sendResponse({
+          tenantId,
+          conversationId,
+          content: "I've connected you with our team. A representative will assist you shortly.",
+          agentType: AgentType.HUMAN,
+        });
         return;
       }
 
@@ -82,6 +88,13 @@ export class AgentOrchestratorService {
       );
       try {
         await this.humanHandoffService.create(tenantId, conversationId, HandoffReason.REPEATED_FAILURE);
+        await this.responseService.sendResponse({
+          tenantId,
+          conversationId,
+          content:
+            "I'm sorry, I encountered an issue processing your request. A team member has been notified and will assist you shortly.",
+          agentType: AgentType.HUMAN,
+        });
       } catch (handoffErr) {
         this.logger.error(
           `Human handoff fallback also failed for tenant=${tenantId} conversation=${conversationId}: ${(handoffErr as Error).message}`,

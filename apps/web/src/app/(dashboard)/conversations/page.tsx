@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { useConversations } from "@/lib/hooks/use-conversations";
-import type { ConversationStatus } from "@/lib/types";
+import type { Conversation, ConversationStatus } from "@/lib/types";
 import { conversationStatusStyles } from "@/lib/status-styles";
 import { formatDateTime, getErrorMessage } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
@@ -31,8 +31,8 @@ export default function ConversationsPage() {
   const [page, setPage] = useState(1);
   const { data, isLoading, isError, error, refetch } = useConversations(status, page);
 
-  const conversations = data?.data ?? [];
-  const total = data?.total ?? 0;
+  const conversations: Conversation[] = Array.isArray(data) ? (data as Conversation[]) : (data?.data ?? []);
+  const total = Array.isArray(data) ? data.length : (data?.total ?? conversations.length);
   const hasNextPage = page * ASSUMED_PAGE_SIZE < total;
 
   return (

@@ -17,20 +17,32 @@ import { PrismaService } from '../../prisma/prisma.service';
  * on tenant signup (one AiAgent + AiConfiguration row per AgentType) — this
  * fallback exists purely for scaffold safety so the pipeline still runs
  * end-to-end against a freshly created tenant.
+ *
+ * Gemini is the scaffold default: it's the one provider with a key wired in
+ * `.env` out of the box (`GEMINI_API_KEY`). Swap per tenant/agent via the
+ * `AiConfiguration` model.
  */
 const DEFAULT_CONFIG_BY_AGENT: Record<AgentType, { provider: PrismaAiProviderName; model: string }> = {
-  [AgentType.ROUTER]: { provider: PrismaAiProviderName.OPENAI, model: 'gpt-4o-mini' },
-  [AgentType.SUPPORT]: { provider: PrismaAiProviderName.OPENAI, model: 'gpt-4o' },
-  [AgentType.KNOWLEDGE]: { provider: PrismaAiProviderName.OPENAI, model: 'gpt-4o' },
-  [AgentType.ACTION]: { provider: PrismaAiProviderName.OPENAI, model: 'gpt-4o' },
-  [AgentType.HUMAN]: { provider: PrismaAiProviderName.OPENAI, model: 'gpt-4o-mini' },
+  [AgentType.ROUTER]: { provider: PrismaAiProviderName.GEMINI, model: 'gemini-2.5-flash' },
+  [AgentType.SUPPORT]: { provider: PrismaAiProviderName.GEMINI, model: 'gemini-2.5-flash' },
+  [AgentType.KNOWLEDGE]: { provider: PrismaAiProviderName.GEMINI, model: 'gemini-2.5-flash' },
+  [AgentType.ACTION]: { provider: PrismaAiProviderName.GEMINI, model: 'gemini-2.5-flash' },
+  [AgentType.HUMAN]: { provider: PrismaAiProviderName.GEMINI, model: 'gemini-2.5-flash' },
 };
 
 const DEFAULT_TEMPERATURE = 0.3;
 const DEFAULT_MAX_TOKENS = 1024;
 
 function toAiCoreProviderName(p: PrismaAiProviderName): AIProviderName {
-  return p === PrismaAiProviderName.ANTHROPIC ? 'anthropic' : 'openai';
+  switch (p) {
+    case PrismaAiProviderName.ANTHROPIC:
+      return 'anthropic';
+    case PrismaAiProviderName.GEMINI:
+      return 'gemini';
+    case PrismaAiProviderName.OPENAI:
+    default:
+      return 'openai';
+  }
 }
 
 export interface AiCompleteOptions {
@@ -111,11 +123,14 @@ export class AiProviderService {
   }
 
   async embed(tenantId: string, text: string): Promise<AIEmbeddingResult> {
-    // Embeddings are always OpenAI — Anthropic has no embeddings endpoint.
+    // Embeddings follow the scaffold default provider (Gemini) — it's the one
+    // with a key wired in `.env`. Anthropic has no embeddings endpoint;
+    // OpenAI would need its own key. The Gemini provider requests 1536-dim
+    // vectors to match `DocumentChunk.embedding` (`vector(1536)`).
     // Logged under AgentType.KNOWLEDGE since embeddings are only ever
     // produced in service of RAG ingestion/search and the schema has no
     // dedicated "embedding" AgentType.
-    const provider = getProvider('openai');
+    const provider = getProvider('gemini');
     const start = Date.now();
     const result = await provider.embed(text);
     const executionTimeMs = Date.now() - start;
@@ -125,7 +140,7 @@ export class AiProviderService {
       data: {
         tenantId,
         agentType: AgentType.KNOWLEDGE,
-        provider: PrismaAiProviderName.OPENAI,
+        provider: PrismaAiProviderName.GEMINI,
         model: result.model,
         inputTokens: result.tokenCount,
         outputTokens: 0,

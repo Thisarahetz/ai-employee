@@ -26,11 +26,12 @@ export class ResponseService {
    * Persists the outbound AI/human message, then dispatches it back to the
    * customer via the conversation's channel (WhatsApp/website chat/email/...).
    */
-  async sendResponse(params: SendResponseParams): Promise<void> {
+  async sendResponse(params: SendResponseParams) {
     const { tenantId, conversationId, content, agentType } = params;
 
     const conversation = await this.prisma.conversation.findFirst({
       where: { id: conversationId, tenantId },
+      include: { customer: true },
     });
     if (!conversation) {
       throw new NotFoundException('Conversation not found');
@@ -38,7 +39,7 @@ export class ResponseService {
 
     const sender = agentType === AgentType.HUMAN ? MessageSender.HUMAN_AGENT : MessageSender.AI;
 
-    await this.messageService.create({
+    const message = await this.messageService.create({
       tenantId,
       conversationId,
       sender,
@@ -46,10 +47,20 @@ export class ResponseService {
       content,
     });
 
+    await this.prisma.conversation.update({
+      where: { id: conversationId },
+      data: { lastMessageAt: message.createdAt },
+    });
+
     await this.channelRegistry.send({
       channelId: conversation.channelId,
       tenantId,
       content,
+      // WhatsApp stores the customer's phone as `externalId`; website chat as
+      // the session id. Either way it's the address to deliver back to.
+      destination: conversation.customer?.phone ?? conversation.customer?.externalId ?? undefined,
     });
+
+    return message;
   }
 }

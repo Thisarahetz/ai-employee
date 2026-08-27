@@ -55,3 +55,17 @@ export function useReturnToAi(conversationId: string) {
     },
   });
 }
+
+export function useSendMessage(conversationId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (content: string) =>
+      (await apiClient.post<Message>(`/conversations/${conversationId}/messages`, { content })).data,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["conversation-messages", conversationId] });
+      queryClient.invalidateQueries({ queryKey: ["conversation", conversationId] });
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+    },
+  });
+}
+

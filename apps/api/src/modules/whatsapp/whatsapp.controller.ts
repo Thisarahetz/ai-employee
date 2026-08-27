@@ -22,18 +22,31 @@ export class WhatsAppController {
     private readonly conversationService: ConversationService,
   ) {}
 
-  /** Meta's one-time webhook verification handshake (run when configuring the app). */
+  /**
+   * Meta's one-time webhook verification handshake (run when configuring the app).
+   * The handshake GET carries no phone_number_id, so the token is matched against
+   * ANY WHATSAPP channel's `config.verifyToken` (per-tenant setup), falling back
+   * to the global `WHATSAPP_VERIFY_TOKEN` env var.
+   */
   @Public()
   @Get()
-  verify(
+  async verify(
     @Query('hub.mode') mode: string,
     @Query('hub.verify_token') verifyToken: string,
     @Query('hub.challenge') challenge: string,
-  ): string {
-    if (mode === 'subscribe' && verifyToken === process.env.WHATSAPP_VERIFY_TOKEN) {
+  ): Promise<string> {
+    if (mode === 'subscribe' && verifyToken && (await this.isKnownVerifyToken(verifyToken))) {
       return challenge;
     }
     throw new ForbiddenException('WhatsApp webhook verification failed');
+  }
+
+  private async isKnownVerifyToken(verifyToken: string): Promise<boolean> {
+    if (process.env.WHATSAPP_VERIFY_TOKEN && verifyToken === process.env.WHATSAPP_VERIFY_TOKEN) {
+      return true;
+    }
+    const channels = await this.prisma.channel.findMany({ where: { type: 'WHATSAPP' } });
+    return channels.some((channel) => (channel.config as any)?.verifyToken === verifyToken);
   }
 
   /**
@@ -90,7 +103,9 @@ export class WhatsAppController {
    * fine at scaffold scale (typically one row per tenant's WhatsApp number).
    */
   private async resolveChannel(phoneNumberId: string) {
-    const channels = await this.prisma.channel.findMany({ where: { type: 'WHATSAPP' } });
+    const channels = await this.prisma.channel.findMany({
+      where: { type: 'WHATSAPP', status: 'ACTIVE' },
+    });
     return channels.find((channel) => (channel.config as any)?.phoneNumberId === phoneNumberId) ?? null;
   }
 }

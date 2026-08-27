@@ -16,6 +16,7 @@ import { TenantModule } from './modules/tenant/tenant.module';
 import { UserModule } from './modules/user/user.module';
 import { BusinessModule } from './modules/business/business.module';
 import { ConversationModule } from './modules/conversation/conversation.module';
+import { WebsiteChatModule } from './modules/website-chat/website-chat.module';
 import { MessageModule } from './modules/message/message.module';
 import { HumanHandoffModule } from './modules/human-handoff/human-handoff.module';
 import { NotificationModule } from './modules/notification/notification.module';
@@ -51,6 +52,7 @@ import { AiUsageLogsModule } from './modules/ai-usage-logs/ai-usage-logs.module'
     UserModule,
     BusinessModule,
     ConversationModule,
+    WebsiteChatModule,
     MessageModule,
     HumanHandoffModule,
     NotificationModule,

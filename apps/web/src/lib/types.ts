@@ -285,6 +285,16 @@ export interface KnowledgeBase {
   documents?: Document[];
 }
 
+export interface DocumentChunk {
+  id: string;
+  documentId: string;
+  knowledgeBaseId: string;
+  content: string;
+  chunkIndex: number;
+  tokenCount: number;
+  createdAt: string;
+}
+
 export interface Document {
   id: string;
   tenantId: string;
@@ -294,6 +304,8 @@ export interface Document {
   fileUrl?: string | null;
   status: DocumentStatus;
   errorMessage?: string | null;
+  content?: string;
+  chunks?: DocumentChunk[];
   createdAt: string;
   updatedAt: string;
 }
@@ -340,8 +352,22 @@ export interface Channel {
   name: string;
   status: ChannelStatus;
   config: Record<string, unknown>;
+  /** Present on `GET /channels/:id` — true when at least one credential is stored. */
+  hasCredentials?: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+/** `GET /channels/:id/connection-info` — derived connection details (never secrets). */
+export interface ChannelConnectionInfo {
+  channelId: string;
+  type: ChannelType;
+  hasCredentials: boolean;
+  webhookUrl: string | null;
+  verifyToken: string | null;
+  phoneNumberId: string | null;
+  widgetUrl: string | null;
+  widgetSnippet: string | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────

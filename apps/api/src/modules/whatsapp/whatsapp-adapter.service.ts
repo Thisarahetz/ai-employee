@@ -3,6 +3,17 @@ import axios from 'axios';
 import { ChannelAdapter, NormalizedInboundMessage } from '@ai-employee/channel-sdk';
 
 /**
+ * Per-channel WhatsApp Cloud API credentials, resolved by
+ * ChannelRegistryService from the Channel's `config` + stored credential.
+ * When omitted, the adapter falls back to the global `WHATSAPP_*` env vars
+ * (single-tenant / local-dev convenience).
+ */
+export interface WhatsAppSendAuth {
+  phoneNumberId?: string;
+  accessToken?: string;
+}
+
+/**
  * Meta (Facebook) WhatsApp Cloud API adapter. Inbound normalization mirrors the payload
  * shape WhatsAppController's webhook handler already sanity-checks before calling this;
  * outbound delivery POSTs to the Cloud API's /messages endpoint.
@@ -44,11 +55,13 @@ export class WhatsAppAdapterService implements ChannelAdapter {
     };
   }
 
-  async sendOutbound(destination: string, content: string): Promise<void> {
-    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-    const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+  async sendOutbound(destination: string, content: string, auth?: WhatsAppSendAuth): Promise<void> {
+    const phoneNumberId = auth?.phoneNumberId || process.env.WHATSAPP_PHONE_NUMBER_ID;
+    const accessToken = auth?.accessToken || process.env.WHATSAPP_ACCESS_TOKEN;
     if (!phoneNumberId || !accessToken) {
-      this.logger.warn('WHATSAPP_PHONE_NUMBER_ID/WHATSAPP_ACCESS_TOKEN not configured; skipping outbound send');
+      this.logger.warn(
+        'No WhatsApp phoneNumberId/accessToken (channel credential or WHATSAPP_* env); skipping outbound send',
+      );
       return;
     }
 
@@ -78,7 +91,7 @@ export class WhatsAppAdapterService implements ChannelAdapter {
   }
 
   /** Convenience alias — this is what ChannelRegistryService calls. */
-  sendMessage(toPhoneNumber: string, content: string): Promise<void> {
-    return this.sendOutbound(toPhoneNumber, content);
+  sendMessage(toPhoneNumber: string, content: string, auth?: WhatsAppSendAuth): Promise<void> {
+    return this.sendOutbound(toPhoneNumber, content, auth);
   }
 }

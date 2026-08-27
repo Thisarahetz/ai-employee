@@ -32,13 +32,15 @@ export class SupportAgentService {
 
     const systemPrompt = aiAgent?.systemPrompt?.trim() || DEFAULT_SUPPORT_PROMPT;
 
-    // getRecentMessages is assumed to return messages oldest-first, ready to
-    // feed straight in as chronological history. The just-persisted inbound
-    // message is very likely already the last entry — drop it if so, since
-    // we re-add `latestMessage` as the final turn below (avoids sending the
-    // same customer message to the model twice).
-    const history = recentMessages
-      .filter((m, idx) => !(idx === recentMessages.length - 1 && m.content === latestMessage))
+    // getRecentMessages returns newest-first (descending createdAt).
+    // Reverse to chronological order (oldest-first) for conversation context.
+    const chronological = [...recentMessages].reverse();
+
+    // The just-persisted inbound message is likely already the last entry in
+    // chronological order — drop it if so, since we re-add `latestMessage` as
+    // the final turn below (avoids sending duplicate customer turns).
+    const history = chronological
+      .filter((m, idx) => !(idx === chronological.length - 1 && m.content === latestMessage))
       .map((m) => ({
         // HUMAN_AGENT/SYSTEM turns are folded into 'assistant' for simplicity —
         // this is a scaffold, not a full role-fidelity transcript replay.

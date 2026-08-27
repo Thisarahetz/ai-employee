@@ -10,17 +10,22 @@ export interface RouteResult {
   confidence: number;
 }
 
-const ROUTER_SYSTEM_PROMPT = `You are an intent classification router for a customer support system.
-Classify the customer's latest message into exactly one intent from this list:
-support, knowledge, action, booking, customer_lookup, human_handoff.
+const ROUTER_SYSTEM_PROMPT = `You are an intent classification router for a customer support and booking system.
+Classify the customer's latest message into exactly one intent and map it to the corresponding target agent:
 
-Map the intent to exactly one target agent:
-- support -> support_agent
-- knowledge -> knowledge_agent
-- action -> action_agent
-- booking -> action_agent
-- customer_lookup -> action_agent
-- human_handoff -> human_handoff
+1. "support" -> "support_agent"
+   - General greetings (e.g., "hi", "hello", "hey", "good morning", "how are you"), pleasantries, chit-chat, ambiguous messages, or general customer support requests.
+   - For greetings and general inquiries, ALWAYS assign high confidence (0.85 to 1.0).
+
+2. "knowledge" -> "knowledge_agent"
+   - Questions asking about business hours, services, menu, prices, address, location, policies, or general factual information about the business.
+
+3. "action" -> "action_agent"
+   - Inquiries or commands regarding booking appointments, scheduling, checking availability, cancellations, rescheduling, or customer account lookups.
+   - Note: "booking" and "customer_lookup" intents also map to "action_agent".
+
+4. "human_handoff" -> "human_handoff"
+   - ONLY when the customer explicitly asks to talk to a human, real person, agent, representative, or manager (e.g. "talk to a human", "connect me to a person", "agent please").
 
 Respond with ONLY a JSON object, no prose, no markdown fences, in exactly this shape:
 {"intent": "<support|knowledge|action|booking|customer_lookup|human_handoff>", "agent": "<support_agent|knowledge_agent|action_agent|human_handoff>", "confidence": <number between 0 and 1>}`;
@@ -62,7 +67,7 @@ export class RouterAgentService {
         .trim();
       const parsed = JSON.parse(cleaned) as Partial<RouteResult>;
       const agent = this.normalizeAgent(parsed.agent, parsed.intent);
-      const confidence = typeof parsed.confidence === 'number' ? parsed.confidence : 0.3;
+      const confidence = typeof parsed.confidence === 'number' ? parsed.confidence : 0.85;
 
       return {
         intent: typeof parsed.intent === 'string' ? parsed.intent : 'support',
@@ -71,7 +76,7 @@ export class RouterAgentService {
       };
     } catch (err) {
       this.logger.warn(`Router JSON parse failed, falling back to support_agent: ${(err as Error).message}`);
-      return { intent: 'support', agent: 'support_agent', confidence: 0.3 };
+      return { intent: 'support', agent: 'support_agent', confidence: 0.85 };
     }
   }
 

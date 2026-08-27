@@ -1,5 +1,6 @@
 import type { BadgeColor } from "@/components/ui/badge";
 import type {
+  ChannelStatus,
   ConversationStatus,
   DocumentStatus,
   HandoffStatus,
@@ -31,6 +32,11 @@ export const integrationStatusStyles: Record<IntegrationStatus, { label: string;
   CONNECTED: { label: "Connected", color: "green" },
   DISCONNECTED: { label: "Disconnected", color: "gray" },
   ERROR: { label: "Error", color: "red" },
+};
+
+export const channelStatusStyles: Record<ChannelStatus, { label: string; color: BadgeColor }> = {
+  ACTIVE: { label: "Active", color: "green" },
+  INACTIVE: { label: "Inactive", color: "gray" },
 };
 
 export const handoffStatusStyles: Record<HandoffStatus, { label: string; color: BadgeColor }> = {

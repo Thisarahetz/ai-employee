@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { AgentType, Message, MessageContentType, MessageSender, Prisma } from '@prisma/client';
+import { paginationSkip, toPaginatedResponse, toPaginationRequest } from '@ai-employee/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 
 export interface CreateMessageParams {
@@ -32,16 +33,18 @@ export class MessageService {
 
   /** Paginated history, oldest-first, for `GET /conversations/:id/messages`. */
   async list(tenantId: string, conversationId: string, page = 1, pageSize = 20) {
-    const [items, total] = await Promise.all([
+    const pagination = toPaginationRequest({ page, pageSize });
+    const where = { tenantId, conversationId };
+    const [data, total] = await Promise.all([
       this.prisma.message.findMany({
-        where: { tenantId, conversationId },
+        where,
         orderBy: { createdAt: 'asc' },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
+        skip: paginationSkip(pagination),
+        take: pagination.pageSize,
       }),
-      this.prisma.message.count({ where: { tenantId, conversationId } }),
+      this.prisma.message.count({ where }),
     ]);
-    return { items, total, page, pageSize };
+    return toPaginatedResponse(data, total, pagination);
   }
 
   /**

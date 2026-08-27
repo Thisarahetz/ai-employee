@@ -1,4 +1,5 @@
-import { IsIn, IsOptional, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 const CONVERSATION_STATUSES = ['OPEN', 'AI_HANDLING', 'HUMAN_HANDLING', 'CLOSED'] as const;
 
@@ -14,4 +15,17 @@ export class ListConversationsQueryDto {
   @IsOptional()
   @IsString()
   channelId?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  pageSize?: number;
 }
+

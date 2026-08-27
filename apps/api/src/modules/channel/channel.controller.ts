@@ -2,16 +2,21 @@ import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/commo
 import { CurrentTenant } from '../../common/tenant/current-tenant.decorator';
 import { TenantContext } from '../../common/tenant/tenant-context';
 import { ChannelService } from './channel.service';
+import { ChannelRegistryService } from './channel-registry.service';
 import { CreateChannelDto } from './dto/create-channel.dto';
 import { UpdateChannelDto } from './dto/update-channel.dto';
 import { CreateChannelCredentialDto } from './dto/create-channel-credential.dto';
 
 // NOTE: JwtAuthGuard is registered globally (APP_GUARD) in app.module.ts — this
 // controller carries no user-facing @Public() routes, so no per-route guard is added
-// here (mirrors IntegrationController).
+// here (mirrors IntegrationController). The public website-chat widget endpoints live
+// in their own controller (WebsiteChatController).
 @Controller('channels')
 export class ChannelController {
-  constructor(private readonly channelService: ChannelService) {}
+  constructor(
+    private readonly channelService: ChannelService,
+    private readonly channelRegistry: ChannelRegistryService,
+  ) {}
 
   @Post()
   create(@CurrentTenant() tenant: TenantContext, @Body() dto: CreateChannelDto) {
@@ -26,6 +31,12 @@ export class ChannelController {
   @Get(':id')
   findOne(@CurrentTenant() tenant: TenantContext, @Param('id') id: string) {
     return this.channelService.findOne(tenant.tenantId, id);
+  }
+
+  /** Derived connection details for the detail page (webhook URL, embed snippet, ...). */
+  @Get(':id/connection-info')
+  connectionInfo(@CurrentTenant() tenant: TenantContext, @Param('id') id: string) {
+    return this.channelService.getConnectionInfo(tenant.tenantId, id);
   }
 
   @Patch(':id')
@@ -45,5 +56,11 @@ export class ChannelController {
     @Body() dto: CreateChannelCredentialDto,
   ) {
     return this.channelService.addCredential(tenant.tenantId, id, dto);
+  }
+
+  /** Sends a canned test message through the channel to confirm delivery works. */
+  @Post(':id/test')
+  test(@CurrentTenant() tenant: TenantContext, @Param('id') id: string) {
+    return this.channelRegistry.sendTest(tenant.tenantId, id);
   }
 }
