@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { apiClient, clearStoredTokens, getStoredTokens, setStoredTokens } from "./api-client";
-import type { AuthResponse, AuthUser, Tenant, TenantRole } from "./types";
+import type { AuthResponse, AuthUser, BusinessType, Tenant, TenantRole } from "./types";
 
 // NOTE: the user profile + memberships are cached in localStorage alongside
 // the tokens (see api-client.ts) purely so the dashboard shell can render
@@ -14,6 +14,7 @@ const SESSION_STORAGE_KEY = "ai-employee.session";
 
 export interface SignupInput {
   tenantName: string;
+  businessType: BusinessType;
   email: string;
   password: string;
   firstName: string;
@@ -39,9 +40,9 @@ interface AuthContextValue {
   /** True while hydrating from localStorage on first client render. */
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  /** Resolves with the fresh auth payload so callers can route on role/memberships. */
+  login: (email: string, password: string) => Promise<AuthResponse>;
   signup: (input: SignupInput) => Promise<void>;
-  switchTenant: (tenantId: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -81,6 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (email: string, password: string) => {
       const { data } = await apiClient.post<AuthResponse>("/auth/login", { email, password });
       persistSession(data);
+      return data;
     },
     [persistSession],
   );
@@ -88,14 +90,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signup = useCallback(
     async (input: SignupInput) => {
       const { data } = await apiClient.post<AuthResponse>("/auth/signup", input);
-      persistSession(data);
-    },
-    [persistSession],
-  );
-
-  const switchTenant = useCallback(
-    async (tenantId: string) => {
-      const { data } = await apiClient.post<AuthResponse>("/auth/switch-tenant", { tenantId });
       persistSession(data);
     },
     [persistSession],
@@ -121,10 +115,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: !!user,
       login,
       signup,
-      switchTenant,
       logout,
     }),
-    [user, session, activeTenant, isLoading, login, signup, switchTenant, logout],
+    [user, session, activeTenant, isLoading, login, signup, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

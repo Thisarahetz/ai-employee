@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import { useCreateChannel } from "@/lib/hooks/use-channels";
+import { useBusinesses } from "@/lib/hooks/use-businesses";
 import type { ChannelType } from "@/lib/types";
 import { getErrorMessage } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -20,8 +21,13 @@ const CHANNEL_TYPES: { value: ChannelType; label: string }[] = [
 export function AddChannelForm({ onDone }: { onDone: () => void }) {
   const router = useRouter();
   const createChannel = useCreateChannel();
+  const { data: businesses } = useBusinesses();
+  const locations = businesses ?? [];
+  const showLocation = locations.length > 1;
+
   const [name, setName] = useState("");
   const [type, setType] = useState<ChannelType>("WEBSITE_CHAT");
+  const [businessId, setBusinessId] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(event: FormEvent) {
@@ -32,7 +38,11 @@ export function AddChannelForm({ onDone }: { onDone: () => void }) {
       return;
     }
     try {
-      const channel = await createChannel.mutateAsync({ name: name.trim(), type });
+      const channel = await createChannel.mutateAsync({
+        name: name.trim(),
+        type,
+        businessId: showLocation && businessId ? businessId : undefined,
+      });
       onDone();
       // Land on the detail page to finish connecting it.
       router.push(`/channels/${channel.id}`);
@@ -66,6 +76,21 @@ export function AddChannelForm({ onDone }: { onDone: () => void }) {
           </option>
         ))}
       </Select>
+
+      {showLocation && (
+        <Select
+          label="Location"
+          value={businessId}
+          onChange={(e) => setBusinessId(e.target.value)}
+        >
+          <option value="">All locations</option>
+          {locations.map((location) => (
+            <option key={location.id} value={location.id}>
+              {location.name}
+            </option>
+          ))}
+        </Select>
+      )}
 
       <div className="flex justify-end gap-2">
         <Button type="button" variant="secondary" onClick={onDone} disabled={createChannel.isPending}>

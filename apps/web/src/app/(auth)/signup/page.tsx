@@ -6,11 +6,14 @@ import { useState, type FormEvent } from "react";
 
 import { useAuth } from "@/lib/auth-context";
 import { getErrorMessage } from "@/lib/utils";
+import type { BusinessType } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 
 interface FormState {
   tenantName: string;
+  businessType: BusinessType;
   firstName: string;
   lastName: string;
   email: string;
@@ -19,11 +22,23 @@ interface FormState {
 
 const INITIAL_STATE: FormState = {
   tenantName: "",
+  businessType: "SALON",
   firstName: "",
   lastName: "",
   email: "",
   password: "",
 };
+
+const BUSINESS_TYPE_OPTIONS: { value: BusinessType; label: string }[] = [
+  { value: "SALON", label: "Salon / spa" },
+  { value: "CLINIC", label: "Clinic / healthcare" },
+  { value: "HOTEL", label: "Hotel / hospitality" },
+  { value: "ECOMMERCE", label: "Online store" },
+  { value: "VEHICLE_SERVICE", label: "Vehicle service" },
+  { value: "CRM", label: "Sales / CRM" },
+  { value: "ERP", label: "Operations / ERP" },
+  { value: "CUSTOM", label: "Something else" },
+];
 
 export default function SignupPage() {
   const { signup } = useAuth();
@@ -77,6 +92,18 @@ export default function SignupPage() {
         placeholder="Acme Salon"
         required
       />
+
+      <Select
+        label="Type of business"
+        value={form.businessType}
+        onChange={(e) => update("businessType", e.target.value as BusinessType)}
+      >
+        {BUSINESS_TYPE_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </Select>
 
       <div className="grid grid-cols-2 gap-3">
         <Input label="First name" value={form.firstName} onChange={(e) => update("firstName", e.target.value)} required />

@@ -127,8 +127,28 @@ export interface Tenant {
 /** GET /admin/tenants — platform-admin-only, cross-tenant. */
 export interface AdminTenant extends Tenant {
   userCount: number;
-  conversationCount: number;
-  integrationCount: number;
+}
+
+/**
+ * A location / branch under a tenant (the `Business` model). Most tenants have
+ * exactly one; a salon with several shops has one per shop. Conversations,
+ * channels, integrations and workflows can be tagged with a `businessId`.
+ */
+export interface Business {
+  id: string;
+  tenantId: string;
+  name: string;
+  type: BusinessType;
+  timezone: string;
+  settings: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BusinessInput {
+  name: string;
+  type?: BusinessType;
+  timezone?: string;
 }
 
 /** GET /admin/tenants/:id/users, GET /users — a membership joined with its User. */
@@ -160,6 +180,36 @@ export interface AdminUser {
   lastLoginAt?: string | null;
   createdAt: string;
   membershipCount: number;
+}
+
+/** GET /admin/users/:id — one identity plus every tenant they belong to. */
+export interface AdminUserDetail extends AdminUser {
+  updatedAt: string;
+  memberships: {
+    id: string;
+    role: TenantRole;
+    status: MembershipStatus;
+    createdAt: string;
+    tenant: { id: string; name: string; slug: string; status: TenantStatus };
+  }[];
+}
+
+/** PATCH /admin/users/:id — grant/revoke platform access, enable/disable account. */
+export interface UpdateUserInput {
+  platformRole?: PlatformRole;
+  status?: Extract<UserStatus, "ACTIVE" | "DISABLED">;
+}
+
+/** GET /admin/audit-log — a cross-tenant admin action. */
+export interface PlatformAuditEntry {
+  id: string;
+  action: string;
+  targetType: "tenant" | "user";
+  targetId: string;
+  changes: Record<string, unknown>;
+  ipAddress?: string | null;
+  createdAt: string;
+  actor: { id: string; email: string; firstName: string; lastName: string };
 }
 
 /** POST /admin/tenants — creating a tenant on someone's behalf. */
@@ -246,6 +296,7 @@ export interface Conversation {
   id: string;
   tenantId: string;
   businessId?: string | null;
+  business?: Business | null;
   customerId: string;
   customer?: Customer;
   channelId: string;
@@ -470,4 +521,6 @@ export interface Notification {
 export interface PaginatedResponse<T> {
   data: T[];
   total: number;
+  page?: number;
+  pageSize?: number;
 }

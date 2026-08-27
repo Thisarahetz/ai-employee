@@ -6,6 +6,7 @@ import type { AgentType, AiAgent, AiProviderName } from "@/lib/types";
 import { getErrorMessage } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -53,17 +54,19 @@ export function AgentConfigCard({ type, agent }: { type: AgentType; agent: AiAge
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [isEditing, setIsEditing] = useState(false);
 
+  // Reset the form to the agent's saved values whenever it changes or the
+  // modal is (re)opened, so a cancelled edit never lingers.
   useEffect(() => {
     setProvider(agent.configuration?.provider ?? "GEMINI");
     setModel(agent.configuration?.model ?? "gemini-2.5-flash");
     setTemperature(agent.configuration?.temperature ?? 0.3);
     setMaxTokens(agent.configuration?.maxTokens ?? 1024);
     setSystemPrompt(agent.systemPrompt ?? "");
-  }, [agent]);
+  }, [agent, isEditing]);
 
   function handleProviderChange(newProvider: AiProviderName) {
     setProvider(newProvider);
-    // If the model matches any provider default or is empty, suggest the new default
+    // If the model matches any provider default or is empty, suggest the new default.
     const isOldDefault = Object.values(DEFAULT_MODELS).includes(model) || !model;
     if (isOldDefault) {
       setModel(DEFAULT_MODELS[newProvider]);
@@ -87,41 +90,46 @@ export function AgentConfigCard({ type, agent }: { type: AgentType; agent: AiAge
   const glowColor = AGENT_COLORS[type];
 
   return (
-    <div className="flex flex-col rounded-xl border border-slate-700/50 bg-[#1e2130] text-white shadow-xl overflow-hidden transition-all duration-300">
+    <div className="flex flex-col overflow-hidden rounded-xl border border-slate-700/50 bg-[#1e2130] text-white shadow-xl">
       {/* Top half: Avatar area */}
-      <div className="relative flex h-32 items-center justify-center bg-[#252838] border-b border-slate-700/30">
-        <div className={`absolute h-20 w-20 rounded-full blur-xl opacity-40 ${glowColor}`} />
-        <img src={avatarUrl} alt={name} className="relative z-10 h-16 w-16 rounded-xl object-cover bg-white/10 shadow-md" />
+      <div className="relative flex h-32 items-center justify-center border-b border-slate-700/30 bg-[#252838]">
+        <div className={`absolute h-20 w-20 rounded-full opacity-40 blur-xl ${glowColor}`} />
+        {/* eslint-disable-next-line @next/next/no-img-element -- remote dicebear SVG, no Next loader */}
+        <img
+          src={avatarUrl}
+          alt={name}
+          className="relative z-10 h-16 w-16 rounded-xl bg-white/10 object-cover shadow-md"
+        />
       </div>
 
       {/* Bottom half: Info area */}
-      <div className="flex flex-col p-5">
+      <div className="flex flex-1 flex-col p-5">
         <div className="mb-3 flex items-center justify-between">
-          <span className="rounded bg-slate-700/50 px-2 py-1 text-xs font-medium text-slate-300">
-            {name}
-          </span>
-          <button 
-            onClick={() => setIsEditing(!isEditing)}
-            className="text-xs font-medium text-blue-400 hover:text-blue-300 transition-colors"
+          <span className="rounded bg-slate-700/50 px-2 py-1 text-xs font-medium text-slate-300">{name}</span>
+          <button
+            type="button"
+            onClick={() => setIsEditing(true)}
+            className="text-xs font-medium text-blue-400 transition-colors hover:text-blue-300"
           >
-            {isEditing ? 'Close' : 'Configure ⚙️'}
+            Configure ⚙️
           </button>
         </div>
-        
+
         <h3 className="mb-1 text-base font-semibold text-white">
           {type.charAt(0) + type.slice(1).toLowerCase()} Agent
         </h3>
-        
-        <p className="text-xs text-slate-400 line-clamp-2 min-h-[32px] mb-3">
-          {AGENT_DESCRIPTIONS[type]}
-        </p>
 
-        {/* Active Configuration Badges */}
-        <div className="flex flex-wrap items-center gap-1.5 pt-1">
-          <span className="rounded bg-blue-500/20 px-2 py-0.5 text-[11px] font-medium text-blue-300 border border-blue-500/30">
+        <p className="mb-3 line-clamp-2 min-h-[32px] text-xs text-slate-400">{AGENT_DESCRIPTIONS[type]}</p>
+
+        {/* Active configuration badges */}
+        <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-2">
+          <span className="rounded border border-blue-500/30 bg-blue-500/20 px-2 py-0.5 text-[11px] font-medium text-blue-300">
             {agent.configuration?.provider ?? "GEMINI"}
           </span>
-          <span className="rounded bg-purple-500/20 px-2 py-0.5 text-[11px] font-mono text-purple-300 border border-purple-500/30 truncate max-w-[130px]" title={agent.configuration?.model ?? "gemini-2.5-flash"}>
+          <span
+            className="max-w-[130px] truncate rounded border border-purple-500/30 bg-purple-500/20 px-2 py-0.5 font-mono text-[11px] text-purple-300"
+            title={agent.configuration?.model ?? "gemini-2.5-flash"}
+          >
             {agent.configuration?.model ?? "gemini-2.5-flash"}
           </span>
           <span className="rounded bg-slate-700/60 px-1.5 py-0.5 text-[10px] text-slate-400">
@@ -130,90 +138,82 @@ export function AgentConfigCard({ type, agent }: { type: AgentType; agent: AiAge
         </div>
 
         {savedAt && Date.now() - savedAt < 5000 && !isEditing && (
-          <p className="mt-3 text-xs text-emerald-400 font-medium">✓ Changes saved</p>
+          <p className="mt-3 text-xs font-medium text-emerald-400">✓ Changes saved</p>
         )}
       </div>
 
-      {/* Expandable config form */}
-      {isEditing && (
-        <div className="border-t border-slate-700/50 bg-[#191b28] p-5">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && <p className="rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-400 border border-red-500/20">{error}</p>}
+      <Modal
+        isOpen={isEditing}
+        onClose={() => setIsEditing(false)}
+        title={`Configure ${type.charAt(0) + type.slice(1).toLowerCase()} Agent`}
+        description={AGENT_DESCRIPTIONS[type]}
+        maxWidth="max-w-lg"
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <p role="alert" className="rounded-md bg-status-critical/10 px-3 py-2 text-sm text-status-critical">
+              {error}
+            </p>
+          )}
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Provider</label>
-                <select
-                  value={provider}
-                  onChange={(e) => handleProviderChange(e.target.value as AiProviderName)}
-                  className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
-                >
-                  {PROVIDERS.map((p) => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Model</label>
-                <input
-                  type="text"
-                  value={model}
-                  onChange={(e) => setModel(e.target.value)}
-                  placeholder={DEFAULT_MODELS[provider]}
-                  required
-                  className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none"
-                />
-              </div>
-            </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Select
+              label="Provider"
+              value={provider}
+              onChange={(e) => handleProviderChange(e.target.value as AiProviderName)}
+            >
+              {PROVIDERS.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </Select>
+            <Input
+              label="Model"
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              placeholder={DEFAULT_MODELS[provider]}
+              required
+            />
+          </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Temperature</label>
-                <input
-                  type="number"
-                  min={0}
-                  max={2}
-                  step={0.1}
-                  value={temperature}
-                  onChange={(e) => setTemperature(Number(e.target.value))}
-                  className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Max tokens</label>
-                <input
-                  type="number"
-                  min={1}
-                  step={1}
-                  value={maxTokens}
-                  onChange={(e) => setMaxTokens(Number(e.target.value))}
-                  className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
-                />
-              </div>
-            </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Input
+              label="Temperature"
+              type="number"
+              min={0}
+              max={2}
+              step={0.1}
+              value={temperature}
+              onChange={(e) => setTemperature(Number(e.target.value))}
+            />
+            <Input
+              label="Max tokens"
+              type="number"
+              min={1}
+              step={1}
+              value={maxTokens}
+              onChange={(e) => setMaxTokens(Number(e.target.value))}
+            />
+          </div>
 
-            <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">System prompt</label>
-              <textarea
-                value={systemPrompt}
-                onChange={(e) => setSystemPrompt(e.target.value)}
-                rows={4}
-                className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
-              />
-            </div>
+          <Textarea
+            label="System prompt"
+            value={systemPrompt}
+            onChange={(e) => setSystemPrompt(e.target.value)}
+            rows={5}
+          />
 
-            <div className="flex items-center gap-3 pt-2">
-              <Button type="submit" size="sm" isLoading={updateConfiguration.isPending} className="bg-blue-600 text-white hover:bg-blue-700">
-                Save changes
-              </Button>
-              <Button type="button" variant="ghost" size="sm" onClick={() => setIsEditing(false)} className="text-slate-400 hover:text-white">
-                Cancel
-              </Button>
-            </div>
-          </form>
-        </div>
-      )}
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <Button type="button" variant="secondary" onClick={() => setIsEditing(false)} disabled={updateConfiguration.isPending}>
+              Cancel
+            </Button>
+            <Button type="submit" isLoading={updateConfiguration.isPending}>
+              Save changes
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }
-

@@ -133,6 +133,7 @@ model User {
   assignedHandoffs      HumanHandoff[]     @relation("AssignedAgent")
   notifications         Notification[]
   auditLogs             AuditLog[]
+  platformAuditLogs     PlatformAuditLog[] @relation("PlatformAuditActor")
 
   @@map("users")
 }
@@ -723,4 +724,24 @@ model AuditLog {
   @@index([tenantId])
   @@index([tenantId, entityType, entityId])
   @@map("audit_logs")
+}
+
+/// Platform-level (cross-tenant) admin actions — deliberately NOT tenant-scoped,
+/// unlike AuditLog: these record what a SUPER_ADMIN did in the /admin console
+/// (suspending a tenant, granting platform access, disabling an account), and
+/// must survive the target tenant being deleted. Written by AdminService only.
+model PlatformAuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String
+  actor       User     @relation("PlatformAuditActor", fields: [actorUserId], references: [id])
+  action      String
+  targetType  String // "tenant" | "user"
+  targetId    String
+  changes     Json     @default("{}")
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  @@index([targetType, targetId])
+  @@index([createdAt])
+  @@map("platform_audit_logs")
 }

@@ -40,6 +40,8 @@ export const WIDGET_JS = `(function () {
   var isOpen = false;
   var pollTimer = null;
   var lastAfter = '';
+  var typingEl = null;
+  var typingTimer = null;
 
   var style = document.createElement('style');
   style.textContent =
@@ -51,6 +53,11 @@ export const WIDGET_JS = `(function () {
     '.aiemp-msg{margin:6px 0;padding:8px 12px;border-radius:12px;font-size:14px;line-height:1.4;max-width:80%;white-space:pre-wrap;word-wrap:break-word}' +
     '.aiemp-msg.c{color:#fff;margin-left:auto;border-bottom-right-radius:4px}' +
     '.aiemp-msg.a{background:#fff;color:#111;border:1px solid #e1e0d9;border-bottom-left-radius:4px}' +
+    '.aiemp-typing{margin:6px 0;padding:10px 12px;background:#fff;border:1px solid #e1e0d9;border-radius:12px;border-bottom-left-radius:4px;width:-moz-fit-content;width:fit-content}' +
+    '.aiemp-typing i{display:inline-block;width:6px;height:6px;margin:0 2px;border-radius:50%;background:#9a9a9a;animation:aiemp-blink 1.4s infinite both}' +
+    '.aiemp-typing i:nth-child(2){animation-delay:.2s}' +
+    '.aiemp-typing i:nth-child(3){animation-delay:.4s}' +
+    '@keyframes aiemp-blink{0%,80%,100%{opacity:.2}40%{opacity:1}}' +
     '.aiemp-foot{display:flex;border-top:1px solid #e1e0d9;background:#fff}' +
     '.aiemp-foot input{flex:1;border:none;padding:12px;font-size:14px;outline:none;background:#fff;color:#111}' +
     '.aiemp-foot button{border:none;background:transparent;font-weight:600;padding:0 14px;cursor:pointer}';
@@ -91,15 +98,38 @@ export const WIDGET_JS = `(function () {
 
   function addMsg(text, mine, id) {
     if (id) {
-      if (seen[id]) return;
+      if (seen[id]) return false;
       seen[id] = true;
     }
     var el = document.createElement('div');
     el.className = 'aiemp-msg ' + (mine ? 'c' : 'a');
     if (mine) el.style.background = cfg.accentColor;
     el.textContent = text;
-    body.appendChild(el);
+    // Keep the typing bubble (if shown) as the last child.
+    if (typingEl) body.insertBefore(el, typingEl);
+    else body.appendChild(el);
     body.scrollTop = body.scrollHeight;
+    return true;
+  }
+
+  function showTyping() {
+    if (typingEl) return;
+    typingEl = document.createElement('div');
+    typingEl.className = 'aiemp-typing';
+    typingEl.innerHTML = '<i></i><i></i><i></i>';
+    body.appendChild(typingEl);
+    body.scrollTop = body.scrollHeight;
+    clearTimeout(typingTimer);
+    // Safety net: never leave the indicator up forever if a reply never lands.
+    typingTimer = setTimeout(hideTyping, 45000);
+  }
+
+  function hideTyping() {
+    clearTimeout(typingTimer);
+    if (typingEl) {
+      typingEl.parentNode && typingEl.parentNode.removeChild(typingEl);
+      typingEl = null;
+    }
   }
 
   function poll() {
@@ -109,10 +139,13 @@ export const WIDGET_JS = `(function () {
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (data) {
         if (!data || !data.messages) return;
+        var gotReply = false;
         data.messages.forEach(function (m) {
-          addMsg(m.content, m.sender === 'CUSTOMER', m.id);
+          var added = addMsg(m.content, m.sender === 'CUSTOMER', m.id);
+          if (added && m.sender !== 'CUSTOMER') gotReply = true;
           if (!lastAfter || m.createdAt > lastAfter) lastAfter = m.createdAt;
         });
+        if (gotReply) hideTyping();
       })
       .catch(function () {});
   }
@@ -140,6 +173,7 @@ export const WIDGET_JS = `(function () {
         if (res && res.messageId) {
           seen[res.messageId] = true;
         }
+        showTyping();
         startPolling();
       })
       .catch(function () {});

@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 
-import { useAuth } from "@/lib/auth-context";
 import { useAdminTenant, useAdminTenantUsers, useUpdateTenant } from "@/lib/hooks/use-admin";
 import { tenantStatusStyles } from "@/lib/status-styles";
 import { formatDateTime, getErrorMessage } from "@/lib/utils";
@@ -16,20 +15,13 @@ import { FullPageSpinner } from "@/components/ui/spinner";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { PlatformActivity } from "@/components/platform/platform-activity";
 
 const TENANT_STATUSES: TenantStatus[] = ["TRIAL", "ACTIVE", "SUSPENDED"];
 
 export default function AdminTenantDetailPage() {
-  const { user, isLoading: isAuthLoading } = useAuth();
-  const router = useRouter();
   const params = useParams<{ id: string }>();
   const tenantId = params.id;
-
-  useEffect(() => {
-    if (!isAuthLoading && (!user || user.platformRole === "NONE")) {
-      router.replace("/dashboard");
-    }
-  }, [isAuthLoading, user, router]);
 
   const tenantQuery = useAdminTenant(tenantId);
   const usersQuery = useAdminTenantUsers(tenantId);
@@ -50,10 +42,6 @@ export default function AdminTenantDetailPage() {
     }
   }, [tenantQuery.data]);
 
-  if (isAuthLoading || !user || user.platformRole === "NONE") {
-    return null;
-  }
-
   if (tenantQuery.isLoading) return <FullPageSpinner />;
 
   if (tenantQuery.isError || !tenantQuery.data) {
@@ -65,10 +53,13 @@ export default function AdminTenantDetailPage() {
     );
   }
 
-  async function handleSave() {
+  const tenant = tenantQuery.data;
+  const isSuspended = tenant.status === "SUSPENDED";
+
+  async function save(patch: { name?: string; plan?: string; status?: TenantStatus }) {
     setSaveError(null);
     try {
-      await updateTenant.mutateAsync({ id: tenantId, name, plan, status });
+      await updateTenant.mutateAsync({ id: tenantId, ...patch });
     } catch (err) {
       setSaveError(getErrorMessage(err, "Unable to save changes."));
     }
@@ -81,14 +72,27 @@ export default function AdminTenantDetailPage() {
           &larr; All tenants
         </Link>
         <div className="mt-1 flex items-center gap-3">
-          <h1 className="text-xl font-semibold text-ink-primary">{tenantQuery.data.name}</h1>
-          <StatusBadge {...tenantStatusStyles[tenantQuery.data.status]} />
+          <h1 className="text-xl font-semibold text-ink-primary">{tenant.name}</h1>
+          <StatusBadge {...tenantStatusStyles[tenant.status]} />
         </div>
-        <p className="text-sm text-ink-secondary">{tenantQuery.data.slug}</p>
+        <p className="text-sm text-ink-secondary">
+          {tenant.slug} · {tenant.userCount} user{tenant.userCount === 1 ? "" : "s"}
+        </p>
       </div>
 
       <Card>
-        <CardHeader>
+        <CardHeader
+          actions={
+            <Button
+              variant={isSuspended ? "primary" : "danger"}
+              size="sm"
+              isLoading={updateTenant.isPending}
+              onClick={() => save({ status: isSuspended ? "ACTIVE" : "SUSPENDED" })}
+            >
+              {isSuspended ? "Reactivate tenant" : "Suspend tenant"}
+            </Button>
+          }
+        >
           <CardTitle>Tenant settings</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -108,7 +112,7 @@ export default function AdminTenantDetailPage() {
               </option>
             ))}
           </Select>
-          <Button onClick={handleSave} isLoading={updateTenant.isPending}>
+          <Button onClick={() => save({ name, plan, status })} isLoading={updateTenant.isPending}>
             Save changes
           </Button>
         </CardContent>
@@ -162,6 +166,8 @@ export default function AdminTenantDetailPage() {
           </div>
         )}
       </Card>
+
+      <PlatformActivity targetType="tenant" targetId={tenantId} />
     </div>
   );
 }

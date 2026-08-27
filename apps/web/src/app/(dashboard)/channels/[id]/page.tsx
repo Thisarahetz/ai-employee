@@ -11,10 +11,12 @@ import {
   useTestChannel,
   useUpdateChannel,
 } from "@/lib/hooks/use-channels";
+import { useBusinesses } from "@/lib/hooks/use-businesses";
 import { channelStatusStyles } from "@/lib/status-styles";
 import { getErrorMessage } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ErrorState } from "@/components/ui/error-state";
 import { FullPageSpinner } from "@/components/ui/spinner";
@@ -28,6 +30,7 @@ export default function ChannelDetailPage() {
 
   const channelQuery = useChannel(channelId);
   const connectionInfoQuery = useChannelConnectionInfo(channelId);
+  const { data: businesses } = useBusinesses();
   const testChannel = useTestChannel(channelId);
   const updateChannel = useUpdateChannel(channelId);
   const deleteChannel = useDeleteChannel();
@@ -47,6 +50,7 @@ export default function ChannelDetailPage() {
   const channel = channelQuery.data;
   const style = channelStatusStyles[channel.status];
   const connectionInfo = connectionInfoQuery.data;
+  const locations = businesses ?? [];
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -81,6 +85,32 @@ export default function ChannelDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {locations.length > 1 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Location</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-sm text-ink-secondary">
+              Conversations that arrive on this channel are assigned to this branch.
+            </p>
+            <Select
+              aria-label="Channel location"
+              value={channel.businessId ?? ""}
+              disabled={updateChannel.isPending}
+              onChange={(e) => updateChannel.mutate({ businessId: e.target.value || null })}
+            >
+              <option value="">All locations</option>
+              {locations.map((location) => (
+                <option key={location.id} value={location.id}>
+                  {location.name}
+                </option>
+              ))}
+            </Select>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

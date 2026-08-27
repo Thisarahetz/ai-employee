@@ -9,22 +9,29 @@ import { Topbar } from "@/components/layout/topbar";
 import { FullPageSpinner } from "@/components/ui/spinner";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user, memberships } = useAuth();
   const router = useRouter();
 
-  // Client-side route guard — fine for this scaffold. A production build
-  // would enforce this server-side (middleware reading an httpOnly cookie).
+  // A pure platform admin (no tenant of their own) has no workspace to render —
+  // send them to the standalone console instead of an empty dashboard shell.
+  const consoleOnly =
+    isAuthenticated && user?.platformRole === "SUPER_ADMIN" && memberships.length === 0;
+
+  // Client-side route guard — the API guards are the real enforcement.
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (isLoading) return;
+    if (!isAuthenticated) {
       router.replace("/login");
+    } else if (consoleOnly) {
+      router.replace("/admin");
     }
-  }, [isLoading, isAuthenticated, router]);
+  }, [isLoading, isAuthenticated, consoleOnly, router]);
 
   if (isLoading) {
     return <FullPageSpinner />;
   }
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated || consoleOnly) {
     // Avoid flashing protected content while the redirect above takes effect.
     return null;
   }

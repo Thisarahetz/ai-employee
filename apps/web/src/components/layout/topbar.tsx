@@ -1,44 +1,50 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "@/lib/auth-context";
+import { useActiveLocation } from "@/lib/location-context";
+import { useBusinesses } from "@/lib/hooks/use-businesses";
 import { useMarkNotificationRead, useNotifications } from "@/lib/hooks/use-notifications";
 import { cn, formatDateTime } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 export function Topbar() {
-  const { user, activeTenant, activeTenantId, memberships, switchTenant, logout } = useAuth();
+  const { user, activeTenant, logout } = useAuth();
+  const { activeLocationId, setActiveLocationId } = useActiveLocation();
+  const { data: businesses } = useBusinesses();
   const [isNotifOpen, setIsNotifOpen] = useState(false);
-  const [isSwitching, setIsSwitching] = useState(false);
   const { data: notifications } = useNotifications();
   const markRead = useMarkNotificationRead();
   const unreadCount = notifications?.filter((n) => !n.isRead).length ?? 0;
 
-  async function handleSwitch(tenantId: string) {
-    if (tenantId === activeTenantId || isSwitching) return;
-    setIsSwitching(true);
-    try {
-      await switchTenant(tenantId);
-    } finally {
-      setIsSwitching(false);
+  // The single top-bar picker is the location/branch switcher. It only makes
+  // sense once the workspace has more than one location; otherwise the
+  // workspace name stands in as plain text.
+  const locations = useMemo(() => businesses ?? [], [businesses]);
+  const hasMultipleLocations = locations.length > 1;
+
+  // Drop a remembered location that no longer exists (deleted branch).
+  useEffect(() => {
+    if (activeLocationId && locations.length > 0 && !locations.some((l) => l.id === activeLocationId)) {
+      setActiveLocationId(null);
     }
-  }
+  }, [activeLocationId, locations, setActiveLocationId]);
 
   return (
     <header className="flex h-16 shrink-0 items-center justify-between border-b border-line bg-white px-6">
       <div>
-        {memberships.length > 1 ? (
+        {hasMultipleLocations ? (
           <select
-            aria-label="Switch tenant"
-            value={activeTenantId ?? ""}
-            disabled={isSwitching}
-            onChange={(e) => handleSwitch(e.target.value)}
+            aria-label="Switch location"
+            value={activeLocationId ?? ""}
+            onChange={(e) => setActiveLocationId(e.target.value || null)}
             className="rounded-md border-none bg-transparent p-0 text-sm font-medium text-ink-primary focus:outline-none focus:ring-1 focus:ring-brand-500"
           >
-            {memberships.map((m) => (
-              <option key={m.tenantId} value={m.tenantId}>
-                {m.tenant.name}
+            <option value="">All locations</option>
+            {locations.map((location) => (
+              <option key={location.id} value={location.id}>
+                {location.name}
               </option>
             ))}
           </select>

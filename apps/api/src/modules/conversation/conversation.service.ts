@@ -41,12 +41,13 @@ export class ConversationService {
       status: query.status,
       customerId: query.customerId,
       channelId: query.channelId,
+      businessId: query.businessId,
     };
 
     const [data, total] = await Promise.all([
       this.prisma.conversation.findMany({
         where,
-        include: { customer: true, channel: true },
+        include: { customer: true, channel: true, business: true },
         orderBy: { lastMessageAt: 'desc' },
         skip: paginationSkip(pagination),
         take: pagination.pageSize,
@@ -60,7 +61,7 @@ export class ConversationService {
   async get(tenantId: string, id: string) {
     const conversation = await this.prisma.conversation.findFirst({
       where: { id, tenantId },
-      include: { customer: true, channel: true },
+      include: { customer: true, channel: true, business: true },
     });
     if (!conversation) {
       throw new NotFoundException('Conversation not found');

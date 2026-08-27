@@ -40,6 +40,12 @@ item text for the nuance in those cases).
       Live-tested end-to-end including the signup-vs-admin-createTenant security
       distinction (public signup rejects an already-registered email; the trusted admin
       path can attach a new tenant to an existing identity).
+- [x] Platform Super Admin console — standalone shell (`apps/web/src/app/(platform)`),
+      Tenants + Platform Users only, no workspace chrome. Tenant suspend/reactivate,
+      per-user grant/revoke `SUPER_ADMIN` and enable/disable, last-super-admin +
+      no-self-disable guards, `PlatformAdminGuard` live DB re-check (instant revocation),
+      disabled-user login block, and a non-tenant-scoped `PlatformAuditLog` of every
+      admin action. Live-tested end-to-end via the `/admin/*` API.
 - [x] RBAC permission checks wired against `apps/api/src/modules/auth/auth.service.ts`'s
       `TENANT_ROLE_PERMISSIONS` map (mirrored for non-API consumers in
       `packages/shared/src/constants/permissions.ts`) — `RolesGuard` enforces

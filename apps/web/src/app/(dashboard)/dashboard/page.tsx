@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useConversations } from "@/lib/hooks/use-conversations";
 import { useAiUsageStats } from "@/lib/hooks/use-ai-usage-stats";
 import { useHumanHandoffs, useResolveHandoff } from "@/lib/hooks/use-human-handoffs";
+import { useActiveLocation } from "@/lib/location-context";
+import { useBusinesses } from "@/lib/hooks/use-businesses";
 import { formatDateTime, getErrorMessage } from "@/lib/utils";
 import { StatTile } from "@/components/dashboard/stat-tile";
 import { UsageChart } from "@/components/dashboard/usage-chart";
@@ -14,9 +16,13 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 
 export default function DashboardPage() {
-  const totalConversations = useConversations("ALL", 1);
-  const aiHandling = useConversations("AI_HANDLING", 1);
-  const humanHandling = useConversations("HUMAN_HANDLING", 1);
+  const { activeLocationId } = useActiveLocation();
+  const { data: businesses } = useBusinesses();
+  const activeLocationName = businesses?.find((b) => b.id === activeLocationId)?.name ?? null;
+
+  const totalConversations = useConversations("ALL", 1, activeLocationId);
+  const aiHandling = useConversations("AI_HANDLING", 1, activeLocationId);
+  const humanHandling = useConversations("HUMAN_HANDLING", 1, activeLocationId);
   // TODO: /ai-usage-logs/stats is an invented endpoint — see src/lib/hooks/use-ai-usage-stats.ts.
   const usageStats = useAiUsageStats(14);
   const pendingHandoffs = useHumanHandoffs("PENDING");
@@ -26,7 +32,10 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-semibold text-ink-primary">Dashboard</h1>
-        <p className="text-sm text-ink-secondary">A snapshot of conversations, AI activity, and automation.</p>
+        <p className="text-sm text-ink-secondary">
+          A snapshot of conversations, AI activity, and automation.
+          {activeLocationName ? ` Conversation counts are for ${activeLocationName}.` : ""}
+        </p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

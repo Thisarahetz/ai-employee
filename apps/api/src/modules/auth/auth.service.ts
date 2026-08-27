@@ -1,7 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { PlatformRole, Tenant, TenantMembership, TenantRole, UserStatus } from '@prisma/client';
+import { BusinessType, PlatformRole, Tenant, TenantMembership, TenantRole, UserStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { SignupDto } from './dto/signup.dto';
@@ -107,6 +107,7 @@ export class AuthService {
   async createTenantWithOwner(params: {
     tenantName: string;
     tenantSlug?: string;
+    businessType?: BusinessType;
     ownerEmail: string;
     ownerFirstName: string;
     ownerLastName: string;
@@ -137,7 +138,7 @@ export class AuthService {
       });
 
       await tx.business.create({
-        data: { tenantId: tenant.id, name: params.tenantName },
+        data: { tenantId: tenant.id, name: params.tenantName, type: params.businessType ?? 'CUSTOM' },
       });
 
       const user =
@@ -165,6 +166,7 @@ export class AuthService {
     const { user, membership } = await this.createTenantWithOwner({
       tenantName: dto.tenantName,
       tenantSlug: dto.tenantSlug,
+      businessType: dto.businessType,
       ownerEmail: dto.email,
       ownerPassword: dto.password,
       ownerFirstName: dto.firstName,
@@ -189,6 +191,10 @@ export class AuthService {
     const passwordMatches = await bcrypt.compare(dto.password, user.passwordHash);
     if (!passwordMatches) {
       throw new UnauthorizedException('Invalid credentials');
+    }
+
+    if (user.status === 'DISABLED') {
+      throw new UnauthorizedException('This account has been disabled');
     }
 
     if (user.memberships.length === 0 && user.platformRole === 'NONE') {
@@ -248,6 +254,10 @@ export class AuthService {
     const matches = await bcrypt.compare(refreshToken, user.refreshTokenHash);
     if (!matches) {
       throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    if (user.status === 'DISABLED') {
+      throw new UnauthorizedException('This account has been disabled');
     }
 
     // Stay on the tenant this refresh token was scoped to, if it's still a

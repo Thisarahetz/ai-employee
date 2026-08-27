@@ -5,12 +5,20 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
 import type { Conversation, ConversationStatus, Message, PaginatedResponse } from "@/lib/types";
 
-export function useConversations(status: ConversationStatus | "ALL" = "ALL", page = 1) {
+export function useConversations(
+  status: ConversationStatus | "ALL" = "ALL",
+  page = 1,
+  businessId?: string | null,
+) {
   return useQuery({
-    queryKey: ["conversations", status, page],
+    queryKey: ["conversations", status, page, businessId ?? null],
     queryFn: async () => {
       const { data } = await apiClient.get<PaginatedResponse<Conversation>>("/conversations", {
-        params: { status: status === "ALL" ? undefined : status, page },
+        params: {
+          status: status === "ALL" ? undefined : status,
+          page,
+          businessId: businessId || undefined,
+        },
       });
       return data;
     },

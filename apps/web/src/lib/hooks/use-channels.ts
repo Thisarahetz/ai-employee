@@ -30,6 +30,7 @@ export function useChannelConnectionInfo(id: string) {
 export interface CreateChannelInput {
   name: string;
   type: ChannelType;
+  businessId?: string;
   config?: Record<string, unknown>;
 }
 
@@ -45,8 +46,12 @@ export function useCreateChannel() {
 export function useUpdateChannel(id: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (patch: { name?: string; status?: string; config?: Record<string, unknown> }): Promise<Channel> =>
-      (await apiClient.patch(`/channels/${id}`, patch)).data,
+    mutationFn: async (patch: {
+      name?: string;
+      status?: string;
+      businessId?: string | null;
+      config?: Record<string, unknown>;
+    }): Promise<Channel> => (await apiClient.patch(`/channels/${id}`, patch)).data,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["channels"] });
       queryClient.invalidateQueries({ queryKey: ["channel", id] });

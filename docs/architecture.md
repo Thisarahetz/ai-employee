@@ -89,7 +89,13 @@ other tenants. A tenant can never end up with zero active `OWNER` memberships
 | | Values | Where it's checked | Settable via |
 |---|---|---|---|
 | `TenantRole` | `OWNER > ADMIN > MANAGER > EMPLOYEE` | `RolesGuard`, against a static `TENANT_ROLE_PERMISSIONS` map (`auth.service.ts`) — `OWNER` gets `['*']` | `POST /users/invite`, `PATCH /users/:id` (tenant "Team" management) |
-| `PlatformRole` | `NONE \| SUPER_ADMIN` | `PlatformAdminGuard`, gating `/admin/*` only | Never via the API — `pnpm --filter @ai-employee/api promote-admin <email>` only |
+| `PlatformRole` | `NONE \| SUPER_ADMIN` | `PlatformAdminGuard`, gating `/admin/*` only | `pnpm --filter @ai-employee/api promote-admin <email>` to bootstrap the first one; after that, `PATCH /admin/users/:id` from the console (a `SUPER_ADMIN` can grant/revoke it, except the last one) |
+
+`PlatformAdminGuard` does a two-stage check: a cheap claim check on the access token,
+then a **live DB re-check** of the caller's `platformRole` + `status`. Revoking someone's
+platform access (or disabling their account) in the console therefore takes effect on
+their very next `/admin` request, not whenever their ~15-min access token happens to
+expire.
 
 `TenantRole` is a fixed enum rather than a customizable per-tenant table on purpose —
 avoids over-engineering RBAC before there's a real need for custom permission sets.
@@ -103,7 +109,8 @@ loads all their active `TenantMembership`s, and issues a JWT scoped to one of th
 so the web app can render a tenant switcher. `POST /auth/switch-tenant` re-issues
 tokens scoped to a different membership without a second password prompt. A platform
 admin with zero tenant memberships can still log in and use `/admin/*` — their token
-just carries `tenantId: null`.
+just carries `tenantId: null`, and the web app routes them straight to the standalone
+console. Login (and refresh) reject a `User` whose `status` is `DISABLED`.
 
 `POST /auth/signup` (public, unauthenticated) always creates a brand-new `User` and
 **rejects an already-registered email** rather than silently attaching a new tenant to
@@ -112,12 +119,25 @@ issued a session as them. `POST /admin/tenants` (trusted, `PlatformAdminGuard`-g
 is the one place that *can* attach a new tenant to an existing identity, since it never
 logs the caller in as that user.
 
-**Platform admin capabilities today**: create/list tenants, view any tenant's members,
-edit a tenant's name/plan/status, list every platform-wide user
-(`apps/api/src/modules/admin`). **Explicitly not built yet** (real, standalone
-features, not stubbed): subscription plans, billing, system health monitoring, an
-error-log viewer, and platform-wide AI usage/cost dashboards — see
-`docs/mvp-implementation-plan.md`.
+**The Platform Super Admin console** (`apps/web/src/app/(platform)`, API in
+`apps/api/src/modules/admin`) is a standalone shell — its own sidebar (just **Tenants**
+and **Platform Users**), no tenant switcher, no workspace nav. A pure platform admin
+lands here on login; a `SUPER_ADMIN` who also owns a tenant gets a cross-link from the
+workspace sidebar. Capabilities:
+
+- **Tenants** — create/list/search, view members, edit name/plan, and suspend/reactivate.
+- **Platform Users** — list/search every global identity; per user, grant/revoke
+  `SUPER_ADMIN` and enable/disable the account. Guardrails: you can't disable your own
+  account, and the **last active super admin** can't be demoted or disabled by anyone.
+  Disabling clears the refresh token so the session can't outlive the current access token.
+- Every mutation writes a **`PlatformAuditLog`** row (`actor`, `action`, `target`,
+  before/after) — surfaced as a "Recent admin activity" panel on each tenant/user page
+  and queryable at `GET /admin/audit-log`. It is deliberately *not* tenant-scoped (unlike
+  `AuditLog`), so it survives the target tenant being deleted.
+
+**Explicitly not built yet** (real, standalone features, not stubbed): subscription
+plans, billing, system health monitoring, an error-log viewer, and platform-wide AI
+usage/cost dashboards — see `docs/mvp-implementation-plan.md`.
 
 ## Multi-agent pipeline (see `docs/multi-agent-architecture.md`)
 

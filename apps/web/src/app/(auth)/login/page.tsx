@@ -28,8 +28,12 @@ export default function LoginPage() {
 
     setIsSubmitting(true);
     try {
-      await login(email, password);
-      router.replace("/dashboard");
+      const auth = await login(email, password);
+      // A pure platform admin (no tenant of their own) belongs in the console;
+      // everyone else — including a super admin who also owns a tenant — lands
+      // in their workspace and can cross over via the sidebar.
+      const goToConsole = auth.user.platformRole === "SUPER_ADMIN" && auth.memberships.length === 0;
+      router.replace(goToConsole ? "/admin" : "/dashboard");
     } catch (err) {
       setError(getErrorMessage(err, "Invalid email or password."));
     } finally {

@@ -1,46 +1,37 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 
-import { useAuth } from "@/lib/auth-context";
 import { useAdminTenants } from "@/lib/hooks/use-admin";
 import { tenantStatusStyles } from "@/lib/status-styles";
-import { getErrorMessage } from "@/lib/utils";
+import { formatDate, getErrorMessage } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
+import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { CreateTenantForm } from "@/components/admin/create-tenant-form";
+import { CreateTenantForm } from "@/components/platform/create-tenant-form";
 
-export default function AdminPage() {
-  const { user, isLoading: isAuthLoading } = useAuth();
-  const router = useRouter();
-  const tenantsQuery = useAdminTenants();
+const PAGE_SIZE = 25;
+
+export default function AdminTenantsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
 
-  // Defense in depth: the sidebar link is already hidden for non-admins, and
-  // the API's PlatformAdminGuard is the real enforcement — this just avoids
-  // showing an empty/erroring page to someone who lands here directly.
-  useEffect(() => {
-    if (!isAuthLoading && (!user || user.platformRole === "NONE")) {
-      router.replace("/dashboard");
-    }
-  }, [isAuthLoading, user, router]);
-
-  if (isAuthLoading || !user || user.platformRole === "NONE") {
-    return null;
-  }
+  const tenantsQuery = useAdminTenants({ search: search.trim() || undefined, page, pageSize: PAGE_SIZE });
+  const total = tenantsQuery.data?.total ?? 0;
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-ink-primary">Platform admin</h1>
+          <h1 className="text-xl font-semibold text-ink-primary">Tenants</h1>
           <p className="text-sm text-ink-secondary">
-            Cross-tenant view — every tenant on this AI Employee instance, not just yours.
+            Every tenant on this AI Employee instance. Cross-tenant, platform-wide.
           </p>
         </div>
         <Button onClick={() => setIsCreateOpen((v) => !v)}>{isCreateOpen ? "Close" : "+ Create tenant"}</Button>
@@ -48,10 +39,21 @@ export default function AdminPage() {
 
       {isCreateOpen && <CreateTenantForm onDone={() => setIsCreateOpen(false)} />}
 
+      <div className="max-w-xs">
+        <Input
+          placeholder="Search by name or slug"
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
+        />
+      </div>
+
       <Card>
         {tenantsQuery.isLoading ? (
           <div className="space-y-2 p-5">
-            {[...Array(3)].map((_, i) => (
+            {[...Array(4)].map((_, i) => (
               <div key={i} className="h-10 animate-pulse rounded bg-surface-page" />
             ))}
           </div>
@@ -62,9 +64,12 @@ export default function AdminPage() {
               onRetry={() => tenantsQuery.refetch()}
             />
           </div>
-        ) : !tenantsQuery.data?.length ? (
+        ) : !tenantsQuery.data?.data.length ? (
           <div className="p-5">
-            <EmptyState title="No tenants" description="No tenant has signed up yet." />
+            <EmptyState
+              title="No tenants"
+              description={search ? "No tenant matches that search." : "No tenant has signed up yet."}
+            />
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -74,13 +79,12 @@ export default function AdminPage() {
                   <th className="px-5 py-3 font-medium">Tenant</th>
                   <th className="px-5 py-3 font-medium">Plan</th>
                   <th className="px-5 py-3 font-medium">Users</th>
-                  <th className="px-5 py-3 font-medium">Conversations</th>
-                  <th className="px-5 py-3 font-medium">Integrations</th>
                   <th className="px-5 py-3 font-medium">Status</th>
+                  <th className="px-5 py-3 font-medium">Created</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
-                {tenantsQuery.data.map((tenant) => (
+                {tenantsQuery.data.data.map((tenant) => (
                   <tr key={tenant.id} className="hover:bg-surface-page">
                     <td className="px-5 py-3">
                       <Link href={`/admin/tenants/${tenant.id}`} className="font-medium text-brand-600 hover:underline">
@@ -90,11 +94,10 @@ export default function AdminPage() {
                     </td>
                     <td className="px-5 py-3 text-ink-secondary">{tenant.plan}</td>
                     <td className="px-5 py-3 text-ink-secondary">{tenant.userCount}</td>
-                    <td className="px-5 py-3 text-ink-secondary">{tenant.conversationCount}</td>
-                    <td className="px-5 py-3 text-ink-secondary">{tenant.integrationCount}</td>
                     <td className="px-5 py-3">
                       <StatusBadge {...tenantStatusStyles[tenant.status]} />
                     </td>
+                    <td className="px-5 py-3 text-ink-secondary">{formatDate(tenant.createdAt)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -102,6 +105,27 @@ export default function AdminPage() {
           </div>
         )}
       </Card>
+
+      {total > PAGE_SIZE && (
+        <div className="flex items-center justify-between text-sm text-ink-secondary">
+          <span>
+            {total} tenant{total === 1 ? "" : "s"} · page {page} of {pageCount}
+          </span>
+          <div className="flex gap-2">
+            <Button variant="secondary" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+              Previous
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={page >= pageCount}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -16,6 +16,11 @@ export class ListConversationsQueryDto {
   @IsString()
   channelId?: string;
 
+  /** Restrict to conversations belonging to one location/branch (Business id). */
+  @IsOptional()
+  @IsString()
+  businessId?: string;
+
   @IsOptional()
   @Type(() => Number)
   @IsInt()

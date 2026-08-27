@@ -6,6 +6,7 @@ import type {
   HandoffStatus,
   IntegrationStatus,
   TenantStatus,
+  UserStatus,
   WorkflowExecutionStatus,
 } from "./types";
 
@@ -49,6 +50,12 @@ export const tenantStatusStyles: Record<TenantStatus, { label: string; color: Ba
   ACTIVE: { label: "Active", color: "green" },
   TRIAL: { label: "Trial", color: "blue" },
   SUSPENDED: { label: "Suspended", color: "red" },
+};
+
+export const userStatusStyles: Record<UserStatus, { label: string; color: BadgeColor }> = {
+  ACTIVE: { label: "Active", color: "green" },
+  INVITED: { label: "Invited", color: "blue" },
+  DISABLED: { label: "Disabled", color: "red" },
 };
 
 export const workflowExecutionStatusStyles: Record<WorkflowExecutionStatus, { label: string; color: BadgeColor }> = {

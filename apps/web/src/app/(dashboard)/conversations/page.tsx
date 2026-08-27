@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useConversations } from "@/lib/hooks/use-conversations";
+import { useActiveLocation } from "@/lib/location-context";
 import type { Conversation, ConversationStatus } from "@/lib/types";
 import { conversationStatusStyles } from "@/lib/status-styles";
 import { formatDateTime, getErrorMessage } from "@/lib/utils";
@@ -27,9 +28,13 @@ const STATUS_OPTIONS: { value: ConversationStatus | "ALL"; label: string }[] = [
 ];
 
 export default function ConversationsPage() {
+  const { activeLocationId } = useActiveLocation();
   const [status, setStatus] = useState<ConversationStatus | "ALL">("ALL");
   const [page, setPage] = useState(1);
-  const { data, isLoading, isError, error, refetch } = useConversations(status, page);
+  const { data, isLoading, isError, error, refetch } = useConversations(status, page, activeLocationId);
+
+  // Reset to the first page whenever the branch filter changes.
+  useEffect(() => setPage(1), [activeLocationId]);
 
   const conversations: Conversation[] = Array.isArray(data) ? (data as Conversation[]) : (data?.data ?? []);
   const total = Array.isArray(data) ? data.length : (data?.total ?? conversations.length);
@@ -81,6 +86,7 @@ export default function ConversationsPage() {
               <thead className="border-b border-line text-xs uppercase tracking-wide text-ink-muted">
                 <tr>
                   <th className="px-5 py-3 font-medium">Customer</th>
+                  <th className="px-5 py-3 font-medium">Location</th>
                   <th className="px-5 py-3 font-medium">Channel</th>
                   <th className="px-5 py-3 font-medium">Status</th>
                   <th className="px-5 py-3 font-medium">Last message</th>
@@ -96,6 +102,7 @@ export default function ConversationsPage() {
                           {conversation.customer?.name || conversation.customer?.email || conversation.customer?.phone || conversation.customerId}
                         </Link>
                       </td>
+                      <td className="px-5 py-3 text-ink-secondary">{conversation.business?.name ?? "—"}</td>
                       <td className="px-5 py-3 text-ink-secondary">{conversation.channel?.type ?? "—"}</td>
                       <td className="px-5 py-3">
                         <StatusBadge {...style} />
