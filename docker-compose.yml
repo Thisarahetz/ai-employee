@@ -49,11 +49,23 @@ services:
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-change-me-n8n-encryption-key}
       DB_TYPE: sqlite
       GENERIC_TIMEZONE: UTC
+      # n8n 2.x blocks `$env.*` in expressions / Code nodes by default, which
+      # makes the example workflows (they read CRM_BASE_URL / SLACK_WEBHOOK_URL
+      # this way) fail with "access to env vars denied". Allow it, and pass the
+      # vars the example workflows expect through to the container.
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      CRM_BASE_URL: ${CRM_BASE_URL:-http://host.docker.internal:3999}
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
     ports:
       - "${N8N_PORT:-5678}:5678"
     volumes:
       - n8n_data:/home/node/.n8n
       - ./n8n/workflows:/home/node/workflows
+    # So `CRM_BASE_URL=http://host.docker.internal:...` in a workflow can reach a
+    # service running on the host (auto on Docker Desktop; this line is what makes
+    # it resolve on Linux too).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       - postgres
 

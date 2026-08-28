@@ -20,6 +20,10 @@ export const MODEL_COSTS_USD_PER_1K: Record<string, ModelCost> = {
   'text-embedding-3-large': { input: 0.00013, output: 0 },
 
   // ── Google Gemini ────────────────────────────────────────
+  'gemini-3.7-flash': { input: 0.0003, output: 0.0025 },
+  'gemini-3.6-flash': { input: 0.0003, output: 0.0025 },
+  'gemini-3.5-flash': { input: 0.0003, output: 0.0025 },
+  'gemini-3.5-flash-lite': { input: 0.0001, output: 0.0008 },
   'gemini-2.5-flash': { input: 0.0003, output: 0.0025 },
   'gemini-2.5-pro': { input: 0.00125, output: 0.01 },
   'gemini-embedding-001': { input: 0.00015, output: 0 },

@@ -42,11 +42,41 @@ const DEFAULT_MODELS: Record<AiProviderName, string> = {
   ANTHROPIC: "claude-3-5-sonnet-20241022",
 };
 
+export const PROVIDER_MODELS: Record<AiProviderName, { value: string; label: string }[]> = {
+  GEMINI: [
+    { value: "gemini-3.7-flash", label: "Gemini 3.7 Flash (Latest)" },
+    { value: "gemini-3.6-flash", label: "Gemini 3.6 Flash" },
+    { value: "gemini-3.5-flash", label: "Gemini 3.5 Flash" },
+    { value: "gemini-3.5-flash-lite", label: "Gemini 3.5 Flash Lite (Fast & Ultra-cheap)" },
+    { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
+    { value: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
+    { value: "gemini-2.0-flash", label: "Gemini 2.0 Flash" },
+    { value: "gemini-1.5-pro", label: "Gemini 1.5 Pro" },
+    { value: "gemini-1.5-flash", label: "Gemini 1.5 Flash" },
+  ],
+  OPENAI: [
+    { value: "gpt-4o-mini", label: "GPT-4o Mini" },
+    { value: "gpt-4o", label: "GPT-4o" },
+    { value: "o1", label: "o1" },
+    { value: "o3-mini", label: "o3-mini" },
+    { value: "gpt-4-turbo", label: "GPT-4 Turbo" },
+  ],
+  ANTHROPIC: [
+    { value: "claude-3-5-sonnet-20241022", label: "Claude 3.5 Sonnet" },
+    { value: "claude-3-5-haiku-20241022", label: "Claude 3.5 Haiku" },
+    { value: "claude-3-opus-20240229", label: "Claude 3 Opus" },
+    { value: "claude-sonnet-5", label: "Claude Sonnet 5" },
+    { value: "claude-opus-5", label: "Claude Opus 5" },
+    { value: "claude-haiku-4-5", label: "Claude Haiku 4.5" },
+  ],
+};
+
 export function AgentConfigCard({ type, agent }: { type: AgentType; agent: AiAgent }) {
   const updateConfiguration = useUpdateAgentConfiguration(type);
 
   const [provider, setProvider] = useState<AiProviderName>(agent.configuration?.provider ?? "GEMINI");
   const [model, setModel] = useState(agent.configuration?.model ?? "gemini-2.5-flash");
+  const [isCustomModel, setIsCustomModel] = useState(false);
   const [temperature, setTemperature] = useState(agent.configuration?.temperature ?? 0.3);
   const [maxTokens, setMaxTokens] = useState(agent.configuration?.maxTokens ?? 1024);
   const [systemPrompt, setSystemPrompt] = useState(agent.systemPrompt ?? "");
@@ -57,8 +87,12 @@ export function AgentConfigCard({ type, agent }: { type: AgentType; agent: AiAge
   // Reset the form to the agent's saved values whenever it changes or the
   // modal is (re)opened, so a cancelled edit never lingers.
   useEffect(() => {
-    setProvider(agent.configuration?.provider ?? "GEMINI");
-    setModel(agent.configuration?.model ?? "gemini-2.5-flash");
+    const currentProvider = agent.configuration?.provider ?? "GEMINI";
+    const currentModel = agent.configuration?.model ?? "gemini-2.5-flash";
+    setProvider(currentProvider);
+    setModel(currentModel);
+    const available = PROVIDER_MODELS[currentProvider] ?? [];
+    setIsCustomModel(!available.some((m) => m.value === currentModel));
     setTemperature(agent.configuration?.temperature ?? 0.3);
     setMaxTokens(agent.configuration?.maxTokens ?? 1024);
     setSystemPrompt(agent.systemPrompt ?? "");
@@ -66,10 +100,17 @@ export function AgentConfigCard({ type, agent }: { type: AgentType; agent: AiAge
 
   function handleProviderChange(newProvider: AiProviderName) {
     setProvider(newProvider);
-    // If the model matches any provider default or is empty, suggest the new default.
-    const isOldDefault = Object.values(DEFAULT_MODELS).includes(model) || !model;
-    if (isOldDefault) {
-      setModel(DEFAULT_MODELS[newProvider]);
+    const newDefault = DEFAULT_MODELS[newProvider];
+    setModel(newDefault);
+    setIsCustomModel(false);
+  }
+
+  function handleModelChange(selectedModel: string) {
+    if (selectedModel === "__custom__") {
+      setIsCustomModel(true);
+    } else {
+      setIsCustomModel(false);
+      setModel(selectedModel);
     }
   }
 
@@ -168,14 +209,29 @@ export function AgentConfigCard({ type, agent }: { type: AgentType; agent: AiAge
                 </option>
               ))}
             </Select>
-            <Input
+            <Select
               label="Model"
+              value={isCustomModel ? "__custom__" : model}
+              onChange={(e) => handleModelChange(e.target.value)}
+            >
+              {(PROVIDER_MODELS[provider] ?? []).map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+              <option value="__custom__">Custom model...</option>
+            </Select>
+          </div>
+
+          {isCustomModel && (
+            <Input
+              label="Custom Model Name"
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              placeholder={DEFAULT_MODELS[provider]}
+              placeholder="e.g. gpt-4o-2024-08-06"
               required
             />
-          </div>
+          )}
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input
