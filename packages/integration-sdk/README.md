@@ -8,9 +8,17 @@ not part of the `apps/api` build in this monorepo.
 It implements the AI Employee Integration API Contract:
 
 ```
-GET  {baseUrl}/ai/actions   -> { "actions": [{ "name", "description", "parameters" }, ...] }
-POST {baseUrl}/ai/execute   -> { "success": true, "message": "...", "data": { ... } }
+GET  {baseUrl}/ai/actions    -> { "actions": [{ "name", "description", "parameters" }, ...] }
+POST {baseUrl}/ai/execute    -> { "success": true, "message": "...", "data": { ... } }
+GET  {baseUrl}/ai/knowledge  -> { "documents": [{ "externalId", "title", "content", "format?" }, ...],
+                                  "locations": [{ "externalId", "name", "timezone?", "address?", "phone?" }, ...] }
 ```
+
+The first two let the **Action Agent** *do things*; `GET /ai/knowledge` is an optional
+read feed carrying **documents** the **Knowledge Agent** answers from (services &
+pricing, hours, policies) and **locations** that mirror into AI Employee Location
+records. Register it with `registerKnowledge()` — omit it and the route just returns
+`{ "documents": [], "locations": [] }`.
 
 ## Install
 
@@ -65,10 +73,14 @@ export class AppModule {}
 - `getRegisteredActions(): ActionDefinition[]`
 - `getRegisteredAction(name: string): ActionDefinition | undefined`
 - `unregisterAction(name: string): void`
+- `registerKnowledge(provider: KnowledgeProvider | null): void` — provider returns a
+  `KnowledgeDocument[]` or a `KnowledgeFeed` (`{ documents, locations }`)
+- `getKnowledgeProvider()`, `resolveKnowledgeResponse()`, `clearRegisteredKnowledge()`
 - `createExpressRouter(): express.Router`
 - `AiActionsController`, `AiActionsModule` (NestJS)
 
-See `src/types.ts` for the full `ActionDefinition` / `ActionParameter` shapes.
+See `src/types.ts` for the full `ActionDefinition` / `ActionParameter` /
+`KnowledgeDocument` / `KnowledgeLocation` / `KnowledgeFeed` shapes.
 
 Both `express` and `@nestjs/common`/`@nestjs/core` are declared as *optional*
 `peerDependencies` — install only the one matching your framework. Note: importing the

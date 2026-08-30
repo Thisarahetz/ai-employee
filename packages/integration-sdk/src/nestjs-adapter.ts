@@ -1,6 +1,11 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Module, Post } from '@nestjs/common';
-import { getRegisteredAction, getRegisteredActions } from './registry';
-import type { ExecuteActionRequest, ExecuteActionResponse, ListActionsResponse } from './types';
+import { getRegisteredAction, getRegisteredActions, resolveKnowledgeResponse } from './registry';
+import type {
+  ExecuteActionRequest,
+  ExecuteActionResponse,
+  ListActionsResponse,
+  ListKnowledgeResponse,
+} from './types';
 
 /**
  * NestJS equivalent of express-adapter.ts, for consumers whose external system is
@@ -9,8 +14,8 @@ import type { ExecuteActionRequest, ExecuteActionResponse, ListActionsResponse }
  * signalled via `success: false`, not HTTP status codes.
  *
  * Mount by importing `AiActionsModule` into your app's root module. The controller is
- * fixed at the `ai` path prefix so the final routes are `GET /ai/actions` and
- * `POST /ai/execute`, matching `{baseUrl}/ai/actions` / `{baseUrl}/ai/execute`.
+ * fixed at the `ai` path prefix so the final routes are `GET /ai/actions`,
+ * `POST /ai/execute` and `GET /ai/knowledge`, matching the `{baseUrl}/ai/*` contract.
  */
 @Controller('ai')
 export class AiActionsController {
@@ -23,6 +28,11 @@ export class AiActionsController {
         parameters,
       })),
     };
+  }
+
+  @Get('knowledge')
+  listKnowledge(): Promise<ListKnowledgeResponse> {
+    return resolveKnowledgeResponse();
   }
 
   @Post('execute')

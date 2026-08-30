@@ -39,6 +39,9 @@ export function DocumentDetailModal({
   }, [documentQuery.data]);
 
   const doc = documentQuery.data;
+  // Integration-synced documents are overwritten on every sync — editing/deleting them
+  // by hand has no lasting effect, so the UI shows them read-only.
+  const isManaged = doc?.sourceType === "INTEGRATION";
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -111,24 +114,32 @@ export function DocumentDetailModal({
             </div>
 
             <div className="flex items-center gap-2">
-              {!isEditing ? (
-                <Button size="sm" variant="secondary" onClick={() => setIsEditing(true)}>
-                  Edit Content ✏️
-                </Button>
+              {isManaged ? (
+                <span className="rounded border border-line bg-surface-page px-2 py-0.5 text-xs text-ink-secondary">
+                  Synced from an integration · read-only
+                </span>
               ) : (
-                <Button size="sm" variant="ghost" onClick={() => setIsEditing(false)}>
-                  Cancel
-                </Button>
+                <>
+                  {!isEditing ? (
+                    <Button size="sm" variant="secondary" onClick={() => setIsEditing(true)}>
+                      Edit Content ✏️
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="ghost" onClick={() => setIsEditing(false)}>
+                      Cancel
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-status-critical hover:bg-status-critical/10"
+                    isLoading={deleteDocument.isPending}
+                    onClick={handleDelete}
+                  >
+                    Delete
+                  </Button>
+                </>
               )}
-              <Button
-                size="sm"
-                variant="ghost"
-                className="text-status-critical hover:bg-status-critical/10"
-                isLoading={deleteDocument.isPending}
-                onClick={handleDelete}
-              >
-                Delete
-              </Button>
             </div>
           </div>
 

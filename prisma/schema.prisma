@@ -78,15 +78,23 @@ model Business {
   type      BusinessType @default(CUSTOM)
   timezone  String       @default("UTC")
   settings  Json         @default("{}")
+  /// Set when this Location was mirrored from an external system's `GET /ai/knowledge`
+  /// locations feed. `integrationId` is nulled (not cascaded) if that integration is
+  /// removed; `externalId` is the source system's stable id, used to upsert on re-sync.
+  integrationId String?
+  integration   Integration? @relation("IntegrationSyncedLocations", fields: [integrationId], references: [id], onDelete: SetNull)
+  externalId    String?
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
-  integrations  Integration[]
-  channels      Channel[]
-  conversations Conversation[]
-  workflows     Workflow[]
+  integrations       Integration[] @relation("BusinessIntegrations")
+  channels           Channel[]
+  conversations      Conversation[]
+  workflows          Workflow[]
 
+  @@unique([integrationId, externalId])
   @@index([tenantId])
+  @@index([integrationId])
   @@map("businesses")
 }
 
@@ -310,7 +318,8 @@ model KnowledgeBase {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  documents Document[]
+  documents         Document[]
+  syncedIntegration Integration[]
 
   @@index([tenantId])
   @@map("knowledge_bases")
@@ -322,6 +331,8 @@ enum DocumentSourceType {
   TEXT
   FAQ
   URL
+  /// Synced from an external system via an Integration's `GET /ai/knowledge` endpoint.
+  INTEGRATION
 }
 
 enum DocumentStatus {
@@ -342,13 +353,20 @@ model Document {
   fileUrl         String?
   status          DocumentStatus     @default(PENDING)
   errorMessage    String?
+  /// Set when sourceType is INTEGRATION: the Integration this document was synced from.
+  integrationId   String?
+  integration     Integration?       @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  /// Stable per-integration identifier for the source record, used to upsert on re-sync.
+  externalId      String?
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 
   chunks DocumentChunk[]
 
+  @@unique([integrationId, externalId])
   @@index([tenantId])
   @@index([tenantId, knowledgeBaseId])
+  @@index([integrationId])
   @@map("documents")
 }
 
@@ -393,20 +411,27 @@ model Integration {
   tenantId   String
   tenant     Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   businessId String?
-  business   Business?         @relation(fields: [businessId], references: [id])
+  business   Business?         @relation("BusinessIntegrations", fields: [businessId], references: [id])
   name       String
   type       IntegrationType
   baseUrl    String?
   /// REST_API type: endpoint/header/auth/request-response mapping config.
   config     Json              @default("{}")
   status     IntegrationStatus @default(DISCONNECTED)
+  /// Dedicated KnowledgeBase auto-created to hold this integration's `GET /ai/knowledge` sync output.
+  knowledgeBaseId     String?
+  knowledgeBase       KnowledgeBase? @relation(fields: [knowledgeBaseId], references: [id], onDelete: SetNull)
+  lastKnowledgeSyncAt DateTime?
   createdAt  DateTime          @default(now())
   updatedAt  DateTime          @updatedAt
 
-  credentials IntegrationCredential[]
-  actions     IntegrationAction[]
+  credentials     IntegrationCredential[]
+  actions         IntegrationAction[]
+  syncedDocuments Document[]
+  syncedLocations Business[] @relation("IntegrationSyncedLocations")
 
   @@index([tenantId])
+  @@index([knowledgeBaseId])
   @@map("integrations")
 }
 

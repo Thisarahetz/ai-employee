@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AgentType } from '@prisma/client';
 import { AiProviderService } from '../ai-provider/ai-provider.service';
-import { PrismaService } from '../../prisma/prisma.service';
 import { RagService } from '../rag/rag.service';
 
 const KNOWLEDGE_SYSTEM_PROMPT =
@@ -21,32 +20,17 @@ export class KnowledgeAgentService {
   constructor(
     private readonly aiProviderService: AiProviderService,
     private readonly ragService: RagService,
-    private readonly prisma: PrismaService,
   ) {}
 
   async respond(tenantId: string, conversationId: string, latestMessage: string): Promise<string> {
-    // Scaffold: picks the tenant's first/default KnowledgeBase. A future
-    // version could route to a specific KB per Business/Channel.
-    const knowledgeBase = await this.prisma.knowledgeBase.findFirst({
-      where: { tenantId },
-      orderBy: { createdAt: 'asc' },
-    });
+    // Retrieve across ALL of the tenant's knowledge bases — hand-authored docs plus
+    // anything synced from an integration's GET /ai/knowledge feed — not just one KB.
+    const chunks = await this.ragService.searchTenant(tenantId, latestMessage, 5);
 
-    if (!knowledgeBase) {
-      this.logger.warn(`No KnowledgeBase configured for tenant=${tenantId}; answering without context.`);
-      const result = await this.aiProviderService.complete(
-        tenantId,
-        AgentType.KNOWLEDGE,
-        [
-          { role: 'system', content: KNOWLEDGE_SYSTEM_PROMPT },
-          { role: 'user', content: latestMessage },
-        ],
-        { conversationId },
-      );
-      return result.content;
+    if (!chunks.length) {
+      this.logger.warn(`No relevant knowledge for tenant=${tenantId}; answering without context.`);
     }
 
-    const chunks = await this.ragService.search(tenantId, knowledgeBase.id, latestMessage, 5);
     const context = chunks.length
       ? chunks.map((c, i) => `[${i + 1}] ${c.content}`).join('\n\n')
       : '(no relevant context found)';

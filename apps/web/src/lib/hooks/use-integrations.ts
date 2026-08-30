@@ -75,3 +75,26 @@ export function useIntegrationActions(integrationId: string | undefined, enabled
     enabled: !!integrationId && enabled,
   });
 }
+
+export interface SyncKnowledgeResult {
+  integrationId: string;
+  knowledgeBaseId: string;
+  created: number;
+  updated: number;
+  removed: number;
+  locationsCreated: number;
+  locationsUpdated: number;
+}
+
+export function useSyncIntegrationKnowledge(integrationId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () =>
+      (await apiClient.post<SyncKnowledgeResult>(`/integrations/${integrationId}/knowledge/sync`)).data,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["integrations"] });
+      queryClient.invalidateQueries({ queryKey: ["knowledge-bases"] });
+      queryClient.invalidateQueries({ queryKey: ["businesses"] });
+    },
+  });
+}

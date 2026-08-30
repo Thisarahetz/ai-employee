@@ -6,7 +6,13 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { decrypt } from '../../common/crypto/encryption.util';
 import { EventService } from '../../events/event.service';
 import { EVENT_TYPES } from '../../events/event-types.const';
-import { DiscoveredAction, ExecuteActionResult } from './external-action.types';
+import {
+  DiscoveredAction,
+  DiscoveredKnowledgeDocument,
+  DiscoveredKnowledgeFeed,
+  DiscoveredKnowledgeLocation,
+  ExecuteActionResult,
+} from './external-action.types';
 
 /**
  * HTTP client side of the AI Employee <-> external-system Integration API Contract:
@@ -38,6 +44,35 @@ export class ExternalActionService {
       { headers, timeout: 10_000 },
     );
     return response.data?.actions ?? [];
+  }
+
+  /**
+   * Fetches the optional `GET /ai/knowledge` feed — reference documents (services &
+   * pricing, hours, policies) and physical locations the external system wants AI
+   * Employee to mirror. Like discoverActions(), this throws on transport/HTTP failure
+   * so the caller (IntegrationService.syncKnowledge) can surface a clear "your
+   * integration is misconfigured" error rather than silently syncing nothing. A 404 is
+   * treated as "this integration doesn't expose a knowledge feed" → empty feed.
+   */
+  async fetchKnowledge(integrationId: string): Promise<DiscoveredKnowledgeFeed> {
+    const integration = await this.getIntegrationOrThrow(integrationId);
+    const headers = await this.buildAuthHeaders(integration);
+
+    try {
+      const response = await axios.get<{
+        documents?: DiscoveredKnowledgeDocument[];
+        locations?: DiscoveredKnowledgeLocation[];
+      }>(this.buildUrl(integration.baseUrl, '/ai/knowledge'), { headers, timeout: 10_000 });
+      return {
+        documents: (response.data?.documents ?? []).filter((doc) => doc && doc.externalId && doc.content),
+        locations: (response.data?.locations ?? []).filter((loc) => loc && loc.externalId && loc.name),
+      };
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        return { documents: [], locations: [] };
+      }
+      throw error;
+    }
   }
 
   async executeAction(

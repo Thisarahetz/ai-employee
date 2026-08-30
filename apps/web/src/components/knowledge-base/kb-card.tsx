@@ -103,7 +103,17 @@ export function KnowledgeBaseCard({ knowledgeBase }: { knowledgeBase: KnowledgeB
         >
           {!isEditingKb ? (
             <div>
-              <CardTitle>{knowledgeBase.name}</CardTitle>
+              <div className="flex items-center gap-2">
+                <CardTitle>{knowledgeBase.name}</CardTitle>
+                {knowledgeBase.managedBy && (
+                  <span
+                    className="rounded border border-line bg-surface-page px-1.5 py-0.5 text-xs font-normal text-ink-secondary"
+                    title={`Documents from ${knowledgeBase.managedBy.integrationName} are kept in sync automatically and can't be edited here.`}
+                  >
+                    Synced · {knowledgeBase.managedBy.integrationName}
+                  </span>
+                )}
+              </div>
               {knowledgeBase.description && <CardDescription>{knowledgeBase.description}</CardDescription>}
             </div>
           ) : (
@@ -201,16 +211,18 @@ export function KnowledgeBaseCard({ knowledgeBase }: { knowledgeBase: KnowledgeB
                               className="h-7 px-2 text-xs"
                               onClick={() => setSelectedDocId(document.id)}
                             >
-                              View / Edit 👁️
+                              {document.sourceType === "INTEGRATION" ? "View 👁️" : "View / Edit 👁️"}
                             </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-7 px-2 text-xs text-status-critical hover:bg-status-critical/10"
-                              onClick={(e) => handleDeleteDoc(document.id, document.title, e)}
-                            >
-                              ✕
-                            </Button>
+                            {document.sourceType !== "INTEGRATION" && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 px-2 text-xs text-status-critical hover:bg-status-critical/10"
+                                onClick={(e) => handleDeleteDoc(document.id, document.title, e)}
+                              >
+                                ✕
+                              </Button>
+                            )}
                           </div>
                         </td>
                       </tr>

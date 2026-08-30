@@ -54,7 +54,7 @@ export type MessageContentType =
   | "LOCATION"
   | "SYSTEM_EVENT";
 
-export type DocumentSourceType = "PDF" | "DOCX" | "TEXT" | "FAQ" | "URL";
+export type DocumentSourceType = "PDF" | "DOCX" | "TEXT" | "FAQ" | "URL" | "INTEGRATION";
 
 export type DocumentStatus = "PENDING" | "PROCESSING" | "READY" | "FAILED";
 
@@ -141,6 +141,8 @@ export interface Business {
   type: BusinessType;
   timezone: string;
   settings: Record<string, unknown>;
+  integrationId?: string | null;
+  externalId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -334,6 +336,9 @@ export interface KnowledgeBase {
   createdAt: string;
   updatedAt: string;
   documents?: Document[];
+  _count?: { documents: number };
+  /** Set when this KB is auto-managed by an integration's knowledge sync. */
+  managedBy?: { integrationId: string; integrationName: string } | null;
 }
 
 export interface DocumentChunk {
@@ -355,6 +360,8 @@ export interface Document {
   fileUrl?: string | null;
   status: DocumentStatus;
   errorMessage?: string | null;
+  integrationId?: string | null;
+  externalId?: string | null;
   content?: string;
   chunks?: DocumentChunk[];
   createdAt: string;
@@ -374,6 +381,8 @@ export interface Integration {
   baseUrl?: string | null;
   config: Record<string, unknown>;
   status: IntegrationStatus;
+  knowledgeBaseId?: string | null;
+  lastKnowledgeSyncAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }

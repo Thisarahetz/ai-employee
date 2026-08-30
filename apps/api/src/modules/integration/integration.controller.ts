@@ -56,4 +56,14 @@ export class IntegrationController {
   listActions(@CurrentTenant() tenant: TenantContext, @Param('id') id: string) {
     return this.integrationService.listActions(tenant.tenantId, id);
   }
+
+  @Post(':id/knowledge/sync')
+  syncKnowledge(@CurrentTenant() tenant: TenantContext, @Param('id') id: string) {
+    return this.integrationService.syncKnowledge(tenant.tenantId, id);
+  }
+
+  @Get(':id/knowledge')
+  listSyncedKnowledge(@CurrentTenant() tenant: TenantContext, @Param('id') id: string) {
+    return this.integrationService.listSyncedKnowledge(tenant.tenantId, id);
+  }
 }

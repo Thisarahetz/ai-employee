@@ -19,7 +19,10 @@ export default function IntegrationsPage() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold text-ink-primary">Integrations</h1>
-          <p className="text-sm text-ink-secondary">External business systems the Action Agent can call.</p>
+          <p className="text-sm text-ink-secondary">
+            External business systems the Action Agent can call. Sync one&apos;s services &amp; pricing into a
+            knowledge base for the Knowledge Agent to answer from.
+          </p>
         </div>
         <Button onClick={() => setIsConnectOpen((v) => !v)}>{isConnectOpen ? "Close" : "+ Connect integration"}</Button>
       </div>

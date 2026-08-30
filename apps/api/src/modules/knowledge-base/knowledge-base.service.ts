@@ -27,13 +27,27 @@ export class KnowledgeBaseService {
     });
   }
 
-  list(tenantId: string) {
-    return this.prisma.knowledgeBase.findMany({
-      where: { tenantId },
-      include: {
-        _count: { select: { documents: true } },
-      },
-      orderBy: { createdAt: 'desc' },
+  async list(tenantId: string) {
+    const [knowledgeBases, managingIntegrations] = await Promise.all([
+      this.prisma.knowledgeBase.findMany({
+        where: { tenantId },
+        include: { _count: { select: { documents: true } } },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.integration.findMany({
+        where: { tenantId, knowledgeBaseId: { not: null } },
+        select: { id: true, name: true, knowledgeBaseId: true },
+      }),
+    ]);
+
+    return knowledgeBases.map((kb) => {
+      const owner = managingIntegrations.find((i) => i.knowledgeBaseId === kb.id);
+      return {
+        ...kb,
+        // Non-null when this KB is auto-managed by an integration's GET /ai/knowledge
+        // sync — the UI turns off manual editing for it.
+        managedBy: owner ? { integrationId: owner.id, integrationName: owner.name } : null,
+      };
     });
   }
 
@@ -203,6 +217,88 @@ export class KnowledgeBaseService {
     });
 
     return document;
+  }
+
+  /**
+   * Replaces the set of INTEGRATION-sourced documents in `knowledgeBaseId` for a given
+   * integration with `docs`: upserts each on `(integrationId, externalId)`, stores its
+   * body for RAG, re-ingests it, and prunes any previously-synced document whose
+   * `externalId` is no longer in the feed. Called by IntegrationService.syncKnowledge.
+   */
+  async syncIntegrationDocuments(
+    tenantId: string,
+    knowledgeBaseId: string,
+    integrationId: string,
+    docs: { externalId: string; title: string; content: string; format?: string }[],
+  ): Promise<{ created: number; updated: number; removed: number }> {
+    await this.assertKnowledgeBaseExists(tenantId, knowledgeBaseId);
+
+    let created = 0;
+    let updated = 0;
+    const seen = new Set<string>();
+
+    for (const doc of docs) {
+      const content = doc.content?.trim();
+      if (!doc.externalId || !content) continue;
+      seen.add(doc.externalId);
+
+      const title = doc.title?.trim() || doc.externalId;
+      const ext = doc.format === 'markdown' ? 'md' : 'txt';
+      const filename = `${title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'document'}.${ext}`;
+      const fileUrl = await this.storeBuffer(tenantId, filename, Buffer.from(content, 'utf-8'), 'text/plain');
+
+      const existing = await this.prisma.document.findFirst({
+        where: { tenantId, knowledgeBaseId, integrationId, externalId: doc.externalId },
+      });
+
+      let documentId: string;
+      if (existing) {
+        await this.prisma.document.update({
+          where: { id: existing.id },
+          data: { title, fileUrl, status: DocumentStatus.PENDING, errorMessage: null },
+        });
+        documentId = existing.id;
+        updated++;
+      } else {
+        const row = await this.prisma.document.create({
+          data: {
+            tenantId,
+            knowledgeBaseId,
+            integrationId,
+            externalId: doc.externalId,
+            title,
+            sourceType: DocumentSourceType.INTEGRATION,
+            fileUrl,
+            status: DocumentStatus.PENDING,
+          },
+        });
+        documentId = row.id;
+        created++;
+      }
+
+      this.ragService.ingestDocument(documentId).catch((err) => {
+        this.logger.error(`ingestDocument failed for synced document ${documentId}: ${(err as Error).message}`);
+      });
+    }
+
+    // Prune documents this integration synced before but no longer returns.
+    const stale = await this.prisma.document.findMany({
+      where: {
+        tenantId,
+        knowledgeBaseId,
+        integrationId,
+        ...(seen.size ? { externalId: { notIn: [...seen] } } : {}),
+      },
+      select: { id: true },
+    });
+    for (const { id } of stale) {
+      await this.prisma.$executeRaw`DELETE FROM document_chunks WHERE "documentId" = ${id} AND "tenantId" = ${tenantId}`;
+    }
+    if (stale.length) {
+      await this.prisma.document.deleteMany({ where: { id: { in: stale.map((s) => s.id) } } });
+    }
+
+    return { created, updated, removed: stale.length };
   }
 
   private async storeBuffer(tenantId: string, filename: string, buffer: Buffer, mimetype: string): Promise<string> {

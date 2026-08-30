@@ -11,3 +11,26 @@ export interface ExecuteActionResult {
   message: string;
   data?: unknown;
 }
+
+/** One reference document as returned by an external system's optional GET /ai/knowledge. */
+export interface DiscoveredKnowledgeDocument {
+  externalId: string;
+  title: string;
+  content: string;
+  format?: 'text' | 'markdown';
+}
+
+/** One physical location as returned by an external system's optional GET /ai/knowledge. */
+export interface DiscoveredKnowledgeLocation {
+  externalId: string;
+  name: string;
+  timezone?: string;
+  address?: string;
+  phone?: string;
+}
+
+/** Parsed GET /ai/knowledge payload. */
+export interface DiscoveredKnowledgeFeed {
+  documents: DiscoveredKnowledgeDocument[];
+  locations: DiscoveredKnowledgeLocation[];
+}

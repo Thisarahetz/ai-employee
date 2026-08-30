@@ -90,6 +90,27 @@ export class RagService {
   }
 
   /**
+   * Like search(), but across every KnowledgeBase the tenant owns — used by the
+   * Knowledge Agent, which answers from all of the tenant's knowledge (hand-authored
+   * docs + integration-synced ones) rather than a single KB. Still tenant-filtered.
+   */
+  async searchTenant(
+    tenantId: string,
+    query: string,
+    topK = 5,
+  ): Promise<{ content: string; documentId: string }[]> {
+    const { embedding } = await this.aiProviderService.embed(tenantId, query);
+    const vectorLiteral = this.toVectorLiteral(embedding);
+
+    return this.prisma.$queryRaw<{ content: string; documentId: string }[]>`
+      SELECT content, "documentId" FROM document_chunks
+      WHERE "tenantId" = ${tenantId}
+      ORDER BY embedding <=> ${vectorLiteral}::vector
+      LIMIT ${topK}
+    `;
+  }
+
+  /**
    * Extracts raw text to chunk/embed. TEXT/FAQ sources are read directly.
    * PDF/DOCX/URL are real extraction targets that need a proper
    * parser/fetcher — scaffolded as a raw-text passthrough for now so the

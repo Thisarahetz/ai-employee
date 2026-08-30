@@ -2,7 +2,12 @@
 
 import { useState } from "react";
 
-import { useDeleteIntegration, useDiscoverActions, useIntegrationActions } from "@/lib/hooks/use-integrations";
+import {
+  useDeleteIntegration,
+  useDiscoverActions,
+  useIntegrationActions,
+  useSyncIntegrationKnowledge,
+} from "@/lib/hooks/use-integrations";
 import type { Integration } from "@/lib/types";
 import { integrationStatusStyles } from "@/lib/status-styles";
 import { formatDateTime, getErrorMessage } from "@/lib/utils";
@@ -14,7 +19,10 @@ import { ErrorState } from "@/components/ui/error-state";
 
 export function IntegrationCard({ integration }: { integration: Integration }) {
   const [actionsVisible, setActionsVisible] = useState(false);
+  const [syncResult, setSyncResult] = useState<string | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
   const discoverActions = useDiscoverActions(integration.id);
+  const syncKnowledge = useSyncIntegrationKnowledge(integration.id);
   const deleteIntegration = useDeleteIntegration();
   const actionsQuery = useIntegrationActions(integration.id, actionsVisible);
 
@@ -25,11 +33,35 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
     setActionsVisible(true);
   }
 
+  async function handleSyncKnowledge() {
+    setSyncResult(null);
+    setSyncError(null);
+    try {
+      const result = await syncKnowledge.mutateAsync();
+      const docs = `Documents: ${result.created} added, ${result.updated} updated, ${result.removed} removed`;
+      const locs =
+        result.locationsCreated || result.locationsUpdated
+          ? `. Locations: ${result.locationsCreated} added, ${result.locationsUpdated} updated`
+          : "";
+      setSyncResult(`Synced from ${integration.name} — ${docs}${locs}.`);
+    } catch (err) {
+      setSyncError(getErrorMessage(err, "Could not sync knowledge from this integration."));
+    }
+  }
+
   return (
     <Card>
       <CardHeader
         actions={
           <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              isLoading={syncKnowledge.isPending}
+              onClick={handleSyncKnowledge}
+            >
+              Sync knowledge base
+            </Button>
             <Button size="sm" variant="secondary" isLoading={discoverActions.isPending} onClick={handleDiscover}>
               Discover actions
             </Button>
@@ -51,8 +83,21 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
         <CardDescription>
           {integration.type}
           {integration.baseUrl ? ` · ${integration.baseUrl}` : ""}
+          {integration.lastKnowledgeSyncAt
+            ? ` · knowledge synced ${formatDateTime(integration.lastKnowledgeSyncAt)}`
+            : ""}
         </CardDescription>
       </CardHeader>
+
+      {(syncResult || syncError) && (
+        <CardContent className="border-b border-line">
+          {syncError ? (
+            <p className="text-sm text-status-critical">{syncError}</p>
+          ) : (
+            <p className="text-sm text-ink-secondary">{syncResult}</p>
+          )}
+        </CardContent>
+      )}
 
       {(actionsVisible || discoverActions.isError) && (
         <CardContent>

@@ -103,7 +103,17 @@ export default function LocationsPage() {
               <tbody className="divide-y divide-line">
                 {locations.map((location) => (
                   <tr key={location.id} className="hover:bg-surface-page">
-                    <td className="px-5 py-3 font-medium text-ink-primary">{location.name}</td>
+                    <td className="px-5 py-3 font-medium text-ink-primary">
+                      {location.name}
+                      {location.integrationId && (
+                        <span
+                          className="ml-2 rounded bg-surface-page px-1.5 py-0.5 text-xs font-normal text-ink-secondary border border-line"
+                          title="Kept in sync from a connected integration"
+                        >
+                          Synced
+                        </span>
+                      )}
+                    </td>
                     <td className="px-5 py-3 text-ink-secondary">{formatType(location.type)}</td>
                     <td className="px-5 py-3 text-ink-secondary">{location.timezone}</td>
                     <td className="px-5 py-3">

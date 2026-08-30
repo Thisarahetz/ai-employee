@@ -3,14 +3,15 @@
 Design and usage reference for [`packages/integration-sdk`](../packages/integration-sdk)
 (owned by the integration-layer workstream) — a TypeScript/Node package that lets an
 existing Express or NestJS system become AI-Employee-compatible by calling
-`registerAction()` a few times, instead of hand-implementing the two-endpoint contract
-described in [`docs/integration-api-contract.md`](integration-api-contract.md). Read
-that doc first; this one assumes its contract as given and only covers the SDK layer on
-top of it.
+`registerAction()` (and, optionally, `registerKnowledge()`) a few times, instead of
+hand-implementing the HTTP contract described in
+[`docs/integration-api-contract.md`](integration-api-contract.md). Read that doc first;
+this one assumes its contract as given and only covers the SDK layer on top of it.
 
 This package is a convenience, not the interoperability boundary — the contract is. Any
-system in any language can implement `GET /ai/actions` / `POST /ai/execute` by hand and
-be exactly as compatible as an SDK user. See "Other-language SDKs" at the bottom.
+system in any language can implement `GET /ai/actions` / `POST /ai/execute` /
+`GET /ai/knowledge` by hand and be exactly as compatible as an SDK user. See
+"Other-language SDKs" at the bottom.
 
 ## Core concept: `registerAction()`
 
@@ -45,10 +46,49 @@ registerAction({
   is always exactly in sync with deployed code — there's no separate "publish your
   actions" step to forget.
 
+## Optional: `registerKnowledge()`
+
+Where `registerAction()` exposes things the Action Agent can *do*, `registerKnowledge()`
+exposes reference material about the business over the optional `GET /ai/knowledge`
+endpoint: **documents** the Knowledge Agent answers from (services & pricing, hours,
+policies) and, optionally, **locations** that mirror into AI Employee `Business`
+(Location) records.
+
+```ts
+// Documents only — return a bare array:
+registerKnowledge(async () => [
+  { externalId: 'services-and-pricing', title: 'Services & Pricing', format: 'markdown', content: await pricing.renderMarkdown() },
+]);
+
+// Documents + locations — return a KnowledgeFeed:
+registerKnowledge(async () => ({
+  documents: [
+    { externalId: 'services-and-pricing', title: 'Services & Pricing', format: 'markdown', content: await pricing.renderMarkdown() },
+    { externalId: 'locations-and-hours', title: 'Locations & Opening Hours', content: await locations.renderText() },
+  ],
+  locations: (await locations.all()).map((l) => ({
+    externalId: l.id, name: l.name, timezone: l.timezone, address: l.oneLineAddress, phone: l.phone,
+  })),
+}));
+```
+
+- One provider per process; call it again to replace, or `registerKnowledge(null)` to
+  clear. It runs on every `GET /ai/knowledge` request, so cache inside it if the source
+  is expensive.
+- Return the **whole** current set each call. AI Employee upserts documents on
+  `externalId` into a dedicated `"<integration> (synced)"` KnowledgeBase (pruning ones
+  you stop returning) and upserts locations on `externalId` into Location records
+  (adopting an unlinked same-named Location on first sync; never deleting).
+- Shapes are `KnowledgeDocument` / `KnowledgeLocation` / `KnowledgeFeed` /
+  `KnowledgeProvider` in `src/types.ts`, mirroring `KnowledgeDocumentDto` /
+  `KnowledgeLocationDto` in `packages/types/src/integration-contract.ts`.
+- Skip it entirely and the endpoint just returns `{ "documents": [], "locations": [] }`.
+
 ## What the SDK builds under the hood: a framework-agnostic registry
 
-Every `registerAction()` call adds to an in-memory action registry. That registry alone
-is enough to answer both endpoints:
+Every `registerAction()` call adds to an in-memory action registry (and
+`registerKnowledge()` sets a single knowledge provider alongside it). That registry
+alone is enough to answer every endpoint:
 
 - `GET /ai/actions` → serialize every registered action's `{ name, description,
   parameters }` into `DiscoverActionsResponse`.
@@ -56,6 +96,9 @@ is enough to answer both endpoints:
   `parameters` schema (rejecting with `{ success: false }` *before* calling the handler
   if validation fails — handler authors never re-implement parameter validation),
   invoke the handler, and wrap the result as `ExecuteActionResponse`.
+- `GET /ai/knowledge` → call the registered knowledge provider (if any), normalize its
+  result (a bare `KnowledgeDocument[]` or a `KnowledgeFeed`) and serve it as
+  `SyncKnowledgeResponse`; return `{ documents: [], locations: [] }` when none is set.
 
 The registry itself has no dependency on Express or NestJS — it's the adapters below
 that mount it onto a real HTTP surface, which is what keeps behavior identical

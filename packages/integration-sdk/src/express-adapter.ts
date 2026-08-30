@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { getRegisteredAction, getRegisteredActions } from './registry';
+import { getRegisteredAction, getRegisteredActions, resolveKnowledgeResponse } from './registry';
 import type { ExecuteActionResponse, ListActionsResponse } from './types';
 
 /**
- * Creates an Express router exposing the two Integration API Contract endpoints off
- * whatever base path you mount it at. Since the contract is `{baseUrl}/ai/actions` and
- * `{baseUrl}/ai/execute`, mount this at `/ai`:
+ * Creates an Express router exposing the Integration API Contract endpoints off
+ * whatever base path you mount it at. Since the contract is `{baseUrl}/ai/actions`,
+ * `{baseUrl}/ai/execute` and `{baseUrl}/ai/knowledge`, mount this at `/ai`:
  *
  *   app.use('/ai', createExpressRouter());
  *
@@ -26,6 +26,10 @@ export function createExpressRouter(): Router {
       })),
     };
     res.json(body);
+  });
+
+  router.get('/knowledge', async (_req: Request, res: Response) => {
+    res.json(await resolveKnowledgeResponse());
   });
 
   router.post('/execute', async (req: Request, res: Response) => {

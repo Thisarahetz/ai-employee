@@ -86,11 +86,19 @@ context-window query needs.
 ### Knowledge base / RAG — `KnowledgeBase`, `Document`, `DocumentChunk`
 
 `KnowledgeBase` is a named collection of `Document`s. A `Document` has a `sourceType`
-(`PDF | DOCX | TEXT | FAQ | URL`) and a processing `status`
+(`PDF | DOCX | TEXT | FAQ | URL | INTEGRATION`) and a processing `status`
 (`PENDING | PROCESSING | READY | FAILED`, with `errorMessage` on failure). Once
 processed, a `Document` is split into `DocumentChunk` rows — bounded pieces small enough
 to embed and to cheaply inject into a prompt (`tokenCount` tracked per chunk, `chunkIndex`
 preserves order for citation/debugging).
+
+`sourceType = INTEGRATION` marks a `Document` synced from an external system's
+`GET /ai/knowledge` feed (see the Integrations section below): `integrationId` points at
+the source `Integration` (cascade-deletes with it) and `externalId` is that system's
+stable id for the document, so re-syncs upsert on `(integrationId, externalId)` rather
+than piling up duplicates. These documents live in a dedicated KnowledgeBase the sync
+auto-creates and are overwritten on every sync — operators edit the source system, not
+the document.
 
 **Why `embedding` is `Unsupported("vector(1536)")`**: Prisma's schema language has no
 native vector/embedding type. The `pgvector` Postgres extension (enabled via
@@ -119,7 +127,12 @@ decision.
 
 `Integration` is one connection to one external business system (`type`:
 `STANDARD_API | REST_API | WEBHOOK | N8N`), with a `config` JSON blob holding
-endpoint/header/mapping details for `REST_API`-type integrations. `IntegrationCredential`
+endpoint/header/mapping details for `REST_API`-type integrations. `knowledgeBaseId` +
+`lastKnowledgeSyncAt` track the dedicated `KnowledgeBase` auto-created on the first
+`GET /ai/knowledge` sync (nulled, not cascaded, if that KB is deleted); the same sync's
+`locations` array upserts `Business` rows carrying `Business.integrationId` +
+`Business.externalId` (`onDelete: SetNull` — a synced Location outlives its integration).
+`IntegrationCredential`
 holds the auth secret (`type`: `API_KEY | OAUTH2 | BASIC_AUTH | BEARER_TOKEN`) as an
 AES-`encryptedPayload` — never stored or returned as plaintext; see
 `CREDENTIALS_ENCRYPTION_KEY` in `.env.example`. `IntegrationAction` is a discovered or

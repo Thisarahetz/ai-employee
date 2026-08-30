@@ -15,7 +15,7 @@ const PROVIDERS: AiProviderName[] = ["OPENAI", "ANTHROPIC", "GEMINI"];
 const AGENT_DESCRIPTIONS: Record<AgentType, string> = {
   ROUTER: "Classifies intent and hands off to the right specialist agent.",
   SUPPORT: "Handles general customer-support conversation.",
-  KNOWLEDGE: "Answers questions using the tenant's knowledge base (RAG).",
+  KNOWLEDGE: "Answers questions from every knowledge base in this workspace, synced ones included (RAG).",
   ACTION: "Executes actions against connected external systems.",
   HUMAN: "Represents a human agent — not AI-configurable.",
 };

@@ -2,9 +2,10 @@
 
 The generic contract any external business system implements so AI Employee can
 discover and execute actions against it. AI Employee has no business-specific logic
-built in ([`docs/architecture.md`](architecture.md#vision)) — this two-endpoint contract
-is the entire surface area an external system needs to expose to become
-"AI-Employee-compatible." The corresponding TypeScript types live in
+built in ([`docs/architecture.md`](architecture.md#vision)) — this small HTTP contract
+(two required endpoints, plus an optional `GET /ai/knowledge`) is the entire surface
+area an external system needs to expose to become "AI-Employee-compatible." The
+corresponding TypeScript types live in
 [`packages/types/src/integration-contract.ts`](../packages/types/src/integration-contract.ts)
 and are the source of truth for field names/shapes; this doc gives the narrative +
 worked JSON examples.
@@ -133,6 +134,87 @@ transport/auth-level failures):
 `data` is intentionally `unknown`/free-form on the response — it's whatever shape makes
 sense for that action's result and is not validated by AI Employee beyond being JSON.
 
+## `GET /ai/knowledge` — reference-data sync (optional)
+
+`GET /ai/actions` / `POST /ai/execute` let the **Action Agent** *do things*. `GET
+/ai/knowledge` is the complementary read path for the **Knowledge Agent** (see
+[`docs/multi-agent-architecture.md`](multi-agent-architecture.md#knowledge-agent)):
+it returns the reference material a customer asks *about* but that doesn't require an
+action — services & pricing, locations & opening hours, policies, FAQs. One document
+per topic (they're chunked and retrieved independently), each with a stable `externalId`.
+
+AI Employee pulls this feed when the operator clicks **"Sync knowledge base"** on the
+integration (`POST /integrations/:id/knowledge/sync`) and, on each sync:
+
+- **`documents`** → chunked + embedded into a dedicated `KnowledgeBase` auto-named
+  `"<integration> (synced)"`, **upserting each on its `externalId`** and deleting any
+  the feed no longer returns.
+- **`locations`** (optional) → mirrored into `Business` (Location) records, **upserting
+  each on its `externalId`** (adopting an existing unlinked Location with the same name
+  on the first sync). Locations dropped from the feed are **left in place, never
+  deleted** — they may already have channels and conversations attached.
+
+This endpoint is optional: a `404` is read as "this integration has no knowledge feed"
+and the sync is a no-op.
+
+**Request**: no body. Same auth as `GET /ai/actions`. Should be cheap and
+side-effect-free.
+
+**Response** (`200 OK`, shape: `SyncKnowledgeResponse`):
+
+```json
+{
+  "documents": [
+    {
+      "externalId": "services-and-pricing",
+      "title": "Services & Pricing",
+      "format": "markdown",
+      "content": "## Haircut\n\n- **Standard** — $25.00 (30 min)\n\n## Beard Trim\n\n- **Standard** — $15.00 (15 min)\n"
+    },
+    {
+      "externalId": "locations-and-hours",
+      "title": "Locations & Opening Hours",
+      "format": "text",
+      "content": "Main Salon — 123 Fifth Avenue, New York. Mon–Fri 9am–7pm, Sat 10am–5pm, closed Sunday.\nWest Coast Studio — 456 Sunset Blvd, Los Angeles. Tue–Sat 10am–8pm, closed Sun–Mon."
+    }
+  ],
+  "locations": [
+    {
+      "externalId": "loc-1",
+      "name": "Main Salon",
+      "timezone": "America/New_York",
+      "address": "123 Fifth Avenue, New York, US",
+      "phone": "+1-555-0100"
+    },
+    {
+      "externalId": "loc-2",
+      "name": "West Coast Studio",
+      "timezone": "America/Los_Angeles",
+      "address": "456 Sunset Blvd, Los Angeles, US",
+      "phone": "+1-555-0200"
+    }
+  ]
+}
+```
+
+Each `documents` entry matches `KnowledgeDocumentDto`: `externalId` (stable per-document
+id, the upsert key — keep it constant across syncs for the same logical document),
+`title` (shown in the Knowledge Base UI), `content` (the text that actually gets
+chunked, embedded and retrieved — write it for retrieval, not layout), and optional
+`format` (`"text"` | `"markdown"`, default `"text"`).
+
+Each `locations` entry matches `KnowledgeLocationDto`: `externalId` (upsert key),
+`name` (mirrored verbatim onto the Location record), and optional `timezone` (IANA),
+`address` (one line), `phone`. Include a `locations-and-hours` **document** too if you
+want the Knowledge Agent to *answer* address/hours questions — the `locations` array
+drives the Location records, not RAG retrieval.
+
+Return the *whole* current set on every call; AI Employee diffs it against what it
+synced last time. Keep document `content` self-contained and phrased the way a customer
+would ask ("A standard haircut is $25 and takes about 30 minutes") — the Knowledge
+Agent answers from these chunks verbatim-ish, so a bare price table with no labels
+retrieves poorly.
+
 ## Idempotency
 
 AI Employee generates one `Idempotency-Key` per *logical* action attempt (not per HTTP
@@ -187,10 +269,15 @@ credential (see `packages/types/src/entities.ts`) omits the payload entirely.
 4. AI Employee calls `GET /ai/actions` to populate `IntegrationAction` rows, and from
    then on the Action Agent can call `POST /ai/execute` whenever a customer's request
    maps to one of your actions.
-5. **If you're on Node/Express/NestJS**, skip steps 1–2 by using
+5. **Optionally implement `GET /ai/knowledge`** returning your reference data (services
+   & pricing, hours, policies) so the Knowledge Agent can answer questions *about* the
+   business, not just *act* on it. Another pure read; skip it and those questions fall
+   back to whatever documents the operator uploaded by hand.
+6. **If you're on Node/Express/NestJS**, skip steps 1–2 and 5 by using
    [`packages/integration-sdk`](../packages/integration-sdk) — see
    [`docs/integration-sdk.md`](integration-sdk.md) — and just call `registerAction()`
-   for each capability; the SDK exposes both endpoints for you. **Any other language**
-   (Python, PHP, Ruby, Go, ...) can implement the same two JSON endpoints directly from
-   this document with no dependency on AI Employee code at all — the contract, not any
-   SDK, is the actual interoperability boundary.
+   for each capability and `registerKnowledge()` for the reference feed; the SDK
+   exposes all three endpoints for you. **Any other language** (Python, PHP, Ruby, Go,
+   ...) can implement the same JSON endpoints directly from this document with no
+   dependency on AI Employee code at all — the contract, not any SDK, is the actual
+   interoperability boundary.

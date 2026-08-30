@@ -13,6 +13,7 @@ export const EVENT_TYPES = {
   HUMAN_HANDOFF_REQUESTED: 'human_handoff.requested',
   HUMAN_HANDOFF_COMPLETED: 'human_handoff.completed',
   INTEGRATION_CONNECTED: 'integration.connected',
+  INTEGRATION_KNOWLEDGE_SYNCED: 'integration.knowledge_synced',
 } as const;
 
 export type EventType = (typeof EVENT_TYPES)[keyof typeof EVENT_TYPES];
@@ -77,4 +78,15 @@ export interface IntegrationConnectedPayload {
   tenantId: string;
   integrationId: string;
   integrationType: string;
+}
+
+export interface IntegrationKnowledgeSyncedPayload {
+  tenantId: string;
+  integrationId: string;
+  knowledgeBaseId: string;
+  created: number;
+  updated: number;
+  removed: number;
+  locationsCreated: number;
+  locationsUpdated: number;
 }

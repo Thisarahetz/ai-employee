@@ -42,7 +42,10 @@ export default function KnowledgeBasePage() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold text-ink-primary">Knowledge Base</h1>
-          <p className="text-sm text-ink-secondary">Documents the Knowledge Agent retrieves answers from.</p>
+          <p className="text-sm text-ink-secondary">
+            Documents the Knowledge Agent retrieves answers from. It searches across every knowledge base here,
+            including ones synced from an integration.
+          </p>
         </div>
         <Button onClick={() => setIsCreateOpen((v) => !v)}>{isCreateOpen ? "Close" : "+ New knowledge base"}</Button>
       </div>

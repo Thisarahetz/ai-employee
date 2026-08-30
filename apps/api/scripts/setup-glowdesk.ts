@@ -18,28 +18,46 @@ async function bootstrap() {
 
   console.log(`Using tenant: ${tenant.name} (${tenant.id})`);
 
-  // Create GlowDesk Integration
-  const integration = await integrationService.create(tenant.id, {
-    name: 'GlowDesk',
-    type: IntegrationType.REST_API,
-    baseUrl: 'http://localhost:3141',
-    config: {},
+  // Create the GlowDesk Integration (idempotent — reuse an existing one by name)
+  let integration = await prisma.integration.findFirst({
+    where: { tenantId: tenant.id, name: 'GlowDesk' },
   });
-  console.log(`Created integration: ${integration.id}`);
+  if (integration) {
+    console.log(`Reusing existing integration: ${integration.id}`);
+  } else {
+    integration = await integrationService.create(tenant.id, {
+      name: 'GlowDesk',
+      type: IntegrationType.REST_API,
+      baseUrl: 'http://localhost:3141',
+      config: {},
+    });
+    console.log(`Created integration: ${integration.id}`);
 
-  // Add the Bearer Token Credential
-  await integrationService.addCredential(tenant.id, integration.id, {
-    type: CredentialType.BEARER_TOKEN,
-    payload: { token: 'ai-employee-test-token' }
-  });
-  console.log(`Added bearer token credential.`);
+    await integrationService.addCredential(tenant.id, integration.id, {
+      type: CredentialType.BEARER_TOKEN,
+      payload: { token: 'ai-employee-test-token' },
+    });
+    console.log('Added bearer token credential.');
+  }
 
-  // Trigger Discovery
+  // Discover actions (GET /ai/actions -> IntegrationAction rows for the Action Agent)
   try {
     const result = await integrationService.discover(tenant.id, integration.id);
-    console.log(`Discovery successful: Found ${result.discovered} actions.`);
+    console.log(`Discovery successful: found ${result.discovered} actions.`);
   } catch (err: any) {
     console.error('Discovery failed:', err.message);
+  }
+
+  // Sync knowledge (GET /ai/knowledge -> docs in the "GlowDesk (synced)" KB + Location records)
+  try {
+    const result = await integrationService.syncKnowledge(tenant.id, integration.id);
+    console.log(
+      `Knowledge sync successful: KB ${result.knowledgeBaseId} — ` +
+        `documents ${result.created} added / ${result.updated} updated / ${result.removed} removed, ` +
+        `locations ${result.locationsCreated} added / ${result.locationsUpdated} updated.`,
+    );
+  } catch (err: any) {
+    console.error('Knowledge sync failed:', err.message);
   }
 
   await app.close();

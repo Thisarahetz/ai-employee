@@ -90,7 +90,7 @@ export const MessageContentType = {
 } as const;
 export type MessageContentType = (typeof MessageContentType)[keyof typeof MessageContentType];
 
-export const DocumentSourceType = { PDF: 'PDF', DOCX: 'DOCX', TEXT: 'TEXT', FAQ: 'FAQ', URL: 'URL' } as const;
+export const DocumentSourceType = { PDF: 'PDF', DOCX: 'DOCX', TEXT: 'TEXT', FAQ: 'FAQ', URL: 'URL', INTEGRATION: 'INTEGRATION' } as const;
 export type DocumentSourceType = (typeof DocumentSourceType)[keyof typeof DocumentSourceType];
 
 export const DocumentStatus = { PENDING: 'PENDING', PROCESSING: 'PROCESSING', READY: 'READY', FAILED: 'FAILED' } as const;
@@ -169,6 +169,10 @@ export interface Business {
   type: BusinessType;
   timezone: string;
   settings: Record<string, unknown>;
+  /** Set when this Location was mirrored from an integration's `GET /ai/knowledge` locations feed. */
+  integrationId?: string | null;
+  /** The source system's stable id for this location, used to upsert on re-sync. */
+  externalId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -296,6 +300,10 @@ export interface Document {
   fileUrl?: string | null;
   status: DocumentStatus;
   errorMessage?: string | null;
+  /** Set when `sourceType` is `INTEGRATION`: the Integration this document was synced from. */
+  integrationId?: string | null;
+  /** Stable per-integration identifier for the source record, used to upsert on re-sync. */
+  externalId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -333,6 +341,10 @@ export interface Integration {
   /** REST_API type: endpoint/header/auth/request-response mapping config. */
   config: Record<string, unknown>;
   status: IntegrationStatus;
+  /** Dedicated KnowledgeBase auto-created to hold this integration's `GET /ai/knowledge` sync output. */
+  knowledgeBaseId?: string | null;
+  /** When the operator last ran a knowledge sync for this integration. */
+  lastKnowledgeSyncAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
