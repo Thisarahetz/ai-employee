@@ -54,6 +54,7 @@ services:
       # this way) fail with "access to env vars denied". Allow it, and pass the
       # vars the example workflows expect through to the container.
       N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      N8N_RUNNERS_TASK_ENV_ALLOW_LIST: "*"
       CRM_BASE_URL: ${CRM_BASE_URL:-http://host.docker.internal:3999}
       SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
     ports:

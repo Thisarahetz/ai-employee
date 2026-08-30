@@ -51,6 +51,9 @@ export const WIDGET_JS = `(function () {
     '.aiemp-head{padding:14px 16px;color:#fff;font-weight:600;font-size:15px}' +
     '.aiemp-body{flex:1;overflow-y:auto;padding:12px;background:#f7f7f5}' +
     '.aiemp-msg{margin:6px 0;padding:8px 12px;border-radius:12px;font-size:14px;line-height:1.4;max-width:80%;white-space:pre-wrap;word-wrap:break-word}' +
+    '.aiemp-msg strong,.aiemp-msg b{font-weight:700}' +
+    '.aiemp-msg em,.aiemp-msg i{font-style:italic}' +
+    '.aiemp-msg code{background:rgba(0,0,0,.08);padding:1px 4px;border-radius:4px;font-family:monospace;font-size:12px}' +
     '.aiemp-msg.c{color:#fff;margin-left:auto;border-bottom-right-radius:4px}' +
     '.aiemp-msg.a{background:#fff;color:#111;border:1px solid #e1e0d9;border-bottom-left-radius:4px}' +
     '.aiemp-typing{margin:6px 0;padding:10px 12px;background:#fff;border:1px solid #e1e0d9;border-radius:12px;border-bottom-left-radius:4px;width:-moz-fit-content;width:fit-content}' +
@@ -87,6 +90,22 @@ export const WIDGET_JS = `(function () {
   var form = panel.querySelector('.aiemp-foot');
   var input = panel.querySelector('.aiemp-foot input');
 
+  function formatMarkdown(text) {
+    if (!text) return '';
+    var html = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+    html = html.replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>');
+    html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
+    html = html.replace(/\\*([^\\*\\\\n]+?)\\*/g, '<em>$1</em>');
+    html = html.replace(/_([^\\\\n_]+?)_/g, '<em>$1</em>');
+    html = html.replace(new RegExp(String.fromCharCode(96) + '([^' + String.fromCharCode(96) + '\\\\n]+?)' + String.fromCharCode(96), 'g'), '<code>$1</code>');
+    return html;
+  }
+
   function applyCfg() {
     btn.style.background = cfg.accentColor;
     head.style.background = cfg.accentColor;
@@ -104,7 +123,7 @@ export const WIDGET_JS = `(function () {
     var el = document.createElement('div');
     el.className = 'aiemp-msg ' + (mine ? 'c' : 'a');
     if (mine) el.style.background = cfg.accentColor;
-    el.textContent = text;
+    el.innerHTML = formatMarkdown(text);
     // Keep the typing bubble (if shown) as the last child.
     if (typingEl) body.insertBefore(el, typingEl);
     else body.appendChild(el);

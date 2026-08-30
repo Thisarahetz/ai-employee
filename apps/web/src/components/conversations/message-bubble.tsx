@@ -8,6 +8,28 @@ const SENDER_LABEL: Record<Message["sender"], string> = {
   SYSTEM: "System",
 };
 
+function renderFormattedContent(text: string) {
+  return text.split("\n").map((line, lineIdx) => {
+    const parts = line.split(/(\*\*.*?\*\*|__.*?__|`.*?`|\*[^\*\n]+?\*|_[^_\n]+?_)/g);
+    return (
+      <span key={lineIdx} className="block min-h-[1.25rem]">
+        {parts.map((part, partIdx) => {
+          if ((part.startsWith("**") && part.endsWith("**")) || (part.startsWith("__") && part.endsWith("__"))) {
+            return <strong key={partIdx} className="font-semibold">{part.slice(2, -2)}</strong>;
+          }
+          if (part.startsWith("`") && part.endsWith("`")) {
+            return <code key={partIdx} className="rounded bg-black/10 px-1 py-0.5 font-mono text-xs">{part.slice(1, -1)}</code>;
+          }
+          if ((part.startsWith("*") && part.endsWith("*")) || (part.startsWith("_") && part.endsWith("_"))) {
+            return <em key={partIdx} className="italic">{part.slice(1, -1)}</em>;
+          }
+          return part;
+        })}
+      </span>
+    );
+  });
+}
+
 export function MessageBubble({ message }: { message: Message }) {
   if (message.sender === "SYSTEM") {
     return (
@@ -30,7 +52,7 @@ export function MessageBubble({ message }: { message: Message }) {
           isHuman && "rounded-tr-sm bg-[#4a3aa7] text-white",
         )}
       >
-        <p className="whitespace-pre-wrap break-words">{message.content}</p>
+        <div className="whitespace-pre-wrap break-words">{renderFormattedContent(message.content)}</div>
       </div>
       <span className="px-1 text-[11px] text-ink-muted">
         {SENDER_LABEL[message.sender]} · {formatDateTime(message.createdAt)}
