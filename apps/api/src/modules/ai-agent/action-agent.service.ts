@@ -253,6 +253,38 @@ export class ActionAgentService {
           },
           'ai-agent',
         );
+
+        if (call.name === 'create_appointment' && execResult.success) {
+          const bookingData = (execResult.data ?? {}) as Record<string, unknown>;
+          const conv = await this.prisma.conversation.findUnique({
+            where: { id: conversationId },
+            include: { customer: true },
+          });
+          const args = (call.arguments ?? {}) as Record<string, unknown>;
+
+          await this.eventService.emit(
+            tenantId,
+            EVENT_TYPES.APPOINTMENT_CREATED,
+            {
+              tenantId,
+              conversationId,
+              customerId: conv?.customerId ?? undefined,
+              appointmentId: bookingData.appointmentId,
+              clientName:
+                bookingData.clientName ?? `${args.customerFirstName} ${args.customerLastName || ''}`.trim(),
+              service: bookingData.service,
+              startTime: bookingData.startTime ?? args.startTime,
+              localTime: bookingData.localTime,
+              timezone: bookingData.timezone,
+              price: bookingData.price,
+              customerPhone: args.customerPhone ?? conv?.customer?.phone ?? undefined,
+              customerEmail: args.customerEmail ?? conv?.customer?.email ?? undefined,
+              customerFirstName: args.customerFirstName,
+              customerLastName: args.customerLastName,
+            },
+            'ai-agent',
+          );
+        }
       } catch (err) {
         const message = (err as Error).message ?? 'Action execution failed';
         this.logger.error(`Action ${call.name} failed for tenant=${tenantId}: ${message}`);

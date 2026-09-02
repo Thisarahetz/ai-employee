@@ -290,4 +290,9 @@ export class IntegrationService {
       orderBy: { createdAt: 'desc' },
     });
   }
+
+  async execute(tenantId: string, integrationId: string, action: string, data: Record<string, unknown>) {
+    await this.findOne(tenantId, integrationId);
+    return this.externalActionService.executeAction(integrationId, action, data);
+  }
 }

@@ -66,4 +66,13 @@ export class IntegrationController {
   listSyncedKnowledge(@CurrentTenant() tenant: TenantContext, @Param('id') id: string) {
     return this.integrationService.listSyncedKnowledge(tenant.tenantId, id);
   }
+
+  @Post(':id/execute')
+  execute(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('id') id: string,
+    @Body() body: { action: string; data: Record<string, unknown> },
+  ) {
+    return this.integrationService.execute(tenant.tenantId, id, body.action, body.data ?? {});
+  }
 }
