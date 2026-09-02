@@ -3,6 +3,7 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { AgentType, HandoffReason } from '@prisma/client';
 import { EVENT_TYPES } from '../../events/event-types.const';
 import type { MessageReceivedPayload } from '../../events/event-types.const';
+import { PrismaService } from '../../prisma/prisma.service';
 import { RouterAgentService } from './router-agent.service';
 import { SupportAgentService } from './support-agent.service';
 import { KnowledgeAgentService } from './knowledge-agent.service';
@@ -32,6 +33,7 @@ export class AgentOrchestratorService {
   private readonly logger = new Logger(AgentOrchestratorService.name);
 
   constructor(
+    private readonly prisma: PrismaService,
     private readonly routerAgentService: RouterAgentService,
     private readonly supportAgentService: SupportAgentService,
     private readonly knowledgeAgentService: KnowledgeAgentService,
@@ -45,7 +47,17 @@ export class AgentOrchestratorService {
     const { tenantId, conversationId, content } = payload;
 
     try {
-      const route = await this.routerAgentService.route(tenantId, conversationId, content);
+      const conversation = await this.prisma.conversation.findFirst({
+        where: { id: conversationId, tenantId },
+        select: { currentAgent: true },
+      });
+
+      const route = await this.routerAgentService.route(
+        tenantId,
+        conversationId,
+        content,
+        conversation?.currentAgent,
+      );
 
       if (route.agent === 'human_handoff' || route.confidence < LOW_CONFIDENCE_THRESHOLD) {
         await this.humanHandoffService.create(
@@ -80,6 +92,13 @@ export class AgentOrchestratorService {
           agentType = AgentType.SUPPORT;
           break;
       }
+
+      // Remember which specialist handled this turn so the Router can route
+      // follow-up messages ("yes", a bare phone number, …) back to it.
+      await this.prisma.conversation.update({
+        where: { id: conversationId },
+        data: { currentAgent: agentType },
+      });
 
       await this.responseService.sendResponse({ tenantId, conversationId, content: replyContent, agentType });
     } catch (err) {

@@ -15,6 +15,8 @@ import { AgentOrchestratorService } from './agent-orchestrator.service';
 import { AiAgentConfigService } from './ai-agent-config.service';
 import { AiAgentController } from './ai-agent.controller';
 
+import { TimeContextService } from './time-context.service';
+
 @Module({
   imports: [
     PrismaModule,
@@ -34,7 +36,15 @@ import { AiAgentController } from './ai-agent.controller';
     ActionAgentService,
     AgentOrchestratorService,
     AiAgentConfigService,
+    TimeContextService,
   ],
-  exports: [RouterAgentService, SupportAgentService, KnowledgeAgentService, ActionAgentService, AiAgentConfigService],
+  exports: [
+    RouterAgentService,
+    SupportAgentService,
+    KnowledgeAgentService,
+    ActionAgentService,
+    AiAgentConfigService,
+    TimeContextService,
+  ],
 })
 export class AiAgentModule {}

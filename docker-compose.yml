@@ -48,7 +48,7 @@ services:
       N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD:-change-me-n8n-password}
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-change-me-n8n-encryption-key}
       DB_TYPE: sqlite
-      GENERIC_TIMEZONE: UTC
+      GENERIC_TIMEZONE: ${GENERIC_TIMEZONE:-Asia/Colombo}
       # n8n 2.x blocks `$env.*` in expressions / Code nodes by default, which
       # makes the example workflows (they read CRM_BASE_URL / SLACK_WEBHOOK_URL
       # this way) fail with "access to env vars denied". Allow it, and pass the

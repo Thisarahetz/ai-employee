@@ -52,6 +52,7 @@ async function seedTenantWithOwner(params: {
   ownerFirstName: string;
   ownerLastName: string;
   platformRole: 'NONE' | 'SUPER_ADMIN';
+  timezone?: string;
   /**
    * Locations (branches/sites) under this one workspace. Defaults to a single
    * location named after the tenant — the same default `POST /auth/signup`
@@ -61,6 +62,7 @@ async function seedTenantWithOwner(params: {
   locations?: string[];
 }) {
   const passwordHash = await bcrypt.hash(DEV_PASSWORD, BCRYPT_ROUNDS);
+  const timezone = params.timezone || process.env.DEFAULT_TIMEZONE || 'Asia/Colombo';
 
   const user = await prisma.user.upsert({
     where: { email: params.ownerEmail },
@@ -85,7 +87,14 @@ async function seedTenantWithOwner(params: {
       where: { tenantId: tenant.id, name: locationName },
     });
     if (!existing) {
-      await prisma.business.create({ data: { tenantId: tenant.id, name: locationName } });
+      await prisma.business.create({
+        data: { tenantId: tenant.id, name: locationName, timezone },
+      });
+    } else if (existing.timezone === 'UTC' || !existing.timezone) {
+      await prisma.business.update({
+        where: { id: existing.id },
+        data: { timezone },
+      });
     }
   }
 

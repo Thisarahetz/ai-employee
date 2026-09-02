@@ -247,12 +247,15 @@ export class IntegrationService {
         syncedFromIntegrationId: integrationId,
       };
 
+      const defaultTimezone =
+        process.env.DEFAULT_TIMEZONE || process.env.GENERIC_TIMEZONE || 'Asia/Colombo';
+
       if (existing) {
         await this.prisma.business.update({
           where: { id: existing.id },
           data: {
             name,
-            timezone: loc.timezone || existing.timezone,
+            timezone: loc.timezone || existing.timezone || defaultTimezone,
             integrationId,
             externalId: loc.externalId,
             settings: {
@@ -268,7 +271,7 @@ export class IntegrationService {
             tenantId,
             name,
             type: inheritedType,
-            timezone: loc.timezone || 'UTC',
+            timezone: loc.timezone || defaultTimezone,
             integrationId,
             externalId: loc.externalId,
             settings: syncedSettings as Prisma.InputJsonValue,

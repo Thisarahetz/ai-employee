@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AgentType } from '@prisma/client';
 import { AiProviderService } from '../ai-provider/ai-provider.service';
+import { MessageService } from '../message/message.service';
+import { TimeContextService } from './time-context.service';
 
 export type RoutedAgent = 'support_agent' | 'knowledge_agent' | 'action_agent' | 'human_handoff';
 
@@ -11,7 +13,8 @@ export interface RouteResult {
 }
 
 const ROUTER_SYSTEM_PROMPT = `You are an intent classification router for a customer support and booking system.
-Classify the customer's latest message into exactly one intent and map it to the corresponding target agent:
+Classify the customer's LATEST message into exactly one intent and map it to the corresponding target agent.
+Recent conversation turns are provided before the latest message — use them only to interpret the latest message, not to reclassify earlier ones.
 
 1. "support" -> "support_agent"
    - General greetings (e.g., "hi", "hello", "hey", "good morning", "how are you"), pleasantries, chit-chat, ambiguous messages, or general customer support requests.
@@ -27,29 +30,61 @@ Classify the customer's latest message into exactly one intent and map it to the
 4. "human_handoff" -> "human_handoff"
    - ONLY when the customer explicitly asks to talk to a human, real person, agent, representative, or manager (e.g. "talk to a human", "connect me to a person", "agent please").
 
+CONTINUITY RULE: If the latest message only makes sense as a continuation of what the assistant was just doing — a bare confirmation ("yes", "ok", "sure", "go ahead"), or just a piece of data the assistant asked for (a name, phone number, email address, date, or time) — classify it with the intent of that in-progress task. An in-progress booking stays "action". When a specific "previous agent" is given below, prefer routing such continuation messages back to that same agent unless the customer has clearly changed the subject.
+
 Respond with ONLY a JSON object, no prose, no markdown fences, in exactly this shape:
 {"intent": "<support|knowledge|action|booking|customer_lookup|human_handoff>", "agent": "<support_agent|knowledge_agent|action_agent|human_handoff>", "confidence": <number between 0 and 1>}`;
 
+/** How an in-flight AgentType maps into the router's own agent vocabulary. */
+const PREVIOUS_AGENT_LABEL: Partial<Record<AgentType, string>> = {
+  [AgentType.SUPPORT]: 'support_agent',
+  [AgentType.KNOWLEDGE]: 'knowledge_agent',
+  [AgentType.ACTION]: 'action_agent',
+};
+
 /**
  * RouterAgentService — the cheapest, smallest call in the whole pipeline,
- * and the one that runs on every single inbound message. Deliberately given
- * ONLY the latest customer message: no conversation history, no knowledge
- * base, no tool definitions. Its sole job is picking which specialized agent
- * handles this turn — anything more here is wasted tokens paid on every
- * message, including ones that never need it.
+ * and the one that runs on every single inbound message. It gets the latest
+ * customer message plus a handful of recent turns (needed to route
+ * continuation messages like "yes" or a bare phone number to the agent that
+ * was mid-task) and, when known, which agent handled the previous turn. It is
+ * still deliberately denied the knowledge base and tool definitions — its
+ * sole job is picking which specialized agent handles this turn.
  */
 @Injectable()
 export class RouterAgentService {
   private readonly logger = new Logger(RouterAgentService.name);
 
-  constructor(private readonly aiProviderService: AiProviderService) {}
+  constructor(
+    private readonly aiProviderService: AiProviderService,
+    private readonly messageService: MessageService,
+    private readonly timeContextService: TimeContextService,
+  ) {}
 
-  async route(tenantId: string, conversationId: string, latestMessage: string): Promise<RouteResult> {
+  async route(
+    tenantId: string,
+    conversationId: string,
+    latestMessage: string,
+    previousAgent?: AgentType | null,
+  ): Promise<RouteResult> {
+    const [history, timeContext] = await Promise.all([
+      this.messageService.getRecentHistory(tenantId, conversationId, 6, latestMessage),
+      this.timeContextService.getTimeContext(tenantId, conversationId),
+    ]);
+
+    const previousAgentLabel = previousAgent ? PREVIOUS_AGENT_LABEL[previousAgent] : undefined;
+    let systemPrompt = previousAgentLabel
+      ? `${ROUTER_SYSTEM_PROMPT}\n\nPrevious agent: ${previousAgentLabel}`
+      : ROUTER_SYSTEM_PROMPT;
+
+    systemPrompt += `\n\nCurrent Date & Time (${timeContext.timezone}): ${timeContext.formatted}`;
+
     const result = await this.aiProviderService.complete(
       tenantId,
       AgentType.ROUTER,
       [
-        { role: 'system', content: ROUTER_SYSTEM_PROMPT },
+        { role: 'system', content: systemPrompt },
+        ...history,
         { role: 'user', content: latestMessage },
       ],
       { conversationId, responseFormat: 'json' },

@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { AgentType, MessageSender } from '@prisma/client';
+import { AgentType } from '@prisma/client';
 import { AiProviderService } from '../ai-provider/ai-provider.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MessageService } from '../message/message.service';
+import { TimeContextService } from './time-context.service';
 
 const DEFAULT_SUPPORT_PROMPT =
   'You are a friendly, concise customer support agent. Answer the customer directly using the recent conversation for context. Keep responses short and helpful.';
@@ -20,33 +21,20 @@ export class SupportAgentService {
     private readonly aiProviderService: AiProviderService,
     private readonly messageService: MessageService,
     private readonly prisma: PrismaService,
+    private readonly timeContextService: TimeContextService,
   ) {}
 
   async respond(tenantId: string, conversationId: string, latestMessage: string): Promise<string> {
-    const [recentMessages, aiAgent] = await Promise.all([
-      this.messageService.getRecentMessages(tenantId, conversationId, 10),
+    const [history, aiAgent, timeContext] = await Promise.all([
+      this.messageService.getRecentHistory(tenantId, conversationId, 10, latestMessage),
       this.prisma.aiAgent.findUnique({
         where: { tenantId_type: { tenantId, type: AgentType.SUPPORT } },
       }),
+      this.timeContextService.getTimeContext(tenantId, conversationId),
     ]);
 
-    const systemPrompt = aiAgent?.systemPrompt?.trim() || DEFAULT_SUPPORT_PROMPT;
-
-    // getRecentMessages returns newest-first (descending createdAt).
-    // Reverse to chronological order (oldest-first) for conversation context.
-    const chronological = [...recentMessages].reverse();
-
-    // The just-persisted inbound message is likely already the last entry in
-    // chronological order — drop it if so, since we re-add `latestMessage` as
-    // the final turn below (avoids sending duplicate customer turns).
-    const history = chronological
-      .filter((m, idx) => !(idx === chronological.length - 1 && m.content === latestMessage))
-      .map((m) => ({
-        // HUMAN_AGENT/SYSTEM turns are folded into 'assistant' for simplicity —
-        // this is a scaffold, not a full role-fidelity transcript replay.
-        role: (m.sender === MessageSender.CUSTOMER ? 'user' : 'assistant') as 'user' | 'assistant',
-        content: m.content,
-      }));
+    const persona = aiAgent?.systemPrompt?.trim() || DEFAULT_SUPPORT_PROMPT;
+    const systemPrompt = `${persona}\n\nCurrent Date & Time in business timezone (${timeContext.timezone}): ${timeContext.formatted}.`;
 
     const result = await this.aiProviderService.complete(
       tenantId,
@@ -58,3 +46,4 @@ export class SupportAgentService {
     return result.content;
   }
 }
+
