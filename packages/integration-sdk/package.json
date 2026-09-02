@@ -1,15 +1,42 @@
 {
-  "name": "@ai-employee/integration-sdk",
+  "name": "ai-employee-integration-sdk",
   "version": "0.1.0",
   "private": false,
-  "description": "SDK for external business systems (salon, hotel, clinic, e-commerce, CRM, ...) to become AI-Employee-compatible: register actions once via registerAction() and auto-expose the GET /ai/actions + POST /ai/execute Integration API Contract via an Express or NestJS adapter.",
-  "license": "UNLICENSED",
+  "description": "Official TypeScript/Node.js SDK to connect external business systems (salons, clinics, hotels, e-commerce, CRM, ERP, etc.) to the AI Employee platform via the Integration API Contract.",
+  "license": "MIT",
+  "author": "AI Employee Platform Contributors",
+  "homepage": "https://github.com/davinlabs/ai-employee#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/davinlabs/ai-employee.git",
+    "directory": "packages/integration-sdk"
+  },
+  "bugs": {
+    "url": "https://github.com/davinlabs/ai-employee/issues"
+  },
+  "keywords": [
+    "ai",
+    "ai-employee",
+    "sdk",
+    "integration",
+    "express",
+    "nestjs",
+    "fastify",
+    "api-contract",
+    "automation",
+    "agentic-ai",
+    "tool-calling"
+  ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -22,6 +49,18 @@
     "./nestjs-adapter": {
       "types": "./dist/nestjs-adapter.d.ts",
       "default": "./dist/nestjs-adapter.js"
+    },
+    "./validation": {
+      "types": "./dist/validation.d.ts",
+      "default": "./dist/validation.js"
+    },
+    "./idempotency": {
+      "types": "./dist/idempotency.d.ts",
+      "default": "./dist/idempotency.js"
+    },
+    "./registry": {
+      "types": "./dist/registry.d.ts",
+      "default": "./dist/registry.js"
     }
   },
   "scripts": {
@@ -29,11 +68,12 @@
     "dev": "tsc -p tsconfig.json --watch",
     "lint": "echo \"(no lint configured for integration-sdk)\"",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "echo \"(no tests yet)\"",
-    "clean": "rm -rf dist"
+    "test": "node --test test/sdk.test.js",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run build && npm run test"
   },
   "peerDependencies": {
-    "express": "^4.19.0",
+    "express": "^4.19.0 || ^5.0.0",
     "@nestjs/common": "^10.0.0",
     "@nestjs/core": "^10.0.0"
   },
@@ -52,6 +92,7 @@
     "@nestjs/common": "^10.4.4",
     "@nestjs/core": "^10.4.4",
     "@types/express": "^4.17.21",
+    "@types/node": "^20.16.5",
     "express": "^4.19.2",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",

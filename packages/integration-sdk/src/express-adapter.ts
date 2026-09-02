@@ -1,37 +1,85 @@
 import { Router } from 'express';
-import type { Request, Response } from 'express';
-import { getRegisteredAction, getRegisteredActions, resolveKnowledgeResponse } from './registry';
-import type { ExecuteActionResponse, ListActionsResponse } from './types';
+import type { Request, Response, NextFunction } from 'express';
+import { MemoryIdempotencyStore } from './idempotency';
+import {
+  checkAuth,
+  executeRegisteredAction,
+  listRegisteredActionsResponse,
+  resolveKnowledgeResponse,
+} from './registry';
+import type {
+  ExecutionContext,
+  ExecuteActionRequest,
+  ExecuteActionResponse,
+  ExpressAdapterOptions,
+} from './types';
 
 /**
  * Creates an Express router exposing the Integration API Contract endpoints off
- * whatever base path you mount it at. Since the contract is `{baseUrl}/ai/actions`,
- * `{baseUrl}/ai/execute` and `{baseUrl}/ai/knowledge`, mount this at `/ai`:
+ * whatever base path you mount it at.
  *
- *   app.use('/ai', createExpressRouter());
+ * Mount at `/ai`:
+ * ```ts
+ * import express from 'express';
+ * import { createExpressRouter } from '@ai-employee/integration-sdk/express-adapter';
  *
- * Both routes always resolve with HTTP 200 — success/failure is communicated via the
- * `success` flag in the JSON body, per the contract's response shape, so a well-behaved
- * AI Employee client never has to special-case HTTP status codes for business failures.
+ * const app = express();
+ * app.use(express.json());
+ * app.use('/ai', createExpressRouter({
+ *   apiKey: process.env.AI_EMPLOYEE_API_KEY,
+ * }));
+ * ```
+ *
+ * Exposes:
+ * - `GET /ai/actions`
+ * - `GET /ai/knowledge`
+ * - `POST /ai/execute`
  */
-export function createExpressRouter(): Router {
+export function createExpressRouter(options: ExpressAdapterOptions = {}): Router {
   const router = Router();
 
+  // Configure idempotency store unless explicitly disabled
+  const idempotencyStore = options.disableIdempotency
+    ? undefined
+    : options.idempotencyStore || new MemoryIdempotencyStore({
+        defaultTtlSeconds: options.idempotencyTtlSeconds,
+      });
+
+  // Authentication middleware
+  const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const isAuthorized = await checkAuth(options, req);
+      if (!isAuthorized) {
+        res.status(401).json({ success: false, message: 'Unauthorized' });
+        return;
+      }
+      next();
+    } catch (error) {
+      res.status(401).json({ success: false, message: 'Authentication failed' });
+    }
+  };
+
+  router.use(authMiddleware);
+
+  /**
+   * GET /actions
+   * Returns list of registered actions and parameter schemas for discovery.
+   */
   router.get('/actions', (_req: Request, res: Response) => {
     try {
-      const body: ListActionsResponse = {
-        actions: getRegisteredActions().map(({ name, description, parameters }) => ({
-          name,
-          description,
-          parameters,
-        })),
-      };
-      res.json(body);
+      res.json(listRegisteredActionsResponse());
     } catch (error) {
-      res.status(500).json({ actions: [], error: error instanceof Error ? error.message : String(error) });
+      res.status(500).json({
+        actions: [],
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   });
 
+  /**
+   * GET /knowledge
+   * Returns business documents & locations for AI RAG.
+   */
   router.get('/knowledge', async (_req: Request, res: Response) => {
     try {
       res.json(await resolveKnowledgeResponse());
@@ -40,31 +88,60 @@ export function createExpressRouter(): Router {
     }
   });
 
+  /**
+   * POST /execute
+   * Executes a registered action with parameter validation and optional idempotency deduplication.
+   */
   router.post('/execute', async (req: Request, res: Response) => {
-    const { action, data } = (req.body ?? {}) as { action?: string; data?: Record<string, unknown> };
-    const definition = typeof action === 'string' ? getRegisteredAction(action) : undefined;
+    const body = (req.body ?? {}) as ExecuteActionRequest;
+    const actionName = body?.action;
 
-    if (!definition) {
-      const body: ExecuteActionResponse = { success: false, message: `Unknown action "${String(action)}"` };
-      res.json(body);
+    if (!actionName || typeof actionName !== 'string') {
+      const resp: ExecuteActionResponse = {
+        success: false,
+        message: 'Missing or invalid "action" field in request body',
+      };
+      res.json(resp);
       return;
     }
 
-    try {
-      const result = await definition.handler(data ?? {});
-      const body: ExecuteActionResponse = {
-        success: true,
-        message: `${action} executed successfully`,
-        data: result,
-      };
-      res.json(body);
-    } catch (error) {
-      const body: ExecuteActionResponse = {
-        success: false,
-        message: error instanceof Error ? error.message : String(error),
-      };
-      res.json(body);
+    const idempotencyKey =
+      (req.headers['idempotency-key'] as string) ||
+      (req.headers['Idempotency-Key'] as string) ||
+      (req.headers['x-idempotency-key'] as string) ||
+      undefined;
+
+    // Check idempotency cache if key is present
+    if (idempotencyStore && idempotencyKey) {
+      try {
+        const cached = await idempotencyStore.get(idempotencyKey);
+        if (cached) {
+          res.json(cached);
+          return;
+        }
+      } catch (e) {
+        // Ignore store read failures, continue with execution
+      }
     }
+
+    const context: ExecutionContext = {
+      idempotencyKey,
+      headers: req.headers,
+      rawRequest: req,
+    };
+
+    const response = await executeRegisteredAction(actionName, body.data ?? {}, context);
+
+    // Save to idempotency store if execution succeeded and key provided
+    if (idempotencyStore && idempotencyKey && response.success) {
+      try {
+        await idempotencyStore.set(idempotencyKey, response, options.idempotencyTtlSeconds);
+      } catch (e) {
+        // Ignore store write failures
+      }
+    }
+
+    res.json(response);
   });
 
   return router;

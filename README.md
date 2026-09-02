@@ -65,8 +65,9 @@ See `docs/architecture.md#monorepo-layout`.
 - [`docs/database-schema.md`](docs/database-schema.md)
 - [`docs/multi-agent-architecture.md`](docs/multi-agent-architecture.md)
 - [`docs/token-optimization-strategy.md`](docs/token-optimization-strategy.md)
-- [`docs/integration-api-contract.md`](docs/integration-api-contract.md)
 - [`docs/integration-sdk.md`](docs/integration-sdk.md)
+- [`packages/integration-sdk`](packages/integration-sdk/README.md) — Official `ai-employee-integration-sdk` NPM package & documentation
+- [`docs/npm-publishing-guide.md`](docs/npm-publishing-guide.md) — NPM package release, CI/CD, and publishing guide
 - [`docs/n8n-architecture.md`](docs/n8n-architecture.md)
 - [`docs/production-and-integration-guide.md`](docs/production-and-integration-guide.md) — production setup, GlowDesk quickstart & fault-isolation guarantees
 - [`docs/mvp-implementation-plan.md`](docs/mvp-implementation-plan.md)

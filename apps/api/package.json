@@ -20,7 +20,7 @@
   "dependencies": {
     "@ai-employee/ai-core": "workspace:*",
     "@ai-employee/channel-sdk": "workspace:*",
-    "@ai-employee/integration-sdk": "workspace:*",
+    "ai-employee-integration-sdk": "workspace:*",
     "@ai-employee/shared": "workspace:*",
     "@ai-employee/types": "workspace:*",
     "@anthropic-ai/sdk": "^0.27.3",
