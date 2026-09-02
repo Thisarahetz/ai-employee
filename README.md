@@ -68,4 +68,5 @@ See `docs/architecture.md#monorepo-layout`.
 - [`docs/integration-api-contract.md`](docs/integration-api-contract.md)
 - [`docs/integration-sdk.md`](docs/integration-sdk.md)
 - [`docs/n8n-architecture.md`](docs/n8n-architecture.md)
+- [`docs/production-and-integration-guide.md`](docs/production-and-integration-guide.md) — production setup, GlowDesk quickstart & fault-isolation guarantees
 - [`docs/mvp-implementation-plan.md`](docs/mvp-implementation-plan.md)

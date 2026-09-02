@@ -151,12 +151,18 @@ export const WIDGET_JS = `(function () {
     }
   }
 
+  var consecutiveErrors = 0;
+
   function poll() {
     var url = base + '/messages?sessionId=' + encodeURIComponent(sessionId);
     if (lastAfter) url += '&after=' + encodeURIComponent(lastAfter);
     fetch(url)
-      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
       .then(function (data) {
+        consecutiveErrors = 0;
         if (!data || !data.messages) return;
         var gotReply = false;
         data.messages.forEach(function (m) {
@@ -166,7 +172,14 @@ export const WIDGET_JS = `(function () {
         });
         if (gotReply) hideTyping();
       })
-      .catch(function () {});
+      .catch(function () {
+        consecutiveErrors++;
+        // If server is unreachable, slow down polling to avoid slamming the network
+        if (consecutiveErrors > 5 && pollTimer) {
+          clearInterval(pollTimer);
+          pollTimer = setInterval(poll, 10000);
+        }
+      });
   }
 
   function startPolling() {
@@ -182,20 +195,26 @@ export const WIDGET_JS = `(function () {
     input.value = '';
     var tempId = 'temp_' + Date.now();
     addMsg(text, true, tempId);
+    showTyping();
     fetch(base + '/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sessionId: sessionId, message: text })
     })
-      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
       .then(function (res) {
         if (res && res.messageId) {
           seen[res.messageId] = true;
         }
-        showTyping();
         startPolling();
       })
-      .catch(function () {});
+      .catch(function () {
+        hideTyping();
+        addMsg('⚠️ Chat assistant is currently offline. Please try again shortly or contact support directly.', false);
+      });
   });
 
   btn.addEventListener('click', function () {

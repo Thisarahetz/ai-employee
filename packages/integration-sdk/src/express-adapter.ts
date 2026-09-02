@@ -18,18 +18,26 @@ export function createExpressRouter(): Router {
   const router = Router();
 
   router.get('/actions', (_req: Request, res: Response) => {
-    const body: ListActionsResponse = {
-      actions: getRegisteredActions().map(({ name, description, parameters }) => ({
-        name,
-        description,
-        parameters,
-      })),
-    };
-    res.json(body);
+    try {
+      const body: ListActionsResponse = {
+        actions: getRegisteredActions().map(({ name, description, parameters }) => ({
+          name,
+          description,
+          parameters,
+        })),
+      };
+      res.json(body);
+    } catch (error) {
+      res.status(500).json({ actions: [], error: error instanceof Error ? error.message : String(error) });
+    }
   });
 
   router.get('/knowledge', async (_req: Request, res: Response) => {
-    res.json(await resolveKnowledgeResponse());
+    try {
+      res.json(await resolveKnowledgeResponse());
+    } catch (error) {
+      res.json({ documents: [], locations: [] });
+    }
   });
 
   router.post('/execute', async (req: Request, res: Response) => {

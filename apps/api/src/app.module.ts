@@ -28,6 +28,7 @@ import { IntegrationModule } from './modules/integration/integration.module';
 import { WorkflowModule } from './modules/workflow/workflow.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { AiUsageLogsModule } from './modules/ai-usage-logs/ai-usage-logs.module';
+import { HealthModule } from './modules/health/health.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { AiUsageLogsModule } from './modules/ai-usage-logs/ai-usage-logs.module'
     ]),
     PrismaModule,
     EventModule,
+    HealthModule,
     AuthModule,
     TenantModule,
     UserModule,
