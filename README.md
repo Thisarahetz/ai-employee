@@ -1,4 +1,7 @@
+
 # AI Employee
+
+<img width="1389" height="1197" alt="diagram-export-8-26-2026-12_21_53-AM" src="https://github.com/user-attachments/assets/a54d22e9-d1ee-4e4d-ba74-3c3c9083e3d1" />
 
 A reusable, multi-tenant AI Employee platform: build once, connect to any business
 system (salon, hotel, clinic, e-commerce, CRM, vehicle service, ERP, or custom apps)
