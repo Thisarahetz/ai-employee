@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { CredentialType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { WhatsAppAdapterService } from '../whatsapp/whatsapp-adapter.service';
+import { ResendService } from '../notification/resend.service';
 import { ChannelService } from './channel.service';
 
 export interface ChannelSendParams {
@@ -10,9 +11,7 @@ export interface ChannelSendParams {
   content: string;
   /**
    * The customer's address on the channel — phone number for WhatsApp, session
-   * id for website chat. Threaded through explicitly by ResponseService; when
-   * absent, WhatsApp falls back to the most-recently-updated conversation's
-   * customer contact on this channel.
+   * id for website chat, email address for email.
    */
   destination?: string;
 }
@@ -24,6 +23,7 @@ export interface ChannelSendParams {
  * persisted by ResponseService before this runs, so a provider hiccup here must never
  * throw back into the caller; everything is wrapped in try/catch and logged.
  */
+
 @Injectable()
 export class ChannelRegistryService {
   private readonly logger = new Logger(ChannelRegistryService.name);
@@ -32,6 +32,7 @@ export class ChannelRegistryService {
     private readonly prisma: PrismaService,
     private readonly whatsAppAdapter: WhatsAppAdapterService,
     private readonly channelService: ChannelService,
+    private readonly resendService: ResendService,
   ) {}
 
   async send(params: ChannelSendParams): Promise<void> {
@@ -65,6 +66,10 @@ export class ChannelRegistryService {
           await this.whatsAppAdapter.sendMessage(destination, content, {
             phoneNumberId: typeof config.phoneNumberId === 'string' ? config.phoneNumberId : undefined,
             accessToken,
+            provider: (config.provider as any) || (process.env.WHATSAPP_PROVIDER as any) || 'waha',
+            wahaApiUrl: typeof config.wahaApiUrl === 'string' ? config.wahaApiUrl : undefined,
+            wahaApiKey: typeof config.wahaApiKey === 'string' ? config.wahaApiKey : undefined,
+            wahaSession: typeof config.wahaSession === 'string' ? config.wahaSession : undefined,
           });
           return;
         }
@@ -73,10 +78,19 @@ export class ChannelRegistryService {
           // GET /channels/website-chat/:channelId/messages and picks up the AI
           // reply that ResponseService already persisted. Nothing to push here.
           return;
-        case 'EMAIL':
-          // TODO: push via SMTP — scaffold has no outbound email transport yet.
-          this.logger.log(`[EMAIL no-op] channel=${channelId} content="${content}"`);
+        case 'EMAIL': {
+          const destination = params.destination;
+          if (destination) {
+            await this.resendService.sendEmail({
+              to: destination,
+              subject: 'Update from your AI Employee',
+              text: content,
+            });
+          } else {
+            this.logger.log(`[EMAIL no destination] channel=${channelId} content="${content}"`);
+          }
           return;
+        }
         default:
           // FACEBOOK_MESSENGER / INSTAGRAM / TELEGRAM / SMS / VOICE — no adapter built yet.
           this.logger.log(`[${channel.type} no-op] channel=${channelId} content="${content}"`);
@@ -127,15 +141,30 @@ export class ChannelRegistryService {
             ? credential.token
             : undefined;
 
-        if (typeof config.phoneNumberId === 'string' && accessToken) {
-          await this.whatsAppAdapter.sendMessage(params.recipient, params.content, {
-            phoneNumberId: config.phoneNumberId,
-            accessToken,
-          });
-          return { success: true, messageId, status: 'delivered', detail: 'Sent via WhatsApp' };
-        }
+        await this.whatsAppAdapter.sendMessage(params.recipient, params.content, {
+          phoneNumberId: typeof config.phoneNumberId === 'string' ? config.phoneNumberId : undefined,
+          accessToken,
+          provider: (config.provider as any) || (process.env.WHATSAPP_PROVIDER as any) || 'waha',
+          wahaApiUrl: typeof config.wahaApiUrl === 'string' ? config.wahaApiUrl : undefined,
+          wahaApiKey: typeof config.wahaApiKey === 'string' ? config.wahaApiKey : undefined,
+          wahaSession: typeof config.wahaSession === 'string' ? config.wahaSession : undefined,
+        });
+        return { success: true, messageId, status: 'delivered', detail: 'Sent via WhatsApp' };
       } catch (err: any) {
         this.logger.warn(`WhatsApp dispatch attempt failed: ${err.message}. Falling back to recorded delivery.`);
+      }
+    } else {
+      // If no tenant channel row exists, check if WAHA is enabled globally
+      const globalProvider = process.env.WHATSAPP_PROVIDER || 'waha';
+      if (globalProvider === 'waha') {
+        try {
+          await this.whatsAppAdapter.sendMessage(params.recipient, params.content, {
+            provider: 'waha',
+          });
+          return { success: true, messageId, status: 'delivered', detail: 'Sent via WAHA' };
+        } catch (err: any) {
+          this.logger.warn(`WAHA dispatch failed: ${err.message}`);
+        }
       }
     }
 

@@ -3,15 +3,30 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EVENT_TYPES, HumanHandoffRequestedPayload } from '../../events/event-types.const';
 
+import { ResendService } from './resend.service';
+
 @Injectable()
 export class NotificationService {
   private readonly logger = new Logger(NotificationService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly resendService: ResendService,
+  ) {}
 
   async sendEmail(payload: { to: string; subject: string; text?: string; html?: string; tenantId?: string }) {
-    this.logger.log(`[Email Dispatched] To: ${payload.to} | Subject: "${payload.subject}"`);
-    return { success: true, messageId: `email_${Date.now()}` };
+    const result = await this.resendService.sendEmail({
+      to: payload.to,
+      subject: payload.subject,
+      text: payload.text,
+      html: payload.html,
+    });
+    return {
+      success: result.success,
+      messageId: result.id || `email_${Date.now()}`,
+      status: result.status,
+      error: result.error,
+    };
   }
 
   async sendSlack(payload: { text: string; blocks?: any; tenantId?: string }) {

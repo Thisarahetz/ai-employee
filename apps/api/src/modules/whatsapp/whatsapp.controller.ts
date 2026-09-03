@@ -1,4 +1,5 @@
-import { Body, Controller, ForbiddenException, Get, HttpCode, Logger, Post, Query } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, HttpCode, Logger, Post, Query, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import { MessageContentType } from '@prisma/client';
 import { Public } from '../../common/decorators/public.decorator';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -94,6 +95,103 @@ export class WhatsAppController {
     }
 
     return { received: true };
+  }
+
+  /**
+   * WAHA Inbound Webhook: Receives incoming messages from WAHA (https://waha.devlike.pro/).
+   */
+  @Public()
+  @Post('waha')
+  @HttpCode(200)
+  async receiveWaha(@Body() body: any): Promise<{ received: boolean }> {
+    try {
+      this.logger.log(`Received WAHA webhook event: ${body?.event || 'message'}`);
+      const normalized = this.whatsAppAdapter.normalizeWahaInbound(body);
+      if (!normalized) {
+        // e.g. fromMe: true or not a text message
+        return { received: true };
+      }
+
+      const session = body?.session || 'default';
+
+      // Match channel: first active WHATSAPP channel or auto-provision for default tenant
+      let channel = await this.prisma.channel.findFirst({
+        where: { type: 'WHATSAPP', status: 'ACTIVE' },
+      });
+
+      if (!channel) {
+        const tenant =
+          (await this.prisma.tenant.findFirst({ where: { slug: 'acme-salon' } })) ||
+          (await this.prisma.tenant.findFirst());
+
+        if (tenant) {
+          channel = await this.prisma.channel.create({
+            data: {
+              tenantId: tenant.id,
+              type: 'WHATSAPP',
+              name: 'WhatsApp (WAHA)',
+              status: 'ACTIVE',
+              config: { provider: 'WAHA', session },
+            },
+          });
+          this.logger.log(`Auto-created active WhatsApp channel ${channel.id} for tenant ${tenant.name}`);
+        }
+      }
+
+      if (!channel) {
+        this.logger.warn(`No tenant found to associate inbound WAHA message from ${normalized.externalCustomerId}`);
+        return { received: true };
+      }
+
+      await this.conversationService.ingestInboundMessage({
+        tenantId: channel.tenantId,
+        businessId: channel.businessId ?? undefined,
+        channelId: channel.id,
+        customerExternalId: normalized.externalCustomerId,
+        customerName: normalized.customerName,
+        content: normalized.content,
+        contentType: MessageContentType.TEXT,
+      });
+
+      this.logger.log(`Ingested inbound WAHA message from ${normalized.externalCustomerId} to conversation`);
+    } catch (error: any) {
+      this.logger.error(`Failed to process WAHA webhook: ${error.message}`);
+    }
+
+    return { received: true };
+  }
+
+  /**
+   * Check WAHA session status
+   */
+  @Public()
+  @Get('waha/status')
+  async getWahaStatus(@Query('session') session?: string) {
+    return this.whatsAppAdapter.getWahaSessionStatus(session || 'default');
+  }
+
+  /**
+   * Start a WAHA session
+   */
+  @Public()
+  @Post('waha/start')
+  async startWahaSession(@Query('session') session?: string) {
+    return this.whatsAppAdapter.startWahaSession(session || 'default');
+  }
+
+  /**
+   * Get QR Code from WAHA for scanning with WhatsApp on your phone
+   */
+  @Public()
+  @Get('waha/qr')
+  async getWahaQr(@Res() res: Response, @Query('session') session?: string) {
+    try {
+      const qrBuffer = await this.whatsAppAdapter.getWahaQrCode(session || 'default');
+      res.setHeader('Content-Type', 'image/png');
+      res.send(qrBuffer);
+    } catch (error: any) {
+      res.status(503).json({ error: 'Could not load QR code from WAHA', message: error.message });
+    }
   }
 
   /**
