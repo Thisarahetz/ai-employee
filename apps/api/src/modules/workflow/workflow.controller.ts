@@ -1,16 +1,36 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, BadRequestException } from '@nestjs/common';
+import { Public } from '../../common/decorators/public.decorator';
 import { CurrentTenant } from '../../common/tenant/current-tenant.decorator';
 import { TenantContext } from '../../common/tenant/tenant-context';
 import { WorkflowService } from './workflow.service';
 import { CreateWorkflowDto } from './dto/create-workflow.dto';
 import { UpdateWorkflowDto } from './dto/update-workflow.dto';
+import { ImportTemplateDto } from './dto/import-template.dto';
 
-// NOTE: JwtAuthGuard is registered globally (APP_GUARD) in app.module.ts — this
-// controller carries no user-facing @Public() routes, so no per-route guard is added
-// here (mirrors IntegrationController).
+// NOTE: JwtAuthGuard is registered globally (APP_GUARD) in app.module.ts.
+// Public endpoints (e.g. browsing the template catalog) use @Public().
 @Controller('workflows')
 export class WorkflowController {
   constructor(private readonly workflowService: WorkflowService) {}
+
+  @Public()
+  @Get('templates')
+  getTemplates() {
+    return this.workflowService.getTemplates();
+  }
+
+  @Post('templates/:templateId/import')
+  importTemplate(
+    @CurrentTenant() tenant: TenantContext,
+    @Param('templateId') templateId: string,
+    @Body() dto: ImportTemplateDto,
+  ) {
+    const targetTenantId = tenant?.tenantId || dto.tenantId;
+    if (!targetTenantId) {
+      throw new BadRequestException('tenantId is required (via JWT or body)');
+    }
+    return this.workflowService.importTemplate(targetTenantId, templateId, dto);
+  }
 
   @Post()
   create(@CurrentTenant() tenant: TenantContext, @Body() dto: CreateWorkflowDto) {

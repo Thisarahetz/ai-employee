@@ -27,13 +27,13 @@
         "mode": "manual",
         "assignments": {
           "assignments": [
-            { "name": "tenantId", "value": "={{ $json.tenantId }}", "type": "string" },
-            { "name": "appointmentId", "value": "={{ $json.data.appointmentId }}", "type": "string" },
-            { "name": "clientName", "value": "={{ $json.data.clientName }}", "type": "string" },
-            { "name": "service", "value": "={{ $json.data.service }}", "type": "string" },
-            { "name": "startTime", "value": "={{ $json.data.startTime }}", "type": "string" },
-            { "name": "localTime", "value": "={{ $json.data.localTime }}", "type": "string" },
-            { "name": "customerPhone", "value": "={{ $json.data.customerPhone }}", "type": "string" }
+            { "name": "tenantId", "value": "={{ ($json.body || $json).tenantId }}", "type": "string" },
+            { "name": "appointmentId", "value": "={{ ($json.body || $json).data?.appointmentId || ($json.body || $json).appointmentId }}", "type": "string" },
+            { "name": "clientName", "value": "={{ ($json.body || $json).data?.clientName || ($json.body || $json).clientName || 'Valued Client' }}", "type": "string" },
+            { "name": "service", "value": "={{ ($json.body || $json).data?.service || ($json.body || $json).service || 'Service' }}", "type": "string" },
+            { "name": "startTime", "value": "={{ ($json.body || $json).data?.startTime || ($json.body || $json).startTime }}", "type": "string" },
+            { "name": "localTime", "value": "={{ ($json.body || $json).data?.localTime || ($json.body || $json).localTime || 'Scheduled Time' }}", "type": "string" },
+            { "name": "customerPhone", "value": "={{ ($json.body || $json).data?.customerPhone || ($json.body || $json).customerPhone }}", "type": "string" }
           ]
         },
         "options": {}

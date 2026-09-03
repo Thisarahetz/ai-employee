@@ -29,8 +29,8 @@
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "customerId", "value": "={{ $json.customerId }}" },
-            { "name": "tenantId", "value": "={{ $json.tenantId }}" }
+            { "name": "customerId", "value": "={{ ($json.body || $json).customerId || ($json.body || $json).data?.customerId }}" },
+            { "name": "tenantId", "value": "={{ ($json.body || $json).tenantId }}" }
           ]
         },
         "options": {
@@ -49,12 +49,12 @@
         "mode": "manual",
         "assignments": {
           "assignments": [
-            { "name": "leadId", "value": "={{ $json.id || $('Webhook - AI Employee Event').item.json.customerId }}", "type": "string" },
+            { "name": "leadId", "value": "={{ $json.id || ($('Webhook - AI Employee Event').item.json.body || $('Webhook - AI Employee Event').item.json).customerId }}", "type": "string" },
             { "name": "leadSource", "value": "AI Employee", "type": "string" },
             { "name": "leadStatus", "value": "NEW", "type": "string" },
-            { "name": "tenantId", "value": "={{ $('Webhook - AI Employee Event').item.json.tenantId }}", "type": "string" },
-            { "name": "customerId", "value": "={{ $('Webhook - AI Employee Event').item.json.customerId }}", "type": "string" },
-            { "name": "conversationId", "value": "={{ $('Webhook - AI Employee Event').item.json.conversationId }}", "type": "string" }
+            { "name": "tenantId", "value": "={{ ($('Webhook - AI Employee Event').item.json.body || $('Webhook - AI Employee Event').item.json).tenantId }}", "type": "string" },
+            { "name": "customerId", "value": "={{ ($('Webhook - AI Employee Event').item.json.body || $('Webhook - AI Employee Event').item.json).customerId }}", "type": "string" },
+            { "name": "conversationId", "value": "={{ ($('Webhook - AI Employee Event').item.json.body || $('Webhook - AI Employee Event').item.json).conversationId }}", "type": "string" }
           ]
         },
         "options": {}

@@ -25,6 +25,8 @@ import { AuditLogModule } from './modules/audit-log/audit-log.module';
 import { AiAgentModule } from './modules/ai-agent/ai-agent.module';
 import { KnowledgeBaseModule } from './modules/knowledge-base/knowledge-base.module';
 import { IntegrationModule } from './modules/integration/integration.module';
+import { ChannelModule } from './modules/channel/channel.module';
+import { CrmMockModule } from './modules/crm-mock/crm-mock.module';
 import { WorkflowModule } from './modules/workflow/workflow.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { AiUsageLogsModule } from './modules/ai-usage-logs/ai-usage-logs.module';
@@ -63,6 +65,8 @@ import { HealthModule } from './modules/health/health.module';
     AiAgentModule,
     KnowledgeBaseModule,
     IntegrationModule,
+    ChannelModule,
+    CrmMockModule,
     WorkflowModule,
     AdminModule,
     AiUsageLogsModule,

@@ -7,6 +7,14 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Normalize /api/v1 routes so automation workflows and external callers can use either /api/v1/... or /...
+  app.use((req: any, _res: any, next: any) => {
+    if (req.url.startsWith('/api/v1')) {
+      req.url = req.url.replace(/^\/api\/v1/, '') || '/';
+    }
+    next();
+  });
+
   app.use(helmet());
 
   // `origin: true` reflects any request origin. The embedded website-chat widget

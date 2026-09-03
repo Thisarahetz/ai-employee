@@ -1,11 +1,23 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EVENT_TYPES, HumanHandoffRequestedPayload } from '../../events/event-types.const';
 
 @Injectable()
 export class NotificationService {
+  private readonly logger = new Logger(NotificationService.name);
+
   constructor(private readonly prisma: PrismaService) {}
+
+  async sendEmail(payload: { to: string; subject: string; text?: string; html?: string; tenantId?: string }) {
+    this.logger.log(`[Email Dispatched] To: ${payload.to} | Subject: "${payload.subject}"`);
+    return { success: true, messageId: `email_${Date.now()}` };
+  }
+
+  async sendSlack(payload: { text: string; blocks?: any; tenantId?: string }) {
+    this.logger.log(`[Slack Dispatched] Text: "${payload.text}"`);
+    return { success: true, messageId: `slack_${Date.now()}` };
+  }
 
   list(tenantId: string, userId: string) {
     return this.prisma.notification.findMany({

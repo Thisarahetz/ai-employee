@@ -27,10 +27,10 @@
         "mode": "manual",
         "assignments": {
           "assignments": [
-            { "name": "tenantId", "value": "={{ $json.tenantId }}", "type": "string" },
-            { "name": "customerId", "value": "={{ $json.customerId || $json.data?.customerId }}", "type": "string" },
-            { "name": "customerName", "value": "={{ $json.data?.name || $json.name || 'there' }}", "type": "string" },
-            { "name": "customerPhone", "value": "={{ $json.data?.phone || $json.data?.externalId || $json.phone }}", "type": "string" }
+            { "name": "tenantId", "value": "={{ ($json.body || $json).tenantId }}", "type": "string" },
+            { "name": "customerId", "value": "={{ ($json.body || $json).customerId || ($json.body || $json).data?.customerId }}", "type": "string" },
+            { "name": "customerName", "value": "={{ ($json.body || $json).data?.name || ($json.body || $json).name || 'there' }}", "type": "string" },
+            { "name": "customerPhone", "value": "={{ ($json.body || $json).data?.phone || ($json.body || $json).data?.customerPhone || ($json.body || $json).phone }}", "type": "string" }
           ]
         },
         "options": {}

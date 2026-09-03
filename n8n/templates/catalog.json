@@ -1,0 +1,77 @@
+[
+  {
+    "id": "appointment-lifecycle",
+    "name": "Appointment Lifecycle & Follow-up Sequence",
+    "description": "Multi-channel sequence: Instant WhatsApp confirmation, email receipt, 24h reminder, and post-visit 5-star review request.",
+    "category": "Appointments",
+    "triggerEventType": "appointment.created",
+    "file": "appointment-lifecycle-sequence.json",
+    "webhookId": "appointment-lifecycle-sequence",
+    "isCommon": true,
+    "tags": ["appointments", "whatsapp", "email", "retention"],
+    "variables": [
+      { "key": "WHATSAPP_API_URL", "description": "Outbound WhatsApp send endpoint", "default": "http://host.docker.internal:3001/api/v1/channels/send" },
+      { "key": "EMAIL_API_URL", "description": "Email dispatch endpoint", "default": "http://host.docker.internal:3001/api/v1/notifications/email" },
+      { "key": "GLOWDESK_API_URL", "description": "Core CRM/Appointment backend API", "default": "http://host.docker.internal:3141" }
+    ]
+  },
+  {
+    "id": "scheduled-reminders",
+    "name": "Scheduled Appointment Reminders (24h & 2h)",
+    "description": "Timed notifications 24 hours and 2 hours prior to scheduled appointment with 1-click confirmation or reschedule prompts.",
+    "category": "Appointments",
+    "triggerEventType": "appointment.created",
+    "file": "scheduled-appointment-reminders.json",
+    "webhookId": "scheduled-appointment-reminders",
+    "isCommon": true,
+    "tags": ["reminders", "whatsapp", "reduction-of-no-shows"],
+    "variables": [
+      { "key": "WHATSAPP_API_URL", "description": "Outbound WhatsApp send endpoint", "default": "http://host.docker.internal:3001/api/v1/channels/send" },
+      { "key": "GLOWDESK_API_URL", "description": "Core CRM/Appointment backend API", "default": "http://host.docker.internal:3141" }
+    ]
+  },
+  {
+    "id": "lead-followup",
+    "name": "New Customer Lead Follow-up Sequence",
+    "description": "Automated nurture sequence: Instant welcome + pricing on Day 0, gentle follow-up on Day 1, special offer on Day 3, and sales alert on Day 7.",
+    "category": "Leads & CRM",
+    "triggerEventType": "customer.created",
+    "file": "lead-followup-sequence.json",
+    "webhookId": "lead-followup-sequence",
+    "isCommon": true,
+    "tags": ["leads", "nurture", "whatsapp", "sales"],
+    "variables": [
+      { "key": "WHATSAPP_API_URL", "description": "Outbound WhatsApp send endpoint", "default": "http://host.docker.internal:3001/api/v1/channels/send" },
+      { "key": "SLACK_WEBHOOK_URL", "description": "Sales notification webhook", "default": "http://host.docker.internal:3001/api/v1/notifications/slack" }
+    ]
+  },
+  {
+    "id": "salon-retention",
+    "name": "Customer Retention & 30-Day Rebooking",
+    "description": "Post-visit customer retention flow: review request 24h after visit, followed by a personalized recurring rebooking prompt after 30 days.",
+    "category": "Customer Retention",
+    "triggerEventType": "appointment.completed",
+    "file": "salon-retention-rebooking.json",
+    "webhookId": "salon-retention-rebooking",
+    "isCommon": true,
+    "tags": ["retention", "loyalty", "rebooking", "whatsapp"],
+    "variables": [
+      { "key": "WHATSAPP_API_URL", "description": "Outbound WhatsApp send endpoint", "default": "http://host.docker.internal:3001/api/v1/channels/send" }
+    ]
+  },
+  {
+    "id": "crm-lead-sync",
+    "name": "CRM Lead Sync & Slack Notification",
+    "description": "Instant event bridge: checks external CRM for existing customer record, creates lead profile, and notifies team on Slack.",
+    "category": "Leads & CRM",
+    "triggerEventType": "customer.created",
+    "file": "example-new-customer-lead.json",
+    "webhookId": "example-new-customer-lead",
+    "isCommon": true,
+    "tags": ["crm", "sync", "slack", "webhooks"],
+    "variables": [
+      { "key": "CRM_BASE_URL", "description": "CRM REST API endpoint", "default": "http://host.docker.internal:3001/api/v1/crm" },
+      { "key": "SLACK_WEBHOOK_URL", "description": "Team Slack alert webhook", "default": "http://host.docker.internal:3001/api/v1/notifications/slack" }
+    ]
+  }
+]

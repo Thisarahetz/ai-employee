@@ -38,6 +38,13 @@ const WORKFLOW_MAPPINGS = [
     name: 'Salon Customer Retention & 30-Day Rebooking',
     description: 'Post-visit retention sequence: 1-day review request and 30-day rebooking reminder.',
   },
+  {
+    file: 'example-new-customer-lead.json',
+    webhookId: 'example-new-customer-lead',
+    triggerEventType: 'customer.created',
+    name: 'Example - New Customer Lead',
+    description: 'Sync customer lead with CRM and notify sales team via Slack.',
+  },
 ];
 
 async function main() {

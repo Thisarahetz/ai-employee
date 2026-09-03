@@ -27,10 +27,10 @@
         "mode": "manual",
         "assignments": {
           "assignments": [
-            { "name": "tenantId", "value": "={{ $json.tenantId }}", "type": "string" },
-            { "name": "clientName", "value": "={{ $json.data?.clientName || 'Valued Client' }}", "type": "string" },
-            { "name": "customerPhone", "value": "={{ $json.data?.customerPhone || $json.data?.phone }}", "type": "string" },
-            { "name": "service", "value": "={{ $json.data?.service || 'salon service' }}", "type": "string" }
+            { "name": "tenantId", "value": "={{ ($json.body || $json).tenantId }}", "type": "string" },
+            { "name": "clientName", "value": "={{ ($json.body || $json).data?.clientName || ($json.body || $json).clientName || 'Valued Client' }}", "type": "string" },
+            { "name": "customerPhone", "value": "={{ ($json.body || $json).data?.customerPhone || ($json.body || $json).data?.phone || ($json.body || $json).customerPhone }}", "type": "string" },
+            { "name": "service", "value": "={{ ($json.body || $json).data?.service || ($json.body || $json).service || 'salon service' }}", "type": "string" }
           ]
         },
         "options": {}

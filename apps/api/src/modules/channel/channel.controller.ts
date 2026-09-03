@@ -1,4 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { Public } from '../../common/decorators/public.decorator';
 import { CurrentTenant } from '../../common/tenant/current-tenant.decorator';
 import { TenantContext } from '../../common/tenant/tenant-context';
 import { ChannelService } from './channel.service';
@@ -6,17 +7,27 @@ import { ChannelRegistryService } from './channel-registry.service';
 import { CreateChannelDto } from './dto/create-channel.dto';
 import { UpdateChannelDto } from './dto/update-channel.dto';
 import { CreateChannelCredentialDto } from './dto/create-channel-credential.dto';
+import { SendChannelMessageDto } from './dto/send-channel-message.dto';
 
 // NOTE: JwtAuthGuard is registered globally (APP_GUARD) in app.module.ts — this
-// controller carries no user-facing @Public() routes, so no per-route guard is added
-// here (mirrors IntegrationController). The public website-chat widget endpoints live
-// in their own controller (WebsiteChatController).
+// controller carries public webhook/outbound routes for automation engines (n8n),
+// while tenant management routes require JWT auth.
 @Controller('channels')
 export class ChannelController {
   constructor(
     private readonly channelService: ChannelService,
     private readonly channelRegistry: ChannelRegistryService,
   ) {}
+
+  /**
+   * Outbound message dispatch endpoint called by automation workflows (n8n HTTP nodes).
+   * Delivers via channel adapter if configured or logs mock delivery.
+   */
+  @Public()
+  @Post('send')
+  async send(@Body() dto: SendChannelMessageDto) {
+    return this.channelRegistry.dispatchOutbound(dto);
+  }
 
   @Post()
   create(@CurrentTenant() tenant: TenantContext, @Body() dto: CreateChannelDto) {
