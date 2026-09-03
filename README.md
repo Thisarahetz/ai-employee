@@ -7,6 +7,9 @@ A reusable, multi-tenant AI Employee platform: build once, connect to any busine
 system (salon, hotel, clinic, e-commerce, CRM, vehicle service, ERP, or custom apps)
 through a generic Integration Layer. See `docs/architecture.md` for the full design.
 
+> 📖 **Live Documentation & Interactive Architecture**: **[ai-employee-api-ivory.vercel.app](https://ai-employee-api-ivory.vercel.app)**
+
+
 ## Status
 
 This is a structural scaffold covering all 8 MVP phases (see
@@ -61,6 +64,7 @@ See `docs/architecture.md#monorepo-layout`.
 
 ## Docs
 
+- [🌐 **Live Interactive Web Documentation**](https://ai-employee-api-ivory.vercel.app) — Complete interactive documentation site with diagrams, architecture, integration SDK, and API contracts
 - [`docs/architecture.md`](docs/architecture.md) — includes "Platform Administration & Tenant Management"
 - [`docs/database-schema.md`](docs/database-schema.md)
 - [`docs/multi-agent-architecture.md`](docs/multi-agent-architecture.md)
