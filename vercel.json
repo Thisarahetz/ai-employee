@@ -1,6 +1,7 @@
 {
-  "version": 2,
-  "buildCommand": "",
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
   "outputDirectory": "docs",
-  "installCommand": ""
+  "installCommand": "true",
+  "buildCommand": "true"
 }
