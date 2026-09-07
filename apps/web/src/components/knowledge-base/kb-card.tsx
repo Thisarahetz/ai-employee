@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
+import { Sparkles } from "lucide-react";
 import { UploadDocumentForm } from "./upload-document-form";
 import { DocumentDetailModal } from "./document-detail-modal";
 
@@ -161,10 +162,25 @@ export function KnowledgeBaseCard({ knowledgeBase }: { knowledgeBase: KnowledgeB
               onRetry={() => documentsQuery.refetch()}
             />
           ) : !documentsQuery.data?.length ? (
-            <EmptyState
-              title="No documents yet"
-              description="Upload a PDF, doc, URL, or plain text to build this knowledge base."
-            />
+            <div className="rounded-xl border border-dashed border-line bg-surface-page/50 p-6 text-center space-y-3">
+              <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-ink-primary">No documents in this collection yet</h4>
+                <p className="text-xs text-ink-secondary mt-0.5 max-w-md mx-auto">
+                  Add your price list, hours, services, or FAQs so your AI employees can answer questions accurately.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                <Button size="sm" onClick={() => setIsUploadOpen(true)} className="text-xs font-bold bg-brand-600 hover:bg-brand-700 text-white">
+                  <Sparkles className="h-3.5 w-3.5 mr-1 text-amber-300" /> Insert Document Template
+                </Button>
+                <Button size="sm" variant="secondary" onClick={() => setIsUploadOpen(true)} className="text-xs">
+                  Upload PDF or File
+                </Button>
+              </div>
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
