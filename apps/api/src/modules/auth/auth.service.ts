@@ -279,12 +279,17 @@ export class AuthService {
     activeMembership: MembershipWithTenant | undefined,
     allMemberships: MembershipWithTenant[],
   ) {
-    const permissions = activeMembership ? TENANT_ROLE_PERMISSIONS[activeMembership.role] : [];
+    let permissions = activeMembership ? TENANT_ROLE_PERMISSIONS[activeMembership.role] : [];
+    if (activeMembership?.permissions && activeMembership.permissions.length > 0) {
+      permissions = activeMembership.permissions;
+    }
     const payload = {
       sub: user.id,
       tenantId: activeMembership?.tenantId ?? null,
       role: activeMembership?.role ?? null,
       permissions,
+      allLocations: activeMembership?.allLocations ?? true,
+      locationIds: activeMembership?.locationIds ?? [],
       email: user.email,
       platformRole: user.platformRole,
     };

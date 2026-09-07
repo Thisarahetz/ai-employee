@@ -6,68 +6,47 @@ import { useState, type FormEvent } from "react";
 
 import { useAuth } from "@/lib/auth-context";
 import { getErrorMessage } from "@/lib/utils";
-import type { BusinessType } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
-
-interface FormState {
-  tenantName: string;
-  businessType: BusinessType;
-  firstName: string;
-  lastName: string;
-  email: string;
-  password: string;
-}
-
-const INITIAL_STATE: FormState = {
-  tenantName: "",
-  businessType: "SALON",
-  firstName: "",
-  lastName: "",
-  email: "",
-  password: "",
-};
-
-const BUSINESS_TYPE_OPTIONS: { value: BusinessType; label: string }[] = [
-  { value: "SALON", label: "Salon / spa" },
-  { value: "CLINIC", label: "Clinic / healthcare" },
-  { value: "HOTEL", label: "Hotel / hospitality" },
-  { value: "ECOMMERCE", label: "Online store" },
-  { value: "VEHICLE_SERVICE", label: "Vehicle service" },
-  { value: "CRM", label: "Sales / CRM" },
-  { value: "ERP", label: "Operations / ERP" },
-  { value: "CUSTOM", label: "Something else" },
-];
 
 export default function SignupPage() {
   const { signup } = useAuth();
   const router = useRouter();
-  const [form, setForm] = useState<FormState>(INITIAL_STATE);
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  function update<K extends keyof FormState>(key: K, value: FormState[K]) {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
 
-    if (Object.values(form).some((value) => !value.trim())) {
-      setError("All fields are required.");
+    if (!fullName.trim() || !email.trim() || !password.trim()) {
+      setError("Please fill in your name, email, and password.");
       return;
     }
-    if (form.password.length < 8) {
+    if (password.length < 8) {
       setError("Password must be at least 8 characters.");
       return;
     }
 
     setIsSubmitting(true);
     try {
-      await signup(form);
-      router.replace("/dashboard");
+      const parts = fullName.trim().split(" ");
+      const firstName = parts[0] || "Business";
+      const lastName = parts.slice(1).join(" ") || "Owner";
+
+      await signup({
+        tenantName: `${firstName}'s Business`,
+        businessType: "CUSTOM",
+        firstName,
+        lastName,
+        email: email.trim(),
+        password,
+      });
+
+      router.replace("/onboarding");
     } catch (err) {
       setError(getErrorMessage(err, "Could not create your account. Please try again."));
     } finally {
@@ -77,64 +56,55 @@ export default function SignupPage() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-      <h2 className="text-lg font-semibold text-ink-primary">Create your workspace</h2>
+      <div>
+        <h2 className="text-xl font-bold text-ink-primary">Create your account</h2>
+        <p className="mt-1 text-xs text-ink-secondary">
+          Set up your account to hire and manage AI employees for your business.
+        </p>
+      </div>
 
       {error && (
-        <p role="alert" className="rounded-md bg-status-critical/10 px-3 py-2 text-sm text-status-critical">
+        <p role="alert" className="rounded-lg bg-status-critical/10 px-3.5 py-2.5 text-xs text-status-critical font-medium">
           {error}
         </p>
       )}
 
       <Input
-        label="Business / tenant name"
-        value={form.tenantName}
-        onChange={(e) => update("tenantName", e.target.value)}
-        placeholder="Acme Salon"
+        label="Full Name"
+        placeholder="e.g. John Doe"
+        value={fullName}
+        onChange={(e) => setFullName(e.target.value)}
+        autoComplete="name"
         required
       />
-
-      <Select
-        label="Type of business"
-        value={form.businessType}
-        onChange={(e) => update("businessType", e.target.value as BusinessType)}
-      >
-        {BUSINESS_TYPE_OPTIONS.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </Select>
-
-      <div className="grid grid-cols-2 gap-3">
-        <Input label="First name" value={form.firstName} onChange={(e) => update("firstName", e.target.value)} required />
-        <Input label="Last name" value={form.lastName} onChange={(e) => update("lastName", e.target.value)} required />
-      </div>
 
       <Input
-        label="Email"
+        label="Email Address"
         type="email"
         autoComplete="email"
-        value={form.email}
-        onChange={(e) => update("email", e.target.value)}
+        placeholder="you@company.com"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
         required
       />
+
       <Input
         label="Password"
         type="password"
         autoComplete="new-password"
-        hint="At least 8 characters."
-        value={form.password}
-        onChange={(e) => update("password", e.target.value)}
+        hint="Must be at least 8 characters."
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
         required
       />
 
-      <Button type="submit" className="w-full" isLoading={isSubmitting}>
-        Create account
+      <Button type="submit" className="w-full text-xs font-bold py-2.5" isLoading={isSubmitting}>
+        Create Account &amp; Setup Business →
       </Button>
 
-      <p className="text-center text-sm text-ink-secondary">
+      <p className="text-center text-xs text-ink-secondary">
         Already have an account?{" "}
-        <Link href="/login" className="font-medium text-brand-600 hover:underline">
+        <Link href="/login" className="font-semibold text-brand-600 hover:underline">
           Log in
         </Link>
       </p>

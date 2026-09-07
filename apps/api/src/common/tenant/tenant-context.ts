@@ -17,4 +17,6 @@ export interface TenantContext {
   permissions: string[];
   /** Platform-level access, unrelated to tenantId/role. */
   platformRole: PlatformRole;
+  allLocations?: boolean;
+  locationIds?: string[];
 }

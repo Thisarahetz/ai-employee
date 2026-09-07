@@ -8,6 +8,18 @@ export class AdminListQueryDto {
   search?: string;
 
   @IsOptional()
+  @IsString()
+  status?: string;
+
+  @IsOptional()
+  @IsString()
+  plan?: string;
+
+  @IsOptional()
+  @IsString()
+  actionLevel?: string;
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
@@ -19,3 +31,4 @@ export class AdminListQueryDto {
   @Min(1)
   pageSize?: number;
 }
+

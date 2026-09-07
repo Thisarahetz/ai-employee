@@ -127,7 +127,28 @@ export interface Tenant {
 /** GET /admin/tenants — platform-admin-only, cross-tenant. */
 export interface AdminTenant extends Tenant {
   userCount: number;
+  branchCount?: number;
+  aiEmployeeCount?: number;
+  conversationCount?: number;
+  messageCount?: number;
+  businessType?: string;
+  owner?: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    phone?: string | null;
+  } | null;
+  businesses?: Business[];
+  aiEmployees?: (AiEmployee & { _count?: { activities: number; approvals: number } })[];
+  usage?: {
+    totalTokens: number;
+    inputTokens: number;
+    outputTokens: number;
+    estimatedCostUsd: number;
+  };
 }
+
 
 /**
  * A location / branch under a tenant (the `Business` model). Most tenants have
@@ -159,12 +180,26 @@ export interface TenantMembership {
   tenantId: string;
   role: TenantRole;
   status: MembershipStatus;
+  jobTitle?: string | null;
+  businessRole?: string | null;
+  accessLevel?: string | null;
+  permissions?: string[];
+  allLocations?: boolean;
+  locationIds?: string[];
+  locations?: { id: string; name: string }[];
+  recentActivity?: {
+    id: string;
+    action: string;
+    changes: Record<string, unknown>;
+    createdAt: string;
+  }[];
   createdAt: string;
   user: {
     id: string;
     email: string;
     firstName: string;
     lastName: string;
+    phone?: string | null;
     status: UserStatus;
     lastLoginAt?: string | null;
     createdAt: string;
@@ -238,7 +273,58 @@ export interface InviteMemberInput {
   email: string;
   firstName: string;
   lastName: string;
+  phone?: string;
   role: Exclude<TenantRole, "OWNER">;
+  businessRole?: string;
+  jobTitle?: string;
+  accessLevel?: string;
+  permissions?: string[];
+  allLocations?: boolean;
+  locationIds?: string[];
+}
+
+export interface UpdateMemberInput {
+  id: string;
+  role?: TenantRole;
+  status?: MembershipStatus;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  businessRole?: string;
+  jobTitle?: string;
+  accessLevel?: string;
+  permissions?: string[];
+  allLocations?: boolean;
+  locationIds?: string[];
+}
+
+export interface PermissionDefinitionInfo {
+  id: string;
+  name: string;
+  description: string;
+}
+
+export interface PermissionCategoryInfo {
+  id: string;
+  name: string;
+  description: string;
+  permissions: PermissionDefinitionInfo[];
+}
+
+export interface BusinessRoleTemplateInfo {
+  key: string;
+  name: string;
+  baseRole: TenantRole;
+  accessLevel: 'FULL' | 'MANAGER' | 'STANDARD' | 'LIMITED' | 'CUSTOM';
+  description: string;
+  defaultPermissions: string[];
+}
+
+export interface RoleTemplatesResponse {
+  businessType: string;
+  templates: BusinessRoleTemplateInfo[];
+  categories: PermissionCategoryInfo[];
+  accessLevelPresets: Record<string, string[]>;
 }
 
 export interface InviteMemberResult {
@@ -533,3 +619,301 @@ export interface PaginatedResponse<T> {
   page?: number;
   pageSize?: number;
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// AI Employee Platform — Personas, Tasks, Permissions, Approvals & Activity
+// ─────────────────────────────────────────────────────────────────────────
+
+export type AiEmployeeStatus = "ACTIVE" | "PAUSED" | "NEEDS_ATTENTION";
+export type ActionLevel = "AUTOMATIC" | "APPROVAL_REQUIRED" | "OWNER_ONLY";
+export type EmployeeScope = "ALL_BRANCHES" | "SELECTED_BRANCHES";
+
+export interface EmployeeTask {
+  category: "CUSTOMER" | "SALES" | "INVENTORY" | "FINANCE" | "OPERATIONS";
+  task: string;
+  isEnabled: boolean;
+}
+
+export interface EmployeeStats {
+  conversations: number;
+  ordersAssisted: number;
+  tasksCompleted: number;
+  leadsGenerated?: number;
+  escalations?: number;
+  successRate: number;
+}
+
+export interface AiEmployee {
+  id: string;
+  tenantId: string;
+  name: string;
+  role: string;
+  department: string;
+  businessFunction: string;
+  description: string;
+  avatar?: string | null;
+  status: AiEmployeeStatus;
+  actionLevel: ActionLevel;
+  scope: EmployeeScope;
+  branchIds: string[];
+  responsibilities: string[];
+  assignedTasks: EmployeeTask[];
+  permissions: Record<string, boolean>;
+  systemPrompt?: string;
+  connectedTools?: string[];
+  stats: EmployeeStats;
+  createdAt: string;
+  updatedAt: string;
+  approvals?: AiEmployeeApproval[];
+  activities?: AiEmployeeActivity[];
+}
+
+export interface AiEmployeeStatsSummary {
+  total: number;
+  active: number;
+  paused: number;
+  needsApproval: number;
+  errors: number;
+}
+
+export interface AiEmployeeApproval {
+  id: string;
+  tenantId: string;
+  employeeId: string;
+  employee?: {
+    id: string;
+    name: string;
+    role: string;
+    department: string;
+    avatar?: string | null;
+  };
+  title: string;
+  description: string;
+  actionType: string;
+  actionPayload: Record<string, unknown>;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  requestedAt: string;
+  reviewedAt?: string | null;
+  reviewedByUserId?: string | null;
+  reviewNotes?: string | null;
+}
+
+export interface AiEmployeeActivity {
+  id: string;
+  tenantId: string;
+  employeeId: string;
+  employee?: {
+    id: string;
+    name: string;
+    role: string;
+    department: string;
+    avatar?: string | null;
+  };
+  action: string;
+  category: "CUSTOMER" | "SALES" | "INVENTORY" | "FINANCE" | "OPERATIONS";
+  details: string;
+  status: "SUCCESS" | "PENDING_APPROVAL" | "REJECTED" | "FAILED";
+  branchId?: string | null;
+  createdAt: string;
+}
+
+export interface BusinessTemplateInfo {
+  id: string;
+  name: string;
+  category: string;
+  icon: string;
+  description: string;
+  employeeCount: number;
+  employees: {
+    key: string;
+    name: string;
+    role: string;
+    department: string;
+    description: string;
+    actionLevel: ActionLevel;
+  }[];
+}
+
+export interface PlatformStats {
+  tenants: {
+    total: number;
+    active: number;
+    trial: number;
+    suspended: number;
+    newThisMonth: number;
+  };
+  aiEmployees: {
+    total: number;
+    active: number;
+    paused: number;
+    needsAttention: number;
+  };
+  users: {
+    total: number;
+    active: number;
+    superAdmins: number;
+  };
+  conversations: {
+    total: number;
+    aiHandling: number;
+    closed: number;
+  };
+  usage: {
+    totalTokens: number;
+    estimatedCostUsd: number;
+  };
+  recentAudits: PlatformAuditEntry[];
+  systemAlerts: string[];
+}
+
+export interface AdminAiEmployee {
+  id: string;
+  tenantId: string;
+  name: string;
+  role: string;
+  department: string;
+  businessFunction: string;
+  description: string;
+  avatar?: string | null;
+  status: "ACTIVE" | "PAUSED" | "NEEDS_ATTENTION";
+  actionLevel: "AUTOMATIC" | "APPROVAL_REQUIRED" | "OWNER_ONLY";
+  scope: string;
+  responsibilities: string[];
+  assignedTasks: { category: string; task: string; isEnabled: boolean }[];
+  permissions: Record<string, boolean>;
+  systemPrompt: string;
+  stats: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+  tenant: {
+    id: string;
+    name: string;
+    slug: string;
+    plan: string;
+    status: string;
+  };
+  activityCount: number;
+  pendingApprovalsCount: number;
+}
+
+export interface AdminBusinessTemplate {
+  id: string;
+  name: string;
+  category: string;
+  icon: string;
+  description: string;
+  suggestedEmployeesCount: number;
+  suggestedEmployees: {
+    key: string;
+    name: string;
+    role: string;
+    department: string;
+    businessFunction: string;
+    description: string;
+    avatar?: string;
+    actionLevel: "AUTOMATIC" | "APPROVAL_REQUIRED" | "OWNER_ONLY";
+    responsibilities: string[];
+    assignedTasks: { category: string; task: string; isEnabled: boolean }[];
+    permissions: Record<string, boolean>;
+    systemPrompt: string;
+  }[];
+  adoptionCount: number;
+}
+
+export interface AdminBusinessType {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  recommendedChannels: string[];
+  defaultTemplates: string[];
+  activeCount: number;
+}
+
+export interface AdminPlan {
+  id: string;
+  name: string;
+  badge: string;
+  description: string;
+  priceMonthlyUsd: number;
+  limits: {
+    maxBranches: number;
+    maxAiEmployees: number;
+    maxTeamMembers: number;
+    messagesPerMonth: number;
+    knowledgeDocs: number;
+    support: string;
+  };
+  tenantCount: number;
+}
+
+export interface AdminUsageStats {
+  tokens: {
+    total: number;
+    inputTokens: number;
+    outputTokens: number;
+    estimatedCostUsd: number;
+    totalInvocations: number;
+  };
+  volumes: {
+    conversations: number;
+    messages: number;
+  };
+  activitiesByCategory: { category: string; count: number }[];
+  topTenants: {
+    id: string;
+    name: string;
+    slug: string;
+    plan: string;
+    status: string;
+    conversationsCount: number;
+    messagesCount: number;
+    aiEmployeesCount: number;
+  }[];
+}
+
+export interface AdminHealthStatus {
+  status: "healthy" | "degraded";
+  timestamp: string;
+  diagnosticDurationMs: number;
+  services: {
+    api: {
+      status: string;
+      uptimeSeconds: number;
+      nodeVersion: string;
+      memoryHeapUsedMb: number;
+      memoryRssMb: number;
+    };
+    database: {
+      status: string;
+      latencyMs: number;
+      provider: string;
+    };
+    redis: {
+      status: string;
+      host: string;
+      port: number;
+    };
+    aiProviders: {
+      openai: { configured: boolean; status: string; defaultModel: string };
+      anthropic: { configured: boolean; status: string; defaultModel: string };
+      gemini: { configured: boolean; status: string; defaultModel: string };
+    };
+    channels: {
+      activeChannels: number;
+      whatsappWebhookReady: boolean;
+    };
+  };
+}
+
+export interface AdminPlatformSettings {
+  defaultPlan: string;
+  trialDays: number;
+  defaultFastModel: string;
+  defaultReasoningModel: string;
+  alertWebhookUrl: string;
+  maintenanceMode: boolean;
+  systemNotice: string;
+}
+
+

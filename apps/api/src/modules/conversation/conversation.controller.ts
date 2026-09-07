@@ -17,12 +17,12 @@ export class ConversationController {
 
   @Get()
   list(@CurrentTenant() tenant: TenantContext, @Query() query: ListConversationsQueryDto) {
-    return this.conversationService.list(tenant.tenantId, query);
+    return this.conversationService.list(tenant.tenantId, query, tenant);
   }
 
   @Get(':id')
   get(@CurrentTenant() tenant: TenantContext, @Param('id') id: string) {
-    return this.conversationService.get(tenant.tenantId, id);
+    return this.conversationService.get(tenant.tenantId, id, tenant);
   }
 
   @RequirePermissions('conversations:takeover')

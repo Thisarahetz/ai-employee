@@ -21,6 +21,8 @@ and verified end-to-end. Deep business logic in a few areas (PDF/DOCX extraction
 realtime channel delivery, billing/plans) and production hardening are follow-up work
 per phase — see `docs/mvp-implementation-plan.md` for exactly what's real vs. stubbed.
 
+> 📘 **Full Documentation & Walkthrough**: See [**`SETUP.md`**](SETUP.md) for the Complete Setup & Operations Guide, Multi-Branch Security, and User Management walkthrough.
+
 ## Quick start
 
 ```bash
@@ -36,8 +38,13 @@ pnpm install
 docker compose up -d postgres redis n8n
 pnpm prisma:generate
 pnpm prisma:migrate
-pnpm prisma:seed            # creates the demo accounts below
+pnpm prisma:seed            # creates pristine demo accounts
 pnpm dev                    # runs apps/api + apps/web via turbo
+```
+
+To clean and reset the database at any time:
+```bash
+pnpm db:clean               # drops test data, syncs schema, and re-seeds cleanly
 ```
 
 - API: http://localhost:3001

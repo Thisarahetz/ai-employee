@@ -15,12 +15,17 @@ export default function ChannelsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-ink-primary">Customer Channels</h1>
-          <p className="text-sm text-ink-secondary">Endpoints where customers can interact with the AI Agent.</p>
+          <h1 className="text-xl font-bold text-ink-primary">Connect Customer Channels</h1>
+          <p className="text-xs text-ink-secondary mt-1 max-w-2xl">
+            Connect where your customers chat with your business (WhatsApp, Telegram, Website Live Chat).
+            Your AI employees will answer inquiries and assist customers on these connected channels.
+          </p>
         </div>
-        <Button onClick={() => setIsAddOpen((v) => !v)}>{isAddOpen ? "Close" : "+ Add Channel"}</Button>
+        <Button onClick={() => setIsAddOpen((v) => !v)} className="shrink-0 text-xs font-bold">
+          {isAddOpen ? "Close" : "+ Connect Channel"}
+        </Button>
       </div>
 
       {isAddOpen && <AddChannelForm onDone={() => setIsAddOpen(false)} />}

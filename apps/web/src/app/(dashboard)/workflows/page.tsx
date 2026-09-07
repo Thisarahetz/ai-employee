@@ -15,9 +15,17 @@ export default function WorkflowsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-ink-primary">Workflows</h1>
-        <p className="text-sm text-ink-secondary">n8n automations triggered by AI Employee&apos;s internal event bus.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-ink-primary">Workflows</h1>
+          <p className="text-sm text-ink-secondary">Visual agent workflows &amp; n8n automations triggered by internal events.</p>
+        </div>
+        <Link
+          href="/workflows/builder"
+          className="flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-brand-700"
+        >
+          <span className="text-sm">✦</span> Open Visual Builder
+        </Link>
       </div>
 
       <Card>

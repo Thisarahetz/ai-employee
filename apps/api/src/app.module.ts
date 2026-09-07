@@ -30,6 +30,7 @@ import { CrmMockModule } from './modules/crm-mock/crm-mock.module';
 import { WorkflowModule } from './modules/workflow/workflow.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { AiUsageLogsModule } from './modules/ai-usage-logs/ai-usage-logs.module';
+import { AiEmployeeModule } from './modules/ai-employee/ai-employee.module';
 import { HealthModule } from './modules/health/health.module';
 
 @Module({
@@ -70,6 +71,7 @@ import { HealthModule } from './modules/health/health.module';
     WorkflowModule,
     AdminModule,
     AiUsageLogsModule,
+    AiEmployeeModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

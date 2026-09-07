@@ -10,11 +10,13 @@ interface AccessTokenClaims {
   role: TenantRole | null;
   permissions?: string[];
   platformRole?: PlatformRole;
+  allLocations?: boolean;
+  locationIds?: string[];
 }
 
 /**
  * Populates `request.tenantContext` from the caller's access-token claims
- * (`sub` -> userId, `tenantId`, `role`, `permissions`, `platformRole`).
+ * (`sub` -> userId, `tenantId`, `role`, `permissions`, `platformRole`, `allLocations`, `locationIds`).
  *
  * NestJS runs middleware before guards, so this middleware verifies the
  * token itself (same secret/strategy as `JwtStrategy`) rather than relying
@@ -45,6 +47,8 @@ export class TenantMiddleware implements NestMiddleware {
           role: claims.role,
           permissions: claims.permissions ?? [],
           platformRole: claims.platformRole ?? 'NONE',
+          allLocations: claims.allLocations ?? true,
+          locationIds: claims.locationIds ?? [],
         };
       } catch {
         // invalid/expired token: leave tenantContext unset, JwtAuthGuard rejects downstream

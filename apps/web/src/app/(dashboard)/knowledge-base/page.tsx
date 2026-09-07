@@ -39,15 +39,17 @@ export default function KnowledgeBasePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-ink-primary">Knowledge Base</h1>
-          <p className="text-sm text-ink-secondary">
-            Documents the Knowledge Agent retrieves answers from. It searches across every knowledge base here,
-            including ones synced from an integration.
+          <h1 className="text-xl font-bold text-ink-primary">Business Information &amp; Documents</h1>
+          <p className="text-xs text-ink-secondary mt-1 max-w-2xl">
+            Give your AI employees information about your business (Price Lists, Service Menus, FAQs, Policies, Product Catalogs).
+            They will use this information when answering customer questions.
           </p>
         </div>
-        <Button onClick={() => setIsCreateOpen((v) => !v)}>{isCreateOpen ? "Close" : "+ New knowledge base"}</Button>
+        <Button onClick={() => setIsCreateOpen((v) => !v)} className="shrink-0 text-xs font-bold">
+          {isCreateOpen ? "Close" : "+ Add Document Collection"}
+        </Button>
       </div>
 
       {isCreateOpen && (

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConversationStatus, MessageContentType, MessageSender } from '@prisma/client';
 import { paginationSkip, toPaginatedResponse, toPaginationRequest } from '@ai-employee/shared';
 import { EventService } from '../../events/event.service';
@@ -26,6 +26,11 @@ export interface IngestInboundMessageResult {
 /** Conversation statuses considered "still in flight" for a customer+channel. */
 const OPEN_STATUSES: ConversationStatus[] = ['OPEN', 'AI_HANDLING', 'HUMAN_HANDLING'];
 
+export interface CallerBranchContext {
+  allLocations?: boolean;
+  locationIds?: string[];
+}
+
 @Injectable()
 export class ConversationService {
   constructor(
@@ -34,14 +39,24 @@ export class ConversationService {
     private readonly messageService: MessageService,
   ) {}
 
-  async list(tenantId: string, query: ListConversationsQueryDto) {
+  async list(tenantId: string, query: ListConversationsQueryDto, caller?: CallerBranchContext) {
     const pagination = toPaginationRequest({ page: query.page, pageSize: query.pageSize });
+
+    let businessIdCondition: any = query.businessId;
+    if (caller && caller.allLocations === false) {
+      const allowed = caller.locationIds || [];
+      if (query.businessId && !allowed.includes(query.businessId)) {
+        throw new ForbiddenException('You do not have access to this branch.');
+      }
+      businessIdCondition = query.businessId ? query.businessId : { in: allowed };
+    }
+
     const where = {
       tenantId,
       status: query.status,
       customerId: query.customerId,
       channelId: query.channelId,
-      businessId: query.businessId,
+      businessId: businessIdCondition,
     };
 
     const [data, total] = await Promise.all([
@@ -58,7 +73,7 @@ export class ConversationService {
     return toPaginatedResponse(data, total, pagination);
   }
 
-  async get(tenantId: string, id: string) {
+  async get(tenantId: string, id: string, caller?: CallerBranchContext) {
     const conversation = await this.prisma.conversation.findFirst({
       where: { id, tenantId },
       include: { customer: true, channel: true, business: true },
@@ -66,6 +81,16 @@ export class ConversationService {
     if (!conversation) {
       throw new NotFoundException('Conversation not found');
     }
+
+    if (
+      caller &&
+      caller.allLocations === false &&
+      conversation.businessId &&
+      !(caller.locationIds || []).includes(conversation.businessId)
+    ) {
+      throw new ForbiddenException('You do not have access to conversations in this branch.');
+    }
+
     return conversation;
   }
 
