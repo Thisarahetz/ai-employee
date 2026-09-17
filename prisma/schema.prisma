@@ -56,6 +56,8 @@ model Tenant {
   aiEmployees           AiEmployee[]
   aiEmployeeApprovals   AiEmployeeApproval[]
   aiEmployeeActivities  AiEmployeeActivity[]
+  dynamicSagas          DynamicSaga[]
+  synthesizedInvariants SynthesizedInvariant[]
 
   @@map("tenants")
 }
@@ -256,6 +258,7 @@ model Conversation {
   summaries     ConversationSummary[]
   humanHandoffs HumanHandoff[]
   aiUsageLogs   AiUsageLog[]
+  dynamicSagas  DynamicSaga[]
 
   @@index([tenantId])
   @@index([tenantId, status])
@@ -772,6 +775,8 @@ model HumanHandoff {
   requestedAt    DateTime      @default(now())
   resolvedAt     DateTime?
 
+  synthesizedInvariant SynthesizedInvariant?
+
   @@index([tenantId])
   @@index([tenantId, status])
   @@map("human_handoffs")
@@ -855,3 +860,87 @@ model PlatformAuditLog {
   @@index([createdAt])
   @@map("platform_audit_logs")
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// TEO-PIPS: Transactional Epistemic Orchestration & Policy Synthesis
+// ─────────────────────────────────────────────────────────────────────────
+
+enum ReversibilityType {
+  QUERY
+  COMPENSATABLE
+  TERMINAL_IRREVERSIBLE
+}
+
+enum SagaStatus {
+  ACTIVE
+  COMMITTED
+  COMPENSATED
+  FAILED
+}
+
+model DynamicSaga {
+  id             String       @id @default(cuid())
+  tenantId       String
+  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  status         SagaStatus   @default(ACTIVE)
+  failureReason  String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  steps          SagaStep[]
+
+  @@index([tenantId])
+  @@index([tenantId, conversationId])
+  @@map("dynamic_sagas")
+}
+
+model SagaStep {
+  id                 String            @id @default(cuid())
+  sagaId             String
+  saga               DynamicSaga       @relation(fields: [sagaId], references: [id], onDelete: Cascade)
+  actionName         String
+  reversibility      ReversibilityType @default(COMPENSATABLE)
+  inputPayload       Json              @default("{}")
+  outputPayload      Json?
+  compensatingAction String?
+  isCompensated      Boolean           @default(false)
+  compensatedAt      DateTime?
+  error              String?
+  executedAt         DateTime          @default(now())
+
+  @@index([sagaId])
+  @@map("saga_steps")
+}
+
+enum InvariantStatus {
+  CANDIDATE
+  SHADOW_VERIFIED
+  ACTIVE
+  REJECTED
+  DEPRECATED
+}
+
+model SynthesizedInvariant {
+  id                 String          @id @default(cuid())
+  tenantId           String
+  tenant             Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sourceHandoffId    String          @unique
+  sourceHandoff      HumanHandoff    @relation(fields: [sourceHandoffId], references: [id], onDelete: Cascade)
+  name               String
+  description        String
+  conditionRule      Json            // Structured predicate JSON logic
+  actionOverride     Json?           // Structured action / routing override
+  confidenceScore    Float           @default(0.0)
+  regressionPassRate Float?
+  status             InvariantStatus @default(CANDIDATE)
+  activatedAt        DateTime?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("synthesized_invariants")
+}
+

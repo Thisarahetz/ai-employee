@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Ip, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Ip, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { PlatformAdminGuard } from '../../common/guards/platform-admin.guard';
 import { CurrentTenant } from '../../common/tenant/current-tenant.decorator';
 import { TenantContext } from '../../common/tenant/tenant-context';
@@ -141,6 +141,17 @@ export class AdminController {
       page: page ? Number(page) : undefined,
       pageSize: pageSize ? Number(pageSize) : undefined,
     });
+  }
+
+  /**
+   * Wipe all tenant data and non-admin user identities from the database.
+   * Schema is preserved; SUPER_ADMIN accounts remain intact.
+   * Guarded by PlatformAdminGuard (class-level) — only SUPER_ADMIN may call this.
+   */
+  @Delete('database')
+  @HttpCode(HttpStatus.OK)
+  cleanDatabase(@CurrentTenant() ctx: TenantContext, @Ip() ip: string) {
+    return this.adminService.cleanDatabase(this.actor(ctx, ip));
   }
 
   private actor(ctx: TenantContext, ip: string): AdminActor {

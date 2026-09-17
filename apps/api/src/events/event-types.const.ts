@@ -18,6 +18,13 @@ export const EVENT_TYPES = {
   HUMAN_HANDOFF_COMPLETED: 'human_handoff.completed',
   INTEGRATION_CONNECTED: 'integration.connected',
   INTEGRATION_KNOWLEDGE_SYNCED: 'integration.knowledge_synced',
+  // TEO-PIPS Event Types
+  SAGA_STARTED: 'saga.started',
+  SAGA_STEP_EXECUTED: 'saga.step_executed',
+  SAGA_COMPENSATED: 'saga.compensated',
+  SAGA_COMMITTED: 'saga.committed',
+  INVARIANT_SYNTHESIZED: 'invariant.synthesized',
+  INVARIANT_ACTIVATED: 'invariant.activated',
 } as const;
 
 export type EventType = (typeof EVENT_TYPES)[keyof typeof EVENT_TYPES];
@@ -94,3 +101,47 @@ export interface IntegrationKnowledgeSyncedPayload {
   locationsCreated: number;
   locationsUpdated: number;
 }
+
+export interface SagaStartedPayload {
+  tenantId: string;
+  conversationId: string;
+  sagaId: string;
+}
+
+export interface SagaStepExecutedPayload {
+  tenantId: string;
+  conversationId: string;
+  sagaId: string;
+  stepId: string;
+  actionName: string;
+  reversibility: string;
+  input: Record<string, unknown>;
+  output?: Record<string, unknown>;
+}
+
+export interface SagaCompensatedPayload {
+  tenantId: string;
+  conversationId: string;
+  sagaId: string;
+  compensatedSteps: string[];
+  reason?: string;
+}
+
+export interface SagaCommittedPayload {
+  tenantId: string;
+  conversationId: string;
+  sagaId: string;
+}
+
+export interface InvariantSynthesizedPayload {
+  tenantId: string;
+  invariantId: string;
+  sourceHandoffId: string;
+  confidenceScore: number;
+}
+
+export interface InvariantActivatedPayload {
+  tenantId: string;
+  invariantId: string;
+}
+

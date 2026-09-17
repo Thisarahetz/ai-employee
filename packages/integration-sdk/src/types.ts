@@ -28,6 +28,8 @@ export interface ExecutionContext {
   rawRequest?: unknown;
 }
 
+export type ReversibilityType = 'QUERY' | 'COMPENSATABLE' | 'TERMINAL_IRREVERSIBLE';
+
 export interface ActionDefinition {
   /** Unique name of the action, e.g. 'create_booking', 'check_inventory'. */
   name: string;
@@ -35,6 +37,12 @@ export interface ActionDefinition {
   description: string;
   /** Schema mapping parameter names to their type, description, and required status. */
   parameters: Record<string, ActionParameter>;
+  /** Reversibility semantic category under TEO-PIPS. Defaults to COMPENSATABLE (or QUERY if read-only). */
+  reversibility?: ReversibilityType;
+  /** Name of the compensating action that cancels or rolls back this action's effects. */
+  compensateWith?: string;
+  /** Mapping of output keys to compensation input keys (e.g. { appointmentId: 'appointmentId' }). */
+  compensationMapping?: Record<string, string>;
   /**
    * Your business logic function.
    * Return value is serialized and returned as `data` in ExecuteActionResponse.
@@ -47,6 +55,9 @@ export interface ActionSummary {
   name: string;
   description: string;
   parameters: Record<string, ActionParameter>;
+  reversibility?: ReversibilityType;
+  compensateWith?: string;
+  compensationMapping?: Record<string, string>;
 }
 
 export interface ListActionsResponse {

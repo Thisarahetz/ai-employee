@@ -244,3 +244,26 @@ export function useUpdateUser() {
   });
 }
 
+/** Wipe all tenant data and non-admin users. SUPER_ADMIN only. */
+export function useCleanDatabase() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () =>
+      (
+        await apiClient.delete<{
+          success: boolean;
+          message: string;
+          removed: {
+            tenants: number;
+            nonAdminUsers: number;
+            conversations: number;
+            messages: number;
+          };
+        }>("/admin/database")
+      ).data,
+    onSuccess: () => {
+      // Invalidate every admin cache key so all pages refresh cleanly.
+      queryClient.invalidateQueries({ queryKey: ["admin"] });
+    },
+  });
+}

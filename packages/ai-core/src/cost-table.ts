@@ -40,7 +40,16 @@ export const MODEL_COSTS_USD_PER_1K: Record<string, ModelCost> = {
 /** Used when a model string isn't in the table above (unknown/new model). */
 const DEFAULT_COST: ModelCost = { input: 0.002, output: 0.006 };
 
-export function estimateCostUsd(model: string, inputTokens: number, outputTokens: number): number {
+export function estimateCostUsd(
+  model: string,
+  inputTokens: number,
+  outputTokens: number,
+  cachedInputTokens = 0,
+): number {
   const cost = MODEL_COSTS_USD_PER_1K[model] ?? DEFAULT_COST;
-  return (inputTokens / 1000) * cost.input + (outputTokens / 1000) * cost.output;
+  // Cached input tokens receive a 90% discount (Anthropic & OpenAI standard)
+  const uncachedInputTokens = Math.max(0, inputTokens - cachedInputTokens);
+  const inputCost = (uncachedInputTokens / 1000) * cost.input + (cachedInputTokens / 1000) * (cost.input * 0.1);
+  const outputCost = (outputTokens / 1000) * cost.output;
+  return Number((inputCost + outputCost).toFixed(6));
 }

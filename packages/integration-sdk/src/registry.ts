@@ -48,10 +48,13 @@ export function getRegisteredActions(): ActionDefinition[] {
 /** Formats all registered actions into the standard ListActionsResponse shape. */
 export function listRegisteredActionsResponse(): ListActionsResponse {
   return {
-    actions: getRegisteredActions().map(({ name, description, parameters }) => ({
+    actions: getRegisteredActions().map(({ name, description, parameters, reversibility, compensateWith, compensationMapping }) => ({
       name,
       description,
       parameters,
+      reversibility: reversibility ?? (name.startsWith('get_') || name.startsWith('check_') || name.startsWith('list_') ? 'QUERY' : 'COMPENSATABLE'),
+      compensateWith,
+      compensationMapping,
     })),
   };
 }

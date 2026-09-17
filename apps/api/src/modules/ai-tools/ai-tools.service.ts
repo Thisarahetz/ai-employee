@@ -19,10 +19,12 @@ export class AiToolsService {
       select: { name: true, description: true, parameters: true },
     });
 
-    return actions.map((action) => ({
+    return actions.map((action, idx) => ({
       name: action.name,
       description: action.description,
       parameters: toJsonSchema((action.parameters ?? {}) as Record<string, unknown>),
+      // Mark last tool with cacheControl to place cache breakpoint after tool definitions
+      cacheControl: idx === actions.length - 1,
     }));
   }
 }

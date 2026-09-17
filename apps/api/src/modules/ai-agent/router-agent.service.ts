@@ -3,6 +3,7 @@ import { AgentType } from '@prisma/client';
 import { AiProviderService } from '../ai-provider/ai-provider.service';
 import { MessageService } from '../message/message.service';
 import { TimeContextService } from './time-context.service';
+import { fastPathRoute } from './fast-path-router.util';
 
 export type RoutedAgent = 'support_agent' | 'knowledge_agent' | 'action_agent' | 'human_handoff';
 
@@ -67,8 +68,19 @@ export class RouterAgentService {
     latestMessage: string,
     previousAgent?: AgentType | null,
   ): Promise<RouteResult> {
+    // 1. Zero-Token Fast Path Check (MindStudio Technique 8 & Deterministic Filter)
+    // Completely bypasses LLM call for greetings, handoff requests, and simple affirmations.
+    const fastRoute = fastPathRoute(latestMessage, previousAgent);
+    if (fastRoute) {
+      this.logger.debug(
+        `[Zero-Token Route] Bypassed LLM for message="${latestMessage.slice(0, 30)}..." -> ${fastRoute.agent}`,
+      );
+      return fastRoute;
+    }
+
+    // 2. Fallback to lean LLM micro-classification (only 3 history turns, capped 60 tokens)
     const [history, timeContext] = await Promise.all([
-      this.messageService.getRecentHistory(tenantId, conversationId, 6, latestMessage),
+      this.messageService.getRecentHistory(tenantId, conversationId, 3, latestMessage),
       this.timeContextService.getTimeContext(tenantId, conversationId),
     ]);
 
@@ -83,11 +95,14 @@ export class RouterAgentService {
       tenantId,
       AgentType.ROUTER,
       [
-        { role: 'system', content: systemPrompt },
+        { role: 'system', content: systemPrompt, cacheControl: true },
         ...history,
         { role: 'user', content: latestMessage },
       ],
-      { conversationId, responseFormat: 'json' },
+      {
+        conversationId,
+        responseFormat: 'json',
+      },
     );
 
     return this.parse(result.content);

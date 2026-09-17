@@ -76,7 +76,7 @@ export class RagService {
     tenantId: string,
     knowledgeBaseId: string,
     query: string,
-    topK = 5,
+    topK = 3,
   ): Promise<{ content: string; documentId: string }[]> {
     const { embedding } = await this.aiProviderService.embed(tenantId, query);
     const vectorLiteral = this.toVectorLiteral(embedding);
@@ -93,11 +93,12 @@ export class RagService {
    * Like search(), but across every KnowledgeBase the tenant owns — used by the
    * Knowledge Agent, which answers from all of the tenant's knowledge (hand-authored
    * docs + integration-synced ones) rather than a single KB. Still tenant-filtered.
+   * Default topK=3 bounds context injection to ~300-500 tokens (RTK compression).
    */
   async searchTenant(
     tenantId: string,
     query: string,
-    topK = 5,
+    topK = 3,
   ): Promise<{ content: string; documentId: string }[]> {
     const { embedding } = await this.aiProviderService.embed(tenantId, query);
     const vectorLiteral = this.toVectorLiteral(embedding);

@@ -13,6 +13,8 @@ export interface AIMessage {
   content: string;
   /** Set on role: 'tool' messages — the id of the tool_use/tool_call this is a result for. */
   toolCallId?: string;
+  /** Mark this message prefix for provider prompt caching (e.g. Anthropic ephemeral cache control). */
+  cacheControl?: boolean;
 }
 
 /** JSON-schema-ish parameter definition — matches the Integration API Contract's action parameter format. */
@@ -20,6 +22,8 @@ export interface AIToolDefinition {
   name: string;
   description: string;
   parameters: Record<string, unknown>;
+  /** Mark tool definitions block for provider prompt caching. */
+  cacheControl?: boolean;
 }
 
 export interface AIToolCall {
@@ -42,6 +46,7 @@ export interface AICompletionResult {
   toolCalls?: AIToolCall[];
   inputTokens: number;
   outputTokens: number;
+  cachedInputTokens?: number;
   model: string;
 }
 

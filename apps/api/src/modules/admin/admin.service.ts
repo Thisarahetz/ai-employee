@@ -951,6 +951,53 @@ export class AdminService {
     return this.platformSettings;
   }
 
+  /**
+   * Nuclear "clean database" — wipes all tenant-scoped data and all
+   * non-platform-admin user identities.  Safe to call from the API because it
+   * uses Prisma cascades (not `prisma db push --force-reset`), so the schema
+   * stays intact and super-admin accounts keep working after the reset.
+   *
+   * Execution order:
+   *   1. Write the audit log entry FIRST (survives even if the delete fails).
+   *   2. Delete all Tenant rows — cascades wipe every child record in the DB
+   *      (businesses, conversations, messages, customers, integrations, etc.).
+   *   3. Delete non-platform-admin User rows (global identities with no tenant).
+   *   4. Return a counts summary.
+   */
+  async cleanDatabase(actor: AdminActor) {
+    // Snapshot counts before we delete anything — used in the response summary.
+    const [tenantCount, userCount, conversationCount, messageCount] = await Promise.all([
+      this.prisma.tenant.count(),
+      this.prisma.user.count({ where: { platformRole: 'NONE' } }),
+      this.prisma.conversation.count(),
+      this.prisma.message.count(),
+    ]);
+
+    // Audit BEFORE delete so we always have a record, even on partial failure.
+    await this.recordAudit(actor, 'platform.clean_database', 'platform', 'GLOBAL', {
+      snapshot: { tenantCount, userCount, conversationCount, messageCount },
+      warning: 'All tenant-scoped data and non-admin user identities were wiped.',
+    });
+
+    // Cascade-delete every tenant (wipes all child rows automatically).
+    await this.prisma.tenant.deleteMany({});
+
+    // Remove global User identities that have no platform role.
+    // Super-admins (platformRole = SUPER_ADMIN) are preserved so /admin stays accessible.
+    await this.prisma.user.deleteMany({ where: { platformRole: 'NONE' } });
+
+    return {
+      success: true,
+      message: 'Database cleaned. All tenant data and non-admin user identities have been removed.',
+      removed: {
+        tenants: tenantCount,
+        nonAdminUsers: userCount,
+        conversations: conversationCount,
+        messages: messageCount,
+      },
+    };
+  }
+
   private resolveUserAuditActions(
     before: { platformRole: string; status: string },
     dto: UpdateUserDto,

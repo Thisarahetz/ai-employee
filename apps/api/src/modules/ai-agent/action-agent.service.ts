@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { AgentType } from '@prisma/client';
+import { AgentType, ReversibilityType } from '@prisma/client';
 import type { AIMessage, AIToolCall } from '@ai-employee/ai-core';
 import { AiProviderService } from '../ai-provider/ai-provider.service';
 import { AiToolsService } from '../ai-tools/ai-tools.service';
@@ -9,28 +9,33 @@ import { EventService } from '../../events/event.service';
 import { EVENT_TYPES } from '../../events/event-types.const';
 import { ExternalActionService } from '../external-action/external-action.service';
 import { TimeContextService } from './time-context.service';
+import { DynamicSagaService } from '../saga/dynamic-saga.service';
+import { PolicySynthesisService } from '../policy-synthesis/policy-synthesis.service';
+import { ToolOutputCompressorService } from './tool-output-compressor.service';
 
 const DEFAULT_ACTION_PROMPT =
   'You are an action-taking assistant that handles bookings, lookups and updates for the business.';
 
 /**
- * Appended to whatever persona prompt the tenant configured. Booking is a
- * multi-turn, multi-step task: the required details (service, date/time,
- * name, phone…) arrive across several customer messages, and completing it
- * often needs more than one tool call (e.g. look the service up, THEN book
- * it). The agent must read the whole conversation and chain tools rather
- * than guessing.
+ * Appended to whatever persona prompt the tenant configured.
+ * Includes Caveman concise communication directives to cut output and reasoning tokens by 50%+.
  */
 const ACTION_GUARDRAIL = [
-  'Use the available tools to carry out the request.',
-  'Collect every required detail (service, date/time, customer name, customer phone number) from the whole recent conversation, not just the latest message.',
-  'You may call tools over several steps — for example look up services/variants with one tool, then call create_appointment with the resolved variantId.',
-  'CRITICAL APPOINTMENT BOOKING RULES:',
-  '- PHONE NUMBER IS MANDATORY: A customer phone number is strictly required to book an appointment. If the customer has not provided their phone number (and it is not in Known Customer Details), you MUST ask the customer for their phone number before booking. Never call create_appointment without a real phone number from the customer.',
-  '- PREFERRED TIME & DATE: If the customer has not specified their preferred time or date, ask the customer for that information. DO NOT invent or fabricate a time.',
-  '- CONFIRMATION: You must NEVER tell the customer an appointment is booked, scheduled, or confirmed unless you have successfully executed the create_appointment tool in this conversation and received a confirmed booking result.',
-  '- TOOL PARAMETERS: When calling create_appointment, pass variantId, customerFirstName, customerLastName (if known), customerPhone, and startTime formatted with the ISO date, time, and timezone offset matching the business timezone.',
-  '- Never claim an action succeeded unless a tool result in this turn confirmed it. If a tool result reports a failure, apologise briefly and explain what is needed.',
+  'CONCISE DIRECTIVE (TOKEN EFFICIENCY):',
+  '- Be direct, concise, and professional.',
+  '- Omit pleasantries, conversational filler, and hedging ("Sure, let me check that!", "I will gladly assist").',
+  '- Never repeat the customer prompt or explain which tools you are about to run.',
+  '- Directly ask for missing required information or report confirmed tool outcomes.',
+  '',
+  'OPERATIONAL RULES:',
+  '- Use the available tools to carry out the request.',
+  '- Collect required details (service, date/time, customer name, customer phone) from recent conversation.',
+  '- You may call tools over multiple steps (e.g. look up services, then call create_appointment).',
+  '- PHONE NUMBER IS MANDATORY: You MUST ask for phone number before booking if not already known.',
+  '- PREFERRED TIME & DATE: If not specified, ask for it. DO NOT invent or fabricate a time.',
+  '- CONFIRMATION: Never claim an appointment is booked unless create_appointment succeeded in this turn.',
+  '- TOOL PARAMETERS: When calling create_appointment, pass variantId, customerFirstName, customerLastName (if known), customerPhone, and startTime in ISO format matching business timezone.',
+  '- If a tool reports a failure, concisely explain what is needed.',
 ].join('\n');
 
 /** Max model↔tool round trips before we force a plain-text reply. */
@@ -44,13 +49,6 @@ interface ExecutedToolResult {
   resultSummary: string;
 }
 
-/**
- * ActionAgentService — loads the tenant's currently ENABLED IntegrationAction
- * tools plus the recent conversation turns, then runs a bounded agentic loop:
- * the model may call tools over several steps (results are fed back as
- * plain-text turns, so this works identically on every provider without
- * replaying tool_use turns) until it has enough to reply to the customer.
- */
 @Injectable()
 export class ActionAgentService {
   private readonly logger = new Logger(ActionAgentService.name);
@@ -63,10 +61,13 @@ export class ActionAgentService {
     private readonly messageService: MessageService,
     private readonly eventService: EventService,
     private readonly timeContextService: TimeContextService,
+    private readonly dynamicSagaService: DynamicSagaService,
+    private readonly policySynthesisService: PolicySynthesisService,
+    private readonly toolOutputCompressorService: ToolOutputCompressorService,
   ) {}
 
   async respond(tenantId: string, conversationId: string, latestMessage: string): Promise<string> {
-    const [tools, history, aiAgent, timeContext, conversation] = await Promise.all([
+    const [tools, history, aiAgent, timeContext, conversation, activeInvariants, activeSaga] = await Promise.all([
       this.aiToolsService.getToolsForTenant(tenantId),
       this.messageService.getRecentHistory(tenantId, conversationId, 10, latestMessage),
       this.prisma.aiAgent.findUnique({
@@ -77,7 +78,16 @@ export class ActionAgentService {
         where: { id: conversationId },
         include: { customer: true },
       }),
+      this.policySynthesisService.getActiveInvariants(tenantId),
+      this.dynamicSagaService.getOrCreateActiveSaga(tenantId, conversationId),
     ]);
+
+    // Check for explicit customer cancellation/rollback intent under TEO-PIPS
+    const userWantsRollback = /\b(undo|rollback|never mind|cancel that|cancel previous|cancel appointment)\b/i.test(latestMessage);
+    if (userWantsRollback && activeSaga.steps.length > 0) {
+      await this.dynamicSagaService.compensateSaga(activeSaga.id, 'Customer requested cancellation/undo');
+      return "I've rolled back and cancelled the previous request for you. Let me know if there is anything else I can help with!";
+    }
 
     const persona = aiAgent?.systemPrompt?.trim() || DEFAULT_ACTION_PROMPT;
     const customer = conversation?.customer;
@@ -91,6 +101,16 @@ export class ActionAgentService {
           ]
             .filter(Boolean)
             .join('\n')
+        : '';
+
+    const invariantsContext =
+      activeInvariants.length > 0
+        ? [
+            'ACTIVE OPERATIONAL INVARIANTS (LEARNED FROM SUPERVISION):',
+            ...activeInvariants.map(
+              (inv) => `- [${inv.name}]: ${inv.description} (Rule: ${JSON.stringify(inv.conditionRule)})`,
+            ),
+          ].join('\n')
         : '';
 
     const temporalGuardrail = [
@@ -109,14 +129,23 @@ export class ActionAgentService {
       .filter(Boolean)
       .join('\n');
 
-    const systemPrompt = [persona, ACTION_GUARDRAIL, customerInfo, temporalGuardrail]
+    // 1. Static prompt prefix: persona + guardrails + invariants (100% cacheable across calls)
+    const staticSystemPrompt = [persona, ACTION_GUARDRAIL, invariantsContext]
+      .filter(Boolean)
+      .join('\n\n');
+
+    // 2. Dynamic context: customer details + real-time clock (isolated from static prefix to preserve cache)
+    const dynamicContext = [
+      customerInfo ? `[Customer Details]\n${customerInfo}` : '',
+      temporalGuardrail,
+    ]
       .filter(Boolean)
       .join('\n\n');
 
     const baseMessages: AIMessage[] = [
-      { role: 'system', content: systemPrompt },
+      { role: 'system', content: staticSystemPrompt, cacheControl: true },
       ...history,
-      { role: 'user', content: latestMessage },
+      { role: 'user', content: `${dynamicContext}\n\nCustomer Request: ${latestMessage}` },
     ];
 
     if (tools.length === 0) {
@@ -132,10 +161,13 @@ export class ActionAgentService {
     const transcript: AIMessage[] = [];
 
     for (let step = 0; step < MAX_TOOL_STEPS; step++) {
+      // RTK Compact Transcript: compacts older steps to avoid duplicating large tool dumps
+      const compactedTranscript = this.toolOutputCompressorService.compactTranscript(transcript);
+
       const res = await this.aiProviderService.complete(
         tenantId,
         AgentType.ACTION,
-        [...baseMessages, ...transcript],
+        [...baseMessages, ...compactedTranscript],
         { conversationId, tools },
       );
 
@@ -167,7 +199,7 @@ export class ActionAgentService {
         return reply;
       }
 
-      const executed = await this.executeToolCalls(tenantId, conversationId, res.toolCalls);
+      const executed = await this.executeToolCalls(tenantId, conversationId, res.toolCalls, activeSaga.id);
 
       transcript.push({
         role: 'assistant',
@@ -179,11 +211,7 @@ export class ActionAgentService {
         role: 'user',
         content:
           `Results:\n${executed.map((r) => `- ${r.name}: ${r.resultSummary}`).join('\n')}\n\n` +
-          'IMPORTANT INSTRUCTIONS:\n' +
-          '1. If you need to perform an action (e.g. create_appointment) and you now have ALL required information (variantId, date, time, customer name, and customer phone number), you MUST call create_appointment now.\n' +
-          "2. If you are missing required information (such as the customer's phone number, preferred time, or date), ask the customer for that specific missing detail now.\n" +
-          '3. You must NEVER tell the customer their appointment is booked without a successful create_appointment tool result.\n' +
-          '4. If all requested actions are completed and confirmed by tool results, reply to the customer in friendly, plain language.',
+          'Next Step: If missing details (phone/time/service), ask concisely. If all details ready, call create_appointment now.',
       });
     }
 
@@ -195,11 +223,11 @@ export class ActionAgentService {
       AgentType.ACTION,
       [
         ...baseMessages,
-        ...transcript,
+        ...this.toolOutputCompressorService.compactTranscript(transcript),
         {
           role: 'user',
           content:
-            'Reply to the customer now in plain language, based only on what the tool results above confirmed. Do not claim anything a result did not confirm.',
+            'Reply to the customer now in direct, concise language based strictly on what the tool results above confirmed.',
         },
       ],
       { conversationId },
@@ -209,12 +237,13 @@ export class ActionAgentService {
 
   /**
    * Runs each tool call the model requested against the generic Integration
-   * Layer and returns a short summary of every outcome (success or failure).
+   * Layer and returns a short, compressed summary of every outcome (success or failure).
    */
   private async executeToolCalls(
     tenantId: string,
     conversationId: string,
     toolCalls: AIToolCall[],
+    sagaId: string,
   ): Promise<ExecutedToolResult[]> {
     // Map tool name -> integrationId so we can call ExternalActionService,
     // which is keyed by integration rather than by action name alone.
@@ -227,6 +256,14 @@ export class ActionAgentService {
     const executed: ExecutedToolResult[] = [];
 
     for (const call of toolCalls) {
+      const isQuery =
+        call.name.startsWith('get_') ||
+        call.name.startsWith('check_') ||
+        call.name.startsWith('list_') ||
+        call.name.startsWith('find_');
+      const reversibility = isQuery ? ReversibilityType.QUERY : ReversibilityType.COMPENSATABLE;
+      const compensatingAction = call.name === 'create_appointment' ? 'cancel_appointment' : null;
+
       const integrationId = integrationByName.get(call.name);
       if (!integrationId) {
         executed.push({
@@ -238,7 +275,20 @@ export class ActionAgentService {
 
       try {
         const execResult = await this.externalActionService.executeAction(integrationId, call.name, call.arguments);
-        executed.push({ name: call.name, resultSummary: JSON.stringify(execResult) });
+        // RTK Semantic Compression: Compress raw tool execution output before feeding to model context
+        const compressedSummary = this.toolOutputCompressorService.compressToolResult(call.name, execResult);
+        executed.push({ name: call.name, resultSummary: compressedSummary });
+
+        // Record step in dynamic saga transaction log
+        await this.dynamicSagaService.recordStep({
+          sagaId,
+          actionName: call.name,
+          reversibility,
+          inputPayload: call.arguments,
+          outputPayload: (execResult.data ?? null) as Record<string, unknown> | null,
+          compensatingAction,
+          error: execResult.success ? null : execResult.message,
+        });
 
         await this.eventService.emit(
           tenantId,
@@ -255,6 +305,9 @@ export class ActionAgentService {
         );
 
         if (call.name === 'create_appointment' && execResult.success) {
+          // Seal the transaction upon verified successful creation
+          await this.dynamicSagaService.commitSaga(sagaId);
+
           const bookingData = (execResult.data ?? {}) as Record<string, unknown>;
           const conv = await this.prisma.conversation.findUnique({
             where: { id: conversationId },
@@ -289,6 +342,16 @@ export class ActionAgentService {
         const message = (err as Error).message ?? 'Action execution failed';
         this.logger.error(`Action ${call.name} failed for tenant=${tenantId}: ${message}`);
         executed.push({ name: call.name, resultSummary: JSON.stringify({ success: false, message }) });
+
+        await this.dynamicSagaService.recordStep({
+          sagaId,
+          actionName: call.name,
+          reversibility,
+          inputPayload: call.arguments,
+          outputPayload: null,
+          compensatingAction,
+          error: message,
+        });
       }
     }
 

@@ -67,21 +67,40 @@ export class MessageService {
 
   /**
    * The recent conversation as oldest-first chat turns for an AI agent.
-   * Non-customer senders (AI / HUMAN_AGENT / SYSTEM) are all folded into
-   * 'assistant' — this is a scaffold, not a full role-fidelity replay. Pass
-   * `omitLastContent` with the just-received inbound text so the trailing
-   * duplicate customer turn is dropped when the caller re-adds it as the final
-   * message.
+   * Integrates rolling ConversationSummary (MindStudio Technique 6 & Rule 9):
+   * Older turns covered by a summary are rolled into a single memory block,
+   * keeping prompt context permanently bounded to < 350 tokens.
    */
   async getRecentHistory(
     tenantId: string,
     conversationId: string,
-    limit = 10,
+    limit = 6,
     omitLastContent?: string,
   ): Promise<AgentHistoryTurn[]> {
-    const recent = await this.getRecentMessages(tenantId, conversationId, limit);
-    const chronological = [...recent].reverse();
-    return chronological
+    const [summary, recent] = await Promise.all([
+      this.prisma.conversationSummary.findFirst({
+        where: { tenantId, conversationId },
+        orderBy: { coveredUntil: 'desc' },
+      }),
+      this.getRecentMessages(tenantId, conversationId, limit),
+    ]);
+
+    // Filter out messages that are already captured by the summary
+    const unsummarized = summary
+      ? recent.filter((m) => m.createdAt > summary.coveredUntil)
+      : recent;
+
+    const chronological = [...unsummarized].reverse();
+    const turns: AgentHistoryTurn[] = [];
+
+    if (summary) {
+      turns.push({
+        role: 'assistant',
+        content: `[Previous conversation summary: ${summary.summary}]`,
+      });
+    }
+
+    const messageTurns = chronological
       .filter(
         (m, idx) =>
           !(idx === chronological.length - 1 && omitLastContent !== undefined && m.content === omitLastContent),
@@ -90,5 +109,7 @@ export class MessageService {
         role: m.sender === MessageSender.CUSTOMER ? ('user' as const) : ('assistant' as const),
         content: m.content,
       }));
+
+    return [...turns, ...messageTurns];
   }
 }

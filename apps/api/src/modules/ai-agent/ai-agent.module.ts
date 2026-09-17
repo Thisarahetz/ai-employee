@@ -16,6 +16,10 @@ import { AiAgentConfigService } from './ai-agent-config.service';
 import { AiAgentController } from './ai-agent.controller';
 
 import { TimeContextService } from './time-context.service';
+import { ToolOutputCompressorService } from './tool-output-compressor.service';
+
+import { DynamicSagaModule } from '../saga/dynamic-saga.module';
+import { PolicySynthesisModule } from '../policy-synthesis/policy-synthesis.module';
 
 @Module({
   imports: [
@@ -27,6 +31,8 @@ import { TimeContextService } from './time-context.service';
     ExternalActionModule,
     HumanHandoffModule,
     MessageModule,
+    DynamicSagaModule,
+    PolicySynthesisModule,
   ],
   controllers: [AiAgentController],
   providers: [
@@ -37,6 +43,7 @@ import { TimeContextService } from './time-context.service';
     AgentOrchestratorService,
     AiAgentConfigService,
     TimeContextService,
+    ToolOutputCompressorService,
   ],
   exports: [
     RouterAgentService,
@@ -45,6 +52,7 @@ import { TimeContextService } from './time-context.service';
     ActionAgentService,
     AiAgentConfigService,
     TimeContextService,
+    ToolOutputCompressorService,
   ],
 })
 export class AiAgentModule {}

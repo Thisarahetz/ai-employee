@@ -41,10 +41,8 @@ export class ClaudeProvider implements AIProvider {
   async complete(req: AICompletionRequest): Promise<AICompletionResult> {
     const client = this.getClient();
 
-    let systemText = req.messages
-      .filter((m) => m.role === 'system')
-      .map((m) => m.content)
-      .join('\n\n');
+    const systemMessages = req.messages.filter((m) => m.role === 'system');
+    let systemText = systemMessages.map((m) => m.content).join('\n\n');
 
     // Anthropic has no forced-JSON response mode on this request shape —
     // nudge it via the system prompt instead when responseFormat: 'json' is
@@ -54,17 +52,30 @@ export class ClaudeProvider implements AIProvider {
       systemText = systemText ? `${systemText}\n\n${jsonInstruction}` : jsonInstruction;
     }
 
-    const tools: Anthropic.Tool[] | undefined = req.tools?.map((t) => ({
+    const hasCacheControl = systemMessages.some((m) => m.cacheControl) || req.tools?.some((t) => t.cacheControl);
+
+    // Format system as prompt-cached text block when requested, saving up to 90% input token cost
+    const systemParam: any = systemText
+      ? hasCacheControl
+        ? [{ type: 'text', text: systemText, cache_control: { type: 'ephemeral' } }]
+        : systemText
+      : undefined;
+
+    const tools: any = req.tools?.map((t, idx, arr) => ({
       name: t.name,
       description: t.description,
       input_schema: t.parameters as Anthropic.Tool['input_schema'],
+      // Place cache breakpoint on the final tool if cacheControl is enabled
+      ...(t.cacheControl || (hasCacheControl && idx === arr.length - 1)
+        ? { cache_control: { type: 'ephemeral' } }
+        : {}),
     }));
 
     const response = await client.messages.create({
       model: req.model,
       max_tokens: req.maxTokens ?? 1024,
       temperature: req.temperature,
-      system: systemText || undefined,
+      system: systemParam,
       messages: this.toAnthropicMessages(req.messages),
       tools,
     });
@@ -83,11 +94,14 @@ export class ClaudeProvider implements AIProvider {
       }
     }
 
+    const cachedInputTokens = (response.usage as any)?.cache_read_input_tokens ?? 0;
+
     return {
       content,
       toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
       inputTokens: response.usage.input_tokens,
       outputTokens: response.usage.output_tokens,
+      cachedInputTokens,
       model: response.model,
     };
   }

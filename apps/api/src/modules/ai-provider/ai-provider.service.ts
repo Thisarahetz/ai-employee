@@ -102,7 +102,12 @@ export class AiProviderService {
     }
 
     const executionTimeMs = Date.now() - start;
-    const estimatedCostUsd = estimateCostUsd(model, result.inputTokens, result.outputTokens);
+    const estimatedCostUsd = estimateCostUsd(
+      model,
+      result.inputTokens,
+      result.outputTokens,
+      result.cachedInputTokens,
+    );
 
     await this.prisma.aiUsageLog.create({
       data: {

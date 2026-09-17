@@ -32,6 +32,8 @@ import { AdminModule } from './modules/admin/admin.module';
 import { AiUsageLogsModule } from './modules/ai-usage-logs/ai-usage-logs.module';
 import { AiEmployeeModule } from './modules/ai-employee/ai-employee.module';
 import { HealthModule } from './modules/health/health.module';
+import { DynamicSagaModule } from './modules/saga/dynamic-saga.module';
+import { PolicySynthesisModule } from './modules/policy-synthesis/policy-synthesis.module';
 
 @Module({
   imports: [
@@ -72,6 +74,8 @@ import { HealthModule } from './modules/health/health.module';
     AdminModule,
     AiUsageLogsModule,
     AiEmployeeModule,
+    DynamicSagaModule,
+    PolicySynthesisModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

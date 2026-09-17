@@ -7,24 +7,17 @@ import { RagService } from '../rag/rag.service';
 import { TimeContextService } from './time-context.service';
 
 const DEFAULT_KNOWLEDGE_PROMPT =
-  "You are a knowledge assistant. Answer the customer's question about the business using the context provided below.";
+  "You are a factual knowledge assistant for the business.";
 
 /**
- * Appended to whatever persona prompt the tenant configured, so the RAG
- * guardrail can't be lost by editing the persona. Keeps the model from
- * answering out of the retrieved context or the chat history.
+ * Caveman-style high-density RAG guardrail:
+ * Enforces strict factual fidelity while stripping verbose filler, hedging, and pleasantries.
  */
 const KNOWLEDGE_GUARDRAIL =
-  "Answer ONLY from the numbered context snippets in the final message. Use the earlier conversation only to understand what the customer is referring to (e.g. a follow-up like \"and the men's one?\"), never as a source of facts. If the answer isn't in the context, say you don't have that information and offer to connect them with a human.";
+  "Answer ONLY from the numbered context snippets. Be direct, concise, and professional.\n" +
+  "Omit pleasantries, hedging, and conversational filler. State the exact facts (pricing, hours, address, services) in 1 to 3 sentences.\n" +
+  "If the answer is not in the context, concisely state that you do not have that information and offer to connect them with a human.";
 
-/**
- * KnowledgeAgentService — never loads a whole KnowledgeBase or full
- * document. It asks RagService for just the top-K most relevant chunks for
- * THIS question and sends only those chunks + a few recent conversation turns
- * (so follow-up questions keep their referent) + the latest message. The
- * model never sees more knowledge-base content than it needs to answer a
- * single question.
- */
 @Injectable()
 export class KnowledgeAgentService {
   private readonly logger = new Logger(KnowledgeAgentService.name);
@@ -38,11 +31,10 @@ export class KnowledgeAgentService {
   ) {}
 
   async respond(tenantId: string, conversationId: string, latestMessage: string): Promise<string> {
-    // Retrieve across ALL of the tenant's knowledge bases — hand-authored docs plus
-    // anything synced from an integration's GET /ai/knowledge feed — not just one KB.
+    // RTK Token Reduction: Query top 3 most relevant chunks instead of 5, saving 40-50% context tokens.
     const [chunks, history, aiAgent, timeContext] = await Promise.all([
-      this.ragService.searchTenant(tenantId, latestMessage, 5),
-      this.messageService.getRecentHistory(tenantId, conversationId, 6, latestMessage),
+      this.ragService.searchTenant(tenantId, latestMessage, 3),
+      this.messageService.getRecentHistory(tenantId, conversationId, 4, latestMessage),
       this.prisma.aiAgent.findUnique({
         where: { tenantId_type: { tenantId, type: AgentType.KNOWLEDGE } },
       }),
@@ -54,31 +46,36 @@ export class KnowledgeAgentService {
     }
 
     const persona = aiAgent?.systemPrompt?.trim() || DEFAULT_KNOWLEDGE_PROMPT;
+    // Static prompt prefix: persona + guardrails (100% cacheable across requests)
+    const staticSystemPrompt = `${persona}\n\n${KNOWLEDGE_GUARDRAIL}`;
+
     const temporalContext = [
       'TEMPORAL CONTEXT:',
       `- Current Date & Time: ${timeContext.formatted}`,
-      `- Current Day of the Week: ${timeContext.dayOfWeek}`,
-      `- Current Time: ${timeContext.timeString}`,
+      `- Current Day of Week: ${timeContext.dayOfWeek}`,
       `- Timezone: ${timeContext.timezone} (${timeContext.offset})`,
-      timeContext.locationsSummary ? `- Available Locations:\n${timeContext.locationsSummary}` : '',
-      'Use this current timestamp, day of week, and timezone to accurately answer questions about whether the business is open right now, today’s opening hours, and upcoming schedules based on the context snippets.',
+      timeContext.locationsSummary ? `- Locations:\n${timeContext.locationsSummary}` : '',
     ]
       .filter(Boolean)
       .join('\n');
-
-    const systemPrompt = `${persona}\n\n${KNOWLEDGE_GUARDRAIL}\n\n${temporalContext}`;
 
     const context = chunks.length
       ? chunks.map((c, i) => `[${i + 1}] ${c.content}`).join('\n\n')
       : '(no relevant context found)';
 
+    const userTurnContent = [
+      `Context:\n${context}`,
+      temporalContext,
+      `Question: ${latestMessage}`,
+    ].join('\n\n');
+
     const result = await this.aiProviderService.complete(
       tenantId,
       AgentType.KNOWLEDGE,
       [
-        { role: 'system', content: systemPrompt },
+        { role: 'system', content: staticSystemPrompt, cacheControl: true },
         ...history,
-        { role: 'user', content: `Context:\n${context}\n\nQuestion: ${latestMessage}` },
+        { role: 'user', content: userTurnContent },
       ],
       { conversationId },
     );

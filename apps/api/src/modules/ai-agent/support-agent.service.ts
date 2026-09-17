@@ -6,15 +6,15 @@ import { MessageService } from '../message/message.service';
 import { TimeContextService } from './time-context.service';
 
 const DEFAULT_SUPPORT_PROMPT =
-  'You are a friendly, concise customer support agent. Answer the customer directly using the recent conversation for context. Keep responses short and helpful.';
+  'You are a professional customer support agent for the business.';
 
-/**
- * SupportAgentService — loads only the last 10 messages of THIS conversation
- * plus the tenant's configured SUPPORT system prompt. Deliberately does NOT
- * load the knowledge base or any tool definitions: general support replies
- * don't need either, and pulling them in here would inflate the token cost
- * of every generic support turn (the common case) for no benefit.
- */
+const CAVEMAN_SUPPORT_GUARDRAIL =
+  'CONCISE COMMUNICATION DIRECTIVE (TOKEN EFFICIENCY):\n' +
+  '- Be direct, concise, and professional.\n' +
+  '- Omit pleasantries, conversational filler, and hedging ("Sure, I can help!", "Thank you for reaching out").\n' +
+  '- Answer directly in 1 to 3 sentences.\n' +
+  '- Never repeat the customer\'s question or narrate what you are doing.';
+
 @Injectable()
 export class SupportAgentService {
   constructor(
@@ -26,7 +26,7 @@ export class SupportAgentService {
 
   async respond(tenantId: string, conversationId: string, latestMessage: string): Promise<string> {
     const [history, aiAgent, timeContext] = await Promise.all([
-      this.messageService.getRecentHistory(tenantId, conversationId, 10, latestMessage),
+      this.messageService.getRecentHistory(tenantId, conversationId, 6, latestMessage),
       this.prisma.aiAgent.findUnique({
         where: { tenantId_type: { tenantId, type: AgentType.SUPPORT } },
       }),
@@ -34,12 +34,18 @@ export class SupportAgentService {
     ]);
 
     const persona = aiAgent?.systemPrompt?.trim() || DEFAULT_SUPPORT_PROMPT;
-    const systemPrompt = `${persona}\n\nCurrent Date & Time in business timezone (${timeContext.timezone}): ${timeContext.formatted}.`;
+    // Static prompt prefix: persona + guardrails (100% cacheable across all requests)
+    const staticSystemPrompt = `${persona}\n\n${CAVEMAN_SUPPORT_GUARDRAIL}`;
+    const dynamicTimeTurn = `[Context: Current Date & Time in timezone ${timeContext.timezone}: ${timeContext.formatted}]`;
 
     const result = await this.aiProviderService.complete(
       tenantId,
       AgentType.SUPPORT,
-      [{ role: 'system', content: systemPrompt }, ...history, { role: 'user', content: latestMessage }],
+      [
+        { role: 'system', content: staticSystemPrompt, cacheControl: true },
+        ...history,
+        { role: 'user', content: `${dynamicTimeTurn}\n\n${latestMessage}` },
+      ],
       { conversationId },
     );
 
