@@ -20,7 +20,8 @@
     "prisma:migrate": "pnpm --filter @ai-employee/api exec prisma migrate dev",
     "prisma:studio": "pnpm --filter @ai-employee/api exec prisma studio",
     "prisma:seed": "pnpm --filter @ai-employee/api exec prisma db seed",
-    "db:clean": "pnpm --filter @ai-employee/api exec prisma db push --force-reset && pnpm prisma:seed",
+    "db:wipe": "pnpm --filter @ai-employee/api exec prisma db push --force-reset",
+    "db:clean": "pnpm --filter @ai-employee/api exec prisma db push --force-reset",
     "db:reset": "pnpm --filter @ai-employee/api exec prisma db push --force-reset && pnpm prisma:seed"
   },
   "dependencies": {

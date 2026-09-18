@@ -25,6 +25,17 @@ source .env
 set +a
 
 # ----------------------------------------
+# Dependencies Check
+# ----------------------------------------
+
+if [ ! -d "node_modules" ] || [ ! -f "node_modules/.bin/turbo" ]; then
+  echo "-- Dependencies not found. Installing workspace dependencies..."
+  pnpm install
+  pnpm prisma:generate
+fi
+
+
+# ----------------------------------------
 # Stop existing dev process
 # ----------------------------------------
 
@@ -114,6 +125,12 @@ echo "-- Waiting for the web app on http://localhost:3000"
 WEB_READY=false
 
 for i in $(seq 1 90); do
+  if ! kill -0 "$DEV_PID" 2>/dev/null; then
+    echo "❌ Dev server process exited unexpectedly."
+    echo "  Check logs: /tmp/ai-employee-dev.log"
+    exit 1
+  fi
+
   code="$(curl -s -o /dev/null -w '%{http_code}' \
     http://localhost:3000 2>/dev/null || true)"
 
