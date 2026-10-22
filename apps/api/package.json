@@ -18,7 +18,8 @@
     "seed": "ts-node --transpile-only scripts/seed.ts",
     "test": "node --test --require ts-node/register/transpile-only test/*.test.ts",
     "test:integration": "node --test --test-concurrency=1 --require ts-node/register/transpile-only test/integration/*.test.ts",
-    "worker": "AI_WORKFORCE_WORKER=true node dist/main.js"
+    "worker": "AI_WORKFORCE_WORKER=true node dist/main.js",
+    "test:live": "node --test --require ts-node/register/transpile-only test/live/*.test.ts"
   },
   "dependencies": {
     "@ai-employee/ai-core": "workspace:*",
@@ -47,10 +48,12 @@
     "cron-parser": "4.9.0",
     "helmet": "^7.1.0",
     "ioredis": "^5.4.1",
+    "mammoth": "1.8.0",
     "multer": "^1.4.5-lts.1",
     "openai": "^4.67.3",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
+    "pdf-parse": "1.1.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "uuid": "^10.0.0"
@@ -64,6 +67,7 @@
     "@types/multer": "^1.4.12",
     "@types/node": "^20.16.5",
     "@types/passport-jwt": "^4.0.1",
+    "@types/pdf-parse": "1.1.4",
     "@types/uuid": "^10.0.0",
     "prisma": "5.22.0",
     "source-map-support": "^0.5.21",

@@ -93,13 +93,15 @@ docker compose ps
 ### Step 4: Database Schema Initialization & Client Generation
 ```bash
 pnpm prisma:generate
-pnpm --filter @ai-employee/api exec prisma db push
+pnpm db:migrate:deploy
 ```
 
-### Step 5: Seed Pristine Demo Accounts
+### Step 5: Create the First Platform Admin
+Set `BOOTSTRAP_ADMIN_EMAIL` and `BOOTSTRAP_ADMIN_PASSWORD` (12+ characters) in `.env`, then:
 ```bash
 pnpm prisma:seed
 ```
+No demo businesses, customers or sample data are created. Real businesses sign up in the web app.
 
 ### Step 6: Start Development Servers
 ```bash
@@ -109,23 +111,22 @@ Both the API (`localhost:3001`) and Web (`localhost:3000`) will compile and hot-
 
 ---
 
-## 5. Cleaning & Resetting the Database
+## 5. Database Migrations & Test Data
 
-If you have performed manual tests or want a pristine, fresh database state with clean demo data:
-
-### Clean & Re-seed in One Command
+Schema changes ship as migrations in `prisma/migrations`. Apply them with:
 ```bash
-pnpm db:clean
+pnpm db:migrate:deploy        # production and dev — never drops data
+pnpm prisma:migrate           # dev only: create a new migration after editing schema.prisma
 ```
-*(Or `pnpm db:reset`)*
 
-This command:
-1. Completely drops all tables and orphaned test records.
-2. Recreates the PostgreSQL database schema from `prisma/schema.prisma`.
-3. Seeds pristine demo accounts, AI employees, store branches, and sample conversations.
+There is deliberately **no command that wipes the main database**. Automated tests use a
+separate database whose name must end in `_test`:
+```bash
+pnpm db:reset:test            # drop + re-migrate ai_employee_test only (refuses any other name)
+pnpm test:integration
+```
 
 ### Inspecting Database via Prisma Studio
-To inspect tables and records visually in your browser:
 ```bash
 pnpm prisma:studio
 ```
@@ -133,18 +134,11 @@ Opens interactive Prisma Studio at [http://localhost:5555](http://localhost:5555
 
 ---
 
-## 6. Default Demo Accounts & Login Credentials
+## 6. Accounts
 
-Every fresh installation or database reset includes these default accounts:
-
-| Business / Role | Email | Password | Access Scope & Description |
-| :--- | :--- | :--- | :--- |
-| **Platform Super Admin** | `platform@davinlabs.com` | `ChangeMe123!` | Standalone Super Admin. Full cross-tenant access at `/admin`. |
-| **Super Admin + Tenant Owner** | `admin@davinlabs.com` | `ChangeMe123!` | Super Admin who also owns the "DavinLabs" workspace. |
-| **Business Owner (Acme Salon)** | `owner@acme.test` | `ChangeMe123!` | Primary Business Owner of Acme Salon & Spa. Full access across all branches. |
-| **Store Manager** | `manager@acme.test` | `ChangeMe123!` | Manager Access. Assigned to Downtown branch. |
-| **Store Cashier** | `cashier@acme.test` | `ChangeMe123!` | Limited Access (POS checkout only). Assigned to Downtown branch. |
-| **Lead Hair Stylist** | `stylist@acme.test` | `ChangeMe123!` | Standard Access. Assigned to Airport branch. |
+There are no built-in accounts or shared passwords. `pnpm prisma:seed` creates only the
+platform admin you configure via `BOOTSTRAP_ADMIN_*`; every business owner signs up and
+invites their own team.
 
 > [!TIP]
 > **Promoting Any Account to Super Admin**:
@@ -271,6 +265,6 @@ pnpm --filter @ai-employee/web build
 | :--- | :--- | :--- |
 | **Port 3000 or 3001 already in use** | A previous Node process was left running. | Run `./start.sh` (it automatically kills stale processes on ports 3000/3001) or run `lsof -ti:3000 -ti:3001 \| xargs kill -9`. |
 | **Docker container postgres unhealthy** | Docker Desktop is stopped or port 5432 is in use by a local Postgres service. | Stop local postgres (`brew services stop postgresql`) and run `docker compose restart postgres`. |
-| **Missing database schema error** | Schema has not been synced to PostgreSQL. | Run `pnpm db:clean` or `pnpm --filter @ai-employee/api exec prisma db push`. |
+| **Missing database schema error** | Migrations have not been applied. | Run `pnpm db:migrate:deploy`. |
 | **Cannot log in after password change** | Stale auth session in browser localStorage. | Open browser DevTools $\rightarrow$ Application $\rightarrow$ Clear Local Storage, then log in with seeded credentials. |
 | **AI Employee answers with error** | No LLM API key configured in `.env`. | Add an API key (`ANTHROPIC_API_KEY` or `OPENAI_API_KEY`) to `.env` and restart dev servers. |

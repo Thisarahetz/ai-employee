@@ -52,19 +52,12 @@ If using a standalone external n8n instance (n8n Cloud, self-hosted Docker, etc.
 
 ---
 
-## Running Real End-to-End Workflow Tests
+## Testing workflows
 
-A dedicated real-test suite tests all 5 workflows against live n8n webhooks and checks execution traces:
-
-```bash
-pnpm --filter @ai-employee/api exec ts-node --transpile-only scripts/test-n8n-workflows.ts
-```
-
-This verifies:
-- n8n API connectivity and workflow activation.
-- Real webhook delivery and node execution.
-- Successful callbacks to AI Employee channels (`/channels/send`) and notifications (`/notifications/email`, `/notifications/slack`).
-- 0 execution errors across all sequences.
+The old script that fired sample payloads at live webhooks was removed: with real
+channels connected, it would have messaged real phone numbers with fake data. Test a
+workflow from the n8n editor ("Execute workflow" with pinned test data) against a
+staging tenant, and check the resulting `WorkflowExecution` rows in AI Employee.
 
 ---
 

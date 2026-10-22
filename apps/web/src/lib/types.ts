@@ -991,3 +991,44 @@ export interface SendCommandResponse {
   intent: CommandIntent;
   messages: OwnerCommandMessage[];
 }
+
+// ── AI workforce: schedules, limits, usage ─────────────────────────────────
+
+export interface AiTaskSchedule {
+  id: string;
+  employeeId: string;
+  employee?: { id: string; name: string; role: string; status: string };
+  title: string;
+  description: string;
+  goal: string | null;
+  priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+  cron: string;
+  timezone: string;
+  enabled: boolean;
+  overlapPolicy: "SKIP" | "QUEUE";
+  nextRunAt: string | null;
+  lastRunAt: string | null;
+  lastStatus: string | null;
+  consecutiveFailures: number;
+  maxConsecutiveFailures: number;
+}
+
+export interface AiLimits {
+  aiEnabled: boolean;
+  monthlyBudgetUsd: number | null;
+  dailyBudgetUsd: number | null;
+  maxTaskCostUsd: number;
+  maxTaskSteps: number;
+  maxConcurrentTasks: number;
+  maxTasksPerDay: number;
+  maxSchedules: number;
+}
+
+export interface AiUsageSnapshot {
+  limits: AiLimits;
+  spentTodayUsd: number;
+  spentThisMonthUsd: number;
+  tasksCreatedToday: number;
+  runningTasks: number;
+  activeSchedules: number;
+}

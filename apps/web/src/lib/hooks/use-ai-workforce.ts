@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
-import type { AiEmployeeApproval, AiTask, OwnerCommandThread, SendCommandResponse } from "@/lib/types";
+import type { AiEmployeeApproval, AiLimits, AiTask, AiTaskSchedule, AiUsageSnapshot, OwnerCommandThread, SendCommandResponse } from "@/lib/types";
 
 const ACTIVE: string[] = ["QUEUED", "RUNNING", "WAITING_APPROVAL", "BLOCKED"];
 
@@ -88,5 +88,61 @@ export function usePendingApprovals(poll: boolean) {
     queryKey: ["ai-employees", "approvals", "PENDING"],
     queryFn: async () => (await apiClient.get<AiEmployeeApproval[]>("/ai-employees/approvals?status=PENDING")).data,
     refetchInterval: poll ? 4000 : false,
+  });
+}
+
+// ── Schedules & limits ─────────────────────────────────────────────────────
+
+export function useSchedules() {
+  return useQuery({
+    queryKey: ["ai-workforce", "schedules"],
+    queryFn: async () => (await apiClient.get<AiTaskSchedule[]>("/ai-workforce/schedules")).data,
+  });
+}
+
+export type ScheduleInput = Partial<Pick<AiTaskSchedule, "employeeId" | "title" | "description" | "goal" | "priority" | "cron" | "timezone" | "enabled" | "overlapPolicy">>;
+
+export function useSaveSchedule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...body }: ScheduleInput & { id?: string }) =>
+      id
+        ? (await apiClient.patch<AiTaskSchedule>(`/ai-workforce/schedules/${id}`, body)).data
+        : (await apiClient.post<AiTaskSchedule>("/ai-workforce/schedules", body)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["ai-workforce"] }),
+  });
+}
+
+export function useDeleteSchedule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/ai-workforce/schedules/${id}`);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["ai-workforce", "schedules"] }),
+  });
+}
+
+export function useRunScheduleNow() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => (await apiClient.post<AiTask>(`/ai-workforce/schedules/${id}/run`)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["ai-workforce"] }),
+  });
+}
+
+export function useAiUsage() {
+  return useQuery({
+    queryKey: ["ai-workforce", "usage"],
+    queryFn: async () => (await apiClient.get<AiUsageSnapshot>("/ai-workforce/usage")).data,
+    refetchInterval: 30000,
+  });
+}
+
+export function useUpdateLimits() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (patch: Partial<AiLimits>) => (await apiClient.put<AiUsageSnapshot>("/ai-workforce/limits", patch)).data,
+    onSuccess: (data) => qc.setQueryData(["ai-workforce", "usage"], data),
   });
 }

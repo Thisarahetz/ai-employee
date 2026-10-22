@@ -6,6 +6,7 @@ import {
   RepeatedCallGuard,
   decideOnFailure,
   isTransientError,
+  providerRetryAfterMs,
   retryDelayMs,
 } from '../src/modules/ai-workforce/retry-policy';
 import { assertScheduleAllowed, nextRun } from '../src/modules/ai-workforce/cron';
@@ -36,6 +37,18 @@ describe('retry policy', () => {
     assert.equal(decideOnFailure(new Error('503'), 3, 3).action, 'FAIL');
     assert.equal(decideOnFailure(new Error('bad key'), 1, 3).action, 'FAIL');
     assert.equal(decideOnFailure(new LimitReachedError('Daily AI budget reached'), 1, 3).action, 'BLOCK');
+  });
+
+  test("waits for the provider's own retry hint (e.g. a quota reset)", () => {
+    const gemini = new Error('{"error":{"code":429,"status":"RESOURCE_EXHAUSTED","details":[{"retryDelay":"4564s"}]}}');
+    const d = decideOnFailure(gemini, 1, 3);
+    assert.equal(d.action, 'RETRY');
+    assert.ok(d.action === 'RETRY' && d.delayMs >= 4564_000);
+    assert.equal(providerRetryAfterMs(new Error('Please retry in 1h16m4.5s.')), 4564500);
+    assert.equal(providerRetryAfterMs(new Error('Retry-After: 120')), 120000);
+    assert.equal(providerRetryAfterMs(new Error('boom')), null);
+    const huge = decideOnFailure(new Error('429 retry in 30h'), 1, 3);
+    assert.ok(huge.action === 'RETRY' && huge.delayMs <= 6 * 3600_000, 'capped');
   });
 
   test('repeated identical calls are detected regardless of key order', () => {

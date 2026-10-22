@@ -13,6 +13,7 @@ import {
   Settings as SettingsIcon,
   ShieldAlert,
   Sparkles,
+  CalendarClock,
 } from "lucide-react";
 
 import { useAuth } from "@/lib/auth-context";
@@ -23,6 +24,7 @@ const MAIN_NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/ai-employees", label: "AI Employees", icon: Bot },
   { href: "/command-center", label: "Command Center", icon: Sparkles },
+  { href: "/automation", label: "Schedules & Limits", icon: CalendarClock },
   { href: "/conversations", label: "Conversations", icon: MessageSquare },
   { href: "/knowledge-base", label: "Business Info", icon: FileText },
 ];

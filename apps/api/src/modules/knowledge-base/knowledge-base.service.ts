@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -10,7 +10,7 @@ import { UpdateKnowledgeBaseDto } from './dto/update-knowledge-base.dto';
 import { UploadDocumentDto } from './dto/upload-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 
-const LOCAL_STORAGE_DIR = join(process.cwd(), 'storage');
+import { LOCAL_STORAGE_DIR } from '../rag/document-text-extractor';
 
 @Injectable()
 export class KnowledgeBaseService {
@@ -184,8 +184,10 @@ export class KnowledgeBaseService {
     await this.assertKnowledgeBaseExists(tenantId, knowledgeBaseId);
 
     let fileUrl: string | null = null;
-    const sourceType =
-      dto.sourceType ?? (file ? this.inferSourceType(file.originalname) : DocumentSourceType.TEXT);
+    const sourceType = !file && !dto.content && dto.url
+      ? DocumentSourceType.URL
+      : dto.sourceType ?? (file ? this.inferSourceType(file.originalname) : DocumentSourceType.TEXT);
+    if (file && file.size > 25 * 1024 * 1024) throw new BadRequestException('Files must be 25 MB or smaller.');
 
     if (file) {
       fileUrl = await this.storeFile(tenantId, file);
@@ -194,7 +196,9 @@ export class KnowledgeBaseService {
       const filename = `${(dto.title || 'document').toLowerCase().replace(/[^a-z0-9]/g, '-')}.txt`;
       fileUrl = await this.storeBuffer(tenantId, filename, buffer, 'text/plain');
     } else if (dto.url) {
-      fileUrl = dto.url;
+      // A URL is always fetched as a web page — never treated as a server file path.
+      if (!/^https?:\/\//i.test(dto.url.trim())) throw new BadRequestException('URL must start with http:// or https://');
+      fileUrl = dto.url.trim();
     } else {
       throw new NotFoundException('Please provide a file, text content, or URL.');
     }

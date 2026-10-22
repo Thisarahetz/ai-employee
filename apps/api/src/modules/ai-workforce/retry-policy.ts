@@ -37,6 +37,27 @@ export function retryDelayMs(attempt: number, random: () => number = Math.random
   return Math.round(base * jitter);
 }
 
+/** Longest we will wait on a provider's own "retry after" hint. */
+export const MAX_PROVIDER_RETRY_DELAY_MS = 6 * 60 * 60_000;
+
+/**
+ * Reads a provider's retry hint from an error message: Gemini's
+ * `"retryDelay":"4564s"` / "Please retry in 1h16m4.5s", or "Retry-After: 120".
+ */
+export function providerRetryAfterMs(err: unknown): number | null {
+  const msg = (err as Error)?.message ?? String(err ?? '');
+  const delay = msg.match(/"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/);
+  if (delay) return Math.round(Number(delay[1]) * 1000);
+  const human = msg.match(/retry in\s+((?:\d+(?:\.\d+)?[hms]\s*)+)/i);
+  if (human) {
+    let ms = 0;
+    for (const [, n, unit] of human[1]!.matchAll(/(\d+(?:\.\d+)?)([hms])/g)) ms += Number(n) * (unit === 'h' ? 3600e3 : unit === 'm' ? 60e3 : 1e3);
+    return ms > 0 ? Math.round(ms) : null;
+  }
+  const after = msg.match(/retry-after\s*[:=]\s*(\d+)/i);
+  return after ? Number(after[1]) * 1000 : null;
+}
+
 export type FailureDecision =
   | { action: 'RETRY'; delayMs: number }
   | { action: 'FAIL' }
@@ -45,7 +66,13 @@ export type FailureDecision =
 /** What to do with a task whose attempt just failed. */
 export function decideOnFailure(err: unknown, attempts: number, maxAttempts: number): FailureDecision {
   if (isLimitError(err)) return { action: 'BLOCK' };
-  if (isTransientError(err) && attempts < maxAttempts) return { action: 'RETRY', delayMs: retryDelayMs(attempts) };
+  if (isTransientError(err) && attempts < maxAttempts) {
+    // Respect the provider's own hint (e.g. a quota that resets in an hour) so
+    // retries aren't burnt before it can possibly succeed.
+    const hint = providerRetryAfterMs(err);
+    const delayMs = Math.min(MAX_PROVIDER_RETRY_DELAY_MS, Math.max(retryDelayMs(attempts), (hint ?? 0) + 5_000));
+    return { action: 'RETRY', delayMs };
+  }
   return { action: 'FAIL' };
 }
 

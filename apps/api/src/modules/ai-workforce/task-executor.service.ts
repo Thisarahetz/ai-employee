@@ -16,6 +16,7 @@ import {
   RepeatedCallGuard,
   TRANSIENT_ERROR,
   decideOnFailure,
+  providerRetryAfterMs,
 } from './retry-policy';
 
 const MAX_CONSECUTIVE_FAILED_ROUNDS = 3;
@@ -59,8 +60,11 @@ export function friendlyAiError(err: unknown): string {
   } catch {
     // Not JSON — keep the original text.
   }
+  if (/quota|RESOURCE_EXHAUSTED|exceeded your current/i.test(raw)) {
+    return 'The AI provider quota for this account is used up (provider rate limit or plan limit).';
+  }
   if (TRANSIENT_ERROR.test(raw)) {
-    return `The AI provider is busy or unavailable right now (${msg.slice(0, 160)}).`;
+    return `The AI provider is busy or unavailable right now (${msg.split('\n')[0]!.slice(0, 160)}).`;
   }
   return msg.slice(0, 500);
 }
@@ -443,7 +447,10 @@ export class TaskExecutorService {
         return await call();
       } catch (err) {
         const delay = AI_CALL_RETRY_DELAYS_MS[attempt];
-        if (delay === undefined || !TRANSIENT_ERROR.test((err as Error)?.message ?? '') || (await this.stopped(taskId))) throw err;
+        // A provider asking us to wait longer than a short in-call retry (e.g. a
+        // quota reset) is handed to the task-level retry instead of hammered.
+        const hint = providerRetryAfterMs(err);
+        if (delay === undefined || !TRANSIENT_ERROR.test((err as Error)?.message ?? '') || (hint !== null && hint > 20_000) || (await this.stopped(taskId))) throw err;
         const t = await this.prisma.aiTask.findFirst({ where: { id: taskId }, select: { tenantId: true } });
         if (t) {
           await this.tasks.addStep(t.tenantId, taskId, {

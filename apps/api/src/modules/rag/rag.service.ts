@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { DocumentSourceType, DocumentStatus } from '@prisma/client';
+import { ExtractionError, extractDocumentText } from './document-text-extractor';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AiProviderService } from '../ai-provider/ai-provider.service';
 
@@ -38,8 +39,9 @@ export class RagService {
     });
 
     try {
-      const text = await this.extractText(document.sourceType, document.fileUrl);
+      const text = await extractDocumentText(document.tenantId, document.sourceType, document.fileUrl);
       const chunks = this.chunkText(text);
+      if (!chunks.length) throw new ExtractionError('No readable text was found in this document.');
 
       // Re-ingestion case: drop any previously inserted chunks for this doc.
       await this.prisma.documentChunk.deleteMany({ where: { documentId } });
@@ -109,45 +111,6 @@ export class RagService {
       ORDER BY embedding <=> ${vectorLiteral}::vector
       LIMIT ${topK}
     `;
-  }
-
-  /**
-   * Extracts raw text to chunk/embed. TEXT/FAQ sources are read directly.
-   * PDF/DOCX/URL are real extraction targets that need a proper
-   * parser/fetcher — scaffolded as a raw-text passthrough for now so the
-   * ingestion pipeline still runs end-to-end.
-   */
-  private async extractText(sourceType: DocumentSourceType, fileUrl: string | null): Promise<string> {
-    if (!fileUrl) return '';
-
-    if (sourceType === DocumentSourceType.PDF || sourceType === DocumentSourceType.DOCX) {
-      // TODO: integrate pdf-parse / mammoth / fetch+strip-html — scaffold
-      // uses raw text passthrough for now so the pipeline still runs
-      // end-to-end. This will mangle real PDF/DOCX binary content until a
-      // proper parser is wired in.
-      return this.readStoredFileAsText(fileUrl);
-    }
-
-    if (sourceType === DocumentSourceType.URL) {
-      // TODO: integrate fetch+strip-html — scaffold treats the fetched bytes
-      // as UTF-8 text for now.
-      const res = await fetch(fileUrl);
-      return await res.text();
-    }
-
-    // TEXT / FAQ: fileUrl points at a locally-stored (or s3://) plain text file.
-    return this.readStoredFileAsText(fileUrl);
-  }
-
-  private async readStoredFileAsText(fileUrl: string): Promise<string> {
-    if (fileUrl.startsWith('s3://')) {
-      // TODO: fetch the object back via @aws-sdk/client-s3 GetObjectCommand —
-      // scaffold does not round-trip S3 content during ingestion yet.
-      this.logger.warn(`Skipping S3 content extraction for ${fileUrl} (not implemented in scaffold).`);
-      return '';
-    }
-    const buffer = await readFile(fileUrl);
-    return buffer.toString('utf-8');
   }
 
   /**

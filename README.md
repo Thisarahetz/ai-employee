@@ -33,37 +33,56 @@ per phase — see `docs/mvp-implementation-plan.md` for exactly what's real vs. 
 Or manually:
 
 ```bash
-cp .env.example .env        # fill in provider keys etc.
+cp .env.example .env        # fill in provider keys and secrets
 pnpm install
 docker compose up -d postgres redis n8n
 pnpm prisma:generate
-pnpm prisma:migrate
-pnpm prisma:seed            # creates pristine demo accounts
+pnpm db:migrate:deploy      # applies prisma/migrations (never resets data)
+pnpm prisma:seed            # creates the first platform admin from BOOTSTRAP_ADMIN_* (nothing else)
 pnpm dev                    # runs apps/api + apps/web via turbo
 ```
 
-To clean and reset the database at any time:
-```bash
-pnpm db:clean               # drops test data, syncs schema, and re-seeds cleanly
-```
+No demo tenants, customers or sample data are created. Sign up in the web app to
+create a real business; it then picks an industry template and configures itself.
 
 - API: http://localhost:3001
 - Web dashboard: http://localhost:3000
 - n8n: http://localhost:5678
 
-## Demo accounts
-
-Created by `pnpm prisma:seed` (`apps/api/scripts/seed.ts`, idempotent — safe to re-run,
-resets both accounts back to these values). Dev-only; change or remove before any real
-deployment.
-
-| Role | Email | Password | Notes |
-|---|---|---|---|
-| Platform super admin | `admin@davinlabs.com` | `ChangeMe123!` | `platformRole: SUPER_ADMIN` — sees the Admin section (Tenants, Platform Users). Also owns its own "DavinLabs" tenant, since every account needs a home tenant. |
-| Salon tenant owner | `owner@acme.test` | `ChangeMe123!` | `TenantRole: OWNER` on the seeded "Acme Salon" tenant — ordinary customer-side login, no platform access. |
-
-To promote any other existing user to platform super admin:
+To promote an existing user to platform super admin:
 `pnpm --filter @ai-employee/api run promote-admin <email>`.
+
+## AI workforce
+
+AI employees run tasks in the background, 24/7, from a durable Redis (BullMQ) queue:
+
+- **Commands & tasks** — the owner chats in the Command Center; work becomes tasks
+  with a full step log, verified outcomes and per-task cost.
+- **Schedules** — recurring cron work per employee (Schedules & Limits page), evaluated in
+  the business timezone; overlapping runs are skipped and a repeatedly failing schedule
+  switches itself off and notifies the owner.
+- **Approvals** — sensitive actions (sending messages, money, deletions) always wait for
+  an owner/admin; restricted actions (permissions, credentials) can never be run by AI.
+- **Safeguards** — kill switch, daily/monthly budgets measured from real provider usage,
+  per-task cost cap, step cap, repeated-call detection, delegation limits, tasks/day and
+  concurrency caps. Budget-blocked work resumes when the period resets.
+- **Reliability** — automatic retries with backoff (honouring provider retry hints),
+  heartbeats with crash recovery, and a reconciler for lost queue jobs.
+
+Scale out by running extra API processes with `AI_WORKFORCE_WORKER=false` and dedicated
+worker processes; execution is claimed atomically in Postgres.
+
+## Tests
+
+```bash
+pnpm test                   # unit tests (no services needed)
+pnpm db:reset:test          # create/reset the isolated ai_employee_test database
+pnpm test:integration       # real app + Postgres + Redis, scripted AI model
+LIVE_AI=1 pnpm --filter @ai-employee/api test:live   # one real provider call (uses credit)
+```
+
+Integration tests refuse to run unless the database name ends in `_test`, use a separate
+Redis key prefix, and delete every fixture they create.
 
 ## Monorepo layout
 
