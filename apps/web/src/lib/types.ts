@@ -696,6 +696,8 @@ export interface AiEmployeeApproval {
   reviewedAt?: string | null;
   reviewedByUserId?: string | null;
   reviewNotes?: string | null;
+  taskId?: string | null;
+  task?: { id: string; title: string; status: string } | null;
 }
 
 export interface AiEmployeeActivity {
@@ -917,3 +919,75 @@ export interface AdminPlatformSettings {
 }
 
 
+
+// ─── AI Workforce (owner command chat) ──────────────────────────────────
+
+export type AiTaskStatus =
+  | "QUEUED"
+  | "RUNNING"
+  | "WAITING_APPROVAL"
+  | "PAUSED"
+  | "BLOCKED"
+  | "COMPLETED"
+  | "FAILED"
+  | "CANCELLED";
+
+export type AiTaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+
+export type CommandIntent =
+  | "STATUS_QUERY"
+  | "TEAM_STATUS"
+  | "DAILY_SUMMARY"
+  | "TASK_FOLLOWUP"
+  | "CONTROL"
+  | "REVIEW"
+  | "MEETING"
+  | "NEW_TASK";
+
+export interface AiTask {
+  id: string;
+  kind: "TASK" | "REVIEW" | "GROUP";
+  title: string;
+  status: AiTaskStatus;
+  priority: AiTaskPriority;
+  progress: number;
+  deadline?: string | null;
+  employeeId?: string | null;
+  employee?: { id: string; name: string; role: string; department: string; avatar?: string | null } | null;
+  children?: { id: string; status: AiTaskStatus; progress: number; employee?: { id: string; name: string } | null }[];
+  _count?: { approvals: number };
+  result?: string | null;
+  error?: string | null;
+  updatedAt: string;
+}
+
+export interface OwnerCommandMessage {
+  id: string;
+  threadId: string;
+  role: "OWNER" | "AI" | "SYSTEM";
+  employeeId?: string | null;
+  content: string;
+  metadata: {
+    intent?: CommandIntent;
+    taskIds?: string[];
+    employeeIds?: string[];
+    limitations?: string[];
+    kind?: string;
+    status?: string;
+  };
+  createdAt: string;
+}
+
+export interface OwnerCommandThread {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  messages: OwnerCommandMessage[];
+}
+
+export interface SendCommandResponse {
+  threadId: string;
+  intent: CommandIntent;
+  messages: OwnerCommandMessage[];
+}

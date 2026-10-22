@@ -2,7 +2,7 @@
   "name": "@ai-employee/api",
   "version": "0.1.0",
   "private": true,
-  "description": "AI Employee — NestJS API (core infra, auth, tenancy, conversations, integrations glue).",
+  "description": "AI Employee \u2014 NestJS API (core infra, auth, tenancy, conversations, integrations glue).",
   "license": "UNLICENSED",
   "prisma": {
     "schema": "../../prisma/schema.prisma",
@@ -15,7 +15,8 @@
     "build": "nest build",
     "typecheck": "tsc --noEmit -p tsconfig.build.json",
     "promote-admin": "ts-node --transpile-only scripts/promote-admin.ts",
-    "seed": "ts-node --transpile-only scripts/seed.ts"
+    "seed": "ts-node --transpile-only scripts/seed.ts",
+    "test": "node --test --require ts-node/register/transpile-only test/*.test.ts"
   },
   "dependencies": {
     "@ai-employee/ai-core": "workspace:*",

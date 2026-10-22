@@ -9,6 +9,8 @@ export interface CreateApprovalDto {
   description: string;
   actionType: string;
   actionPayload?: Record<string, any>;
+  /** Links the approval to a command-engine task; executed on approval. */
+  taskId?: string;
 }
 
 @Injectable()
@@ -26,6 +28,7 @@ export class AiEmployeeApprovalService {
         ...(status ? { status } : {}),
       },
       include: {
+        task: { select: { id: true, title: true, status: true } },
         employee: {
           select: {
             id: true,
@@ -50,6 +53,7 @@ export class AiEmployeeApprovalService {
         actionType: dto.actionType,
         actionPayload: dto.actionPayload ?? {},
         status: 'PENDING',
+        taskId: dto.taskId ?? null,
       },
       include: {
         employee: true,
@@ -78,6 +82,7 @@ export class AiEmployeeApprovalService {
             approvalId: approval.id,
             employeeId: approval.employeeId,
             actionType: approval.actionType,
+            taskId: approval.taskId,
           },
         })),
       });

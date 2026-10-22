@@ -40,7 +40,7 @@ export class AiToolsService {
  * A `parameters` object that already looks like JSON Schema (has `type` or
  * `properties`) is passed through untouched.
  */
-function toJsonSchema(parameters: Record<string, unknown>): Record<string, unknown> {
+export function toJsonSchema(parameters: Record<string, unknown>): Record<string, unknown> {
   if ('type' in parameters || 'properties' in parameters) {
     return parameters;
   }

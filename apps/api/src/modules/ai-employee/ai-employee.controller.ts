@@ -8,6 +8,7 @@ import {
   Body,
   Query,
 } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { CurrentTenant } from '../../common/tenant/current-tenant.decorator';
 import { TenantContext } from '../../common/tenant/tenant-context';
 import {
@@ -17,6 +18,11 @@ import {
 } from './ai-employee.service';
 import { AiEmployeeApprovalService } from './ai-employee-approval.service';
 import { AiEmployeeActivityService } from './ai-employee-activity.service';
+import { OwnerAuthorityService } from '../../common/authz/owner-authority.service';
+import { WorkforceApprovalService } from '../ai-workforce/workforce-approval.service';
+
+/** Fields that change what an AI employee is allowed to do. */
+const ACCESS_FIELDS = ['permissions', 'actionLevel', 'connectedTools'] as const;
 
 @Controller('ai-employees')
 export class AiEmployeeController {
@@ -24,7 +30,17 @@ export class AiEmployeeController {
     private readonly employeeService: AiEmployeeService,
     private readonly approvalService: AiEmployeeApprovalService,
     private readonly activityService: AiEmployeeActivityService,
+    private readonly authority: OwnerAuthorityService,
+    private readonly moduleRef: ModuleRef,
   ) {}
+
+  /**
+   * Looked up at request time: AiWorkforceModule imports this module, so it
+   * can't be injected here without a circular module dependency.
+   */
+  private workforceApprovals(): WorkforceApprovalService {
+    return this.moduleRef.get(WorkforceApprovalService, { strict: false });
+  }
 
   @Get()
   async listEmployees(
@@ -82,13 +98,10 @@ export class AiEmployeeController {
     @Param('id') id: string,
     @Body() body: { decision: 'APPROVED' | 'REJECTED'; reviewNotes?: string },
   ) {
-    return this.approvalService.reviewApproval(
-      tenant.tenantId,
-      id,
-      tenant.userId,
-      body.decision,
-      body.reviewNotes,
-    );
+    // Same path as /ai-workforce/approvals/:id/decide: live authority check,
+    // pending-only claim, and one-time execution of attached tool calls.
+    const approvals = this.workforceApprovals();
+    return approvals.decide(tenant.tenantId, tenant.userId, id, body.decision, body.reviewNotes);
   }
 
   @Get('activities')
@@ -129,6 +142,9 @@ export class AiEmployeeController {
     @Param('id') id: string,
     @Body() dto: UpdateAiEmployeeDto,
   ) {
+    if (ACCESS_FIELDS.some((f) => (dto as Record<string, unknown>)[f] !== undefined)) {
+      await this.authority.assert(tenant.tenantId, tenant.userId, 'ai_employees:manage');
+    }
     return this.employeeService.updateEmployee(tenant.tenantId, id, dto);
   }
 

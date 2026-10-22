@@ -1,5 +1,6 @@
 import type { BadgeColor } from "@/components/ui/badge";
 import type {
+  AiTaskStatus,
   ChannelStatus,
   ConversationStatus,
   DocumentStatus,
@@ -63,4 +64,15 @@ export const workflowExecutionStatusStyles: Record<WorkflowExecutionStatus, { la
   RUNNING: { label: "Running", color: "blue" },
   SUCCESS: { label: "Success", color: "green" },
   FAILED: { label: "Failed", color: "red" },
+};
+
+export const aiTaskStatusStyles: Record<AiTaskStatus, { label: string; color: BadgeColor }> = {
+  QUEUED: { label: "Queued", color: "gray" },
+  RUNNING: { label: "Working", color: "blue" },
+  WAITING_APPROVAL: { label: "Needs approval", color: "amber" },
+  PAUSED: { label: "Paused", color: "gray" },
+  BLOCKED: { label: "Blocked", color: "red" },
+  COMPLETED: { label: "Done", color: "green" },
+  FAILED: { label: "Failed", color: "red" },
+  CANCELLED: { label: "Cancelled", color: "gray" },
 };

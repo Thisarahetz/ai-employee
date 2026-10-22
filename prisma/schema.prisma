@@ -56,6 +56,8 @@ model Tenant {
   aiEmployees           AiEmployee[]
   aiEmployeeApprovals   AiEmployeeApproval[]
   aiEmployeeActivities  AiEmployeeActivity[]
+  aiTasks               AiTask[]
+  ownerCommandThreads   OwnerCommandThread[]
   dynamicSagas          DynamicSaga[]
   synthesizedInvariants SynthesizedInvariant[]
 
@@ -638,13 +640,18 @@ model AiEmployee {
   assignedTasks    Json         @default("[]")
   permissions      Json         @default("{}")
   systemPrompt     String       @default("")
+  /// Command-engine tool grants (see ai-workforce/workforce-tools.ts). Only
+  /// authoritative once `toolAccessConfigured` is true; before that the
+  /// role-safe default grant set applies.
   connectedTools   String[]     @default([])
+  toolAccessConfigured Boolean  @default(false)
   stats            Json         @default("{}")
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 
   approvals        AiEmployeeApproval[]
   activities       AiEmployeeActivity[]
+  tasks            AiTask[]
 
   @@index([tenantId])
   @@index([tenantId, status])
@@ -666,9 +673,16 @@ model AiEmployeeApproval {
   reviewedAt       DateTime?
   reviewedByUserId String?
   reviewNotes      String?
+  /// Set when the approval gates a command-engine tool call. `actionPayload`
+  /// then holds `{ kind: "tool_call", tool, args }`, executed on approval.
+  taskId           String?
+  task             AiTask?      @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  executedAt       DateTime?
+  executionResult  Json?
 
   @@index([tenantId])
   @@index([tenantId, status])
+  @@index([taskId])
   @@map("ai_employee_approvals")
 }
 
@@ -688,6 +702,116 @@ model AiEmployeeActivity {
   @@index([tenantId])
   @@index([tenantId, employeeId, createdAt])
   @@map("ai_employee_activities")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// AI Workforce — owner commands, tasks and execution steps
+// ─────────────────────────────────────────────────────────────────────────
+
+/// A unit of work assigned to an AI employee by the owner (directly, via a
+/// chat command, or delegated by another AI employee).
+model AiTask {
+  id                  String     @id @default(cuid())
+  tenantId            String
+  tenant              Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employeeId          String?
+  employee            AiEmployee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  /// Group parent for commands sent to several employees at once.
+  parentTaskId        String?
+  parent              AiTask?    @relation("AiTaskGroup", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  children            AiTask[]   @relation("AiTaskGroup")
+  /// Set when another AI employee delegated this task.
+  delegatedFromTaskId String?
+  /// Set for review tasks: the task whose result is being reviewed.
+  reviewOfTaskId      String?
+  threadId            String?
+  thread              OwnerCommandThread? @relation(fields: [threadId], references: [id], onDelete: SetNull)
+  kind                String     @default("TASK") // TASK, REVIEW, GROUP
+  title               String
+  description         String     @default("")
+  goal                String?
+  priority            String     @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  /// QUEUED, RUNNING, WAITING_APPROVAL, PAUSED, BLOCKED, COMPLETED, FAILED, CANCELLED
+  status              String     @default("QUEUED")
+  progress            Int        @default(0)
+  deadline            DateTime?
+  /// Confidential results are never shown to other employees' context.
+  confidential        Boolean    @default(false)
+  /// Ids of earlier tasks whose results this task may use as context.
+  contextTaskIds      String[]   @default([])
+  result              String?
+  error               String?
+  createdByUserId     String?
+  startedAt           DateTime?
+  completedAt         DateTime?
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  steps     AiTaskStep[]
+  approvals AiEmployeeApproval[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, employeeId, createdAt])
+  @@index([parentTaskId])
+  @@map("ai_tasks")
+}
+
+/// Execution log: one row per plan note, tool call, approval request, result or error.
+model AiTaskStep {
+  id        String   @id @default(cuid())
+  tenantId  String
+  taskId    String
+  task      AiTask   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  seq       Int
+  kind      String // NOTE, TOOL_CALL, APPROVAL_REQUESTED, APPROVAL_DECISION, RESULT, ERROR, CONTROL
+  toolName  String?
+  input     Json?
+  output    Json?
+  status    String   @default("SUCCESS") // SUCCESS, FAILED, PENDING, BLOCKED, REJECTED
+  message   String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([taskId, seq])
+  @@map("ai_task_steps")
+}
+
+/// A conversation between an owner/admin and the AI workforce.
+model OwnerCommandThread {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    String
+  title     String   @default("New conversation")
+  /// Follow-up memory: { taskIds: string[], employeeIds: string[] } most recently discussed.
+  focus     Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages OwnerCommandMessage[]
+  tasks    AiTask[]
+
+  @@index([tenantId, userId, updatedAt])
+  @@map("owner_command_threads")
+}
+
+model OwnerCommandMessage {
+  id         String             @id @default(cuid())
+  tenantId   String
+  threadId   String
+  thread     OwnerCommandThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  role       String // OWNER, AI, SYSTEM
+  userId     String?
+  employeeId String?
+  content    String
+  /// { intent, taskIds, approvalIds, limitations }
+  metadata   Json               @default("{}")
+  createdAt  DateTime           @default(now())
+
+  @@index([tenantId])
+  @@index([threadId, createdAt])
+  @@map("owner_command_messages")
 }
 
 // ─────────────────────────────────────────────────────────────────────────

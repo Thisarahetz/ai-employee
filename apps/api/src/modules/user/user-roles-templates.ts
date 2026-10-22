@@ -98,6 +98,17 @@ export const PERMISSION_CATEGORIES: PermissionCategory[] = [
       { id: 'billing:manage', name: 'Billing & Plan', description: 'Manage platform subscription and payments' },
     ],
   },
+  {
+    id: 'ai_employees',
+    name: 'AI Employees',
+    description: 'Command, manage, and approve actions of AI employees',
+    permissions: [
+      { id: 'ai_employees:read', name: 'View AI Employees', description: 'See AI employees, their tasks, and activity' },
+      { id: 'ai_employees:command', name: 'Command AI Employees', description: 'Chat with AI employees and assign, pause, or cancel tasks' },
+      { id: 'ai_employees:manage', name: 'Manage AI Employees', description: 'Hire, edit, and configure AI employee tools and permissions' },
+      { id: 'ai_employees:approve', name: 'Approve AI Actions', description: 'Approve or reject sensitive actions prepared by AI employees' },
+    ],
+  },
 ];
 
 export const ACCESS_LEVEL_PRESETS: Record<string, string[]> = {
@@ -128,6 +139,8 @@ export const ACCESS_LEVEL_PRESETS: Record<string, string[]> = {
     'human_handoffs:write',
     'notifications:read',
     'audit_logs:read',
+    'ai_employees:read',
+    'ai_employees:command',
   ],
   STANDARD: [
     'sales:view',

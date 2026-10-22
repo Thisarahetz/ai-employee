@@ -40,6 +40,10 @@ const TENANT_ROLE_PERMISSIONS: Record<TenantRole, string[]> = {
     'ai:configure',
     'workflows:manage',
     'audit_logs:read',
+    'ai_employees:read',
+    'ai_employees:command',
+    'ai_employees:manage',
+    'ai_employees:approve',
   ],
   // "Manage conversations/employees/handoffs, view reports" — but not tenant
   // settings, billing, or promoting/removing other members (users:write).
@@ -57,6 +61,8 @@ const TENANT_ROLE_PERMISSIONS: Record<TenantRole, string[]> = {
     'human_handoffs:write',
     'notifications:read',
     'audit_logs:read',
+    'ai_employees:read',
+    'ai_employees:command',
   ],
   EMPLOYEE: [
     'conversations:read',
