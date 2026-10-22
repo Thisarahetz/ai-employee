@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { integrationAgents } from '../ai-workforce/safe-web-fetch';
 import axios from 'axios';
 import { createHash } from 'crypto';
 import { CredentialType, Integration } from '@prisma/client';
@@ -41,7 +42,7 @@ export class ExternalActionService {
 
     const response = await axios.get<{ actions?: DiscoveredAction[] }>(
       this.buildUrl(integration.baseUrl, '/ai/actions'),
-      { headers, timeout: 10_000 },
+      { headers, timeout: 10_000, ...integrationAgents(), maxRedirects: 0 },
     );
     return response.data?.actions ?? [];
   }
@@ -62,7 +63,7 @@ export class ExternalActionService {
       const response = await axios.get<{
         documents?: DiscoveredKnowledgeDocument[];
         locations?: DiscoveredKnowledgeLocation[];
-      }>(this.buildUrl(integration.baseUrl, '/ai/knowledge'), { headers, timeout: 10_000 });
+      }>(this.buildUrl(integration.baseUrl, '/ai/knowledge'), { headers, timeout: 10_000, ...integrationAgents(), maxRedirects: 0 });
       return {
         documents: (response.data?.documents ?? []).filter((doc) => doc && doc.externalId && doc.content),
         locations: (response.data?.locations ?? []).filter((loc) => loc && loc.externalId && loc.name),
@@ -95,7 +96,7 @@ export class ExternalActionService {
       const response = await axios.post<ExecuteActionResult>(
         this.buildUrl(integration.baseUrl, '/ai/execute'),
         { action: actionName, data },
-        { headers: { ...headers, 'Idempotency-Key': key }, timeout: 15_000 },
+        { headers: { ...headers, 'Idempotency-Key': key }, timeout: 15_000, ...integrationAgents(), maxRedirects: 0 },
       );
       const result = response.data ?? { success: false, message: 'Empty response from external system' };
 

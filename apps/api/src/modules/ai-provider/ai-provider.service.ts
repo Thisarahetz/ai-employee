@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AgentType, AiProviderName as PrismaAiProviderName } from '@prisma/client';
 import {
-  getProvider,
   estimateCostUsd,
   type AIMessage,
   type AIToolDefinition,
@@ -10,6 +9,7 @@ import {
   type AIProviderName,
 } from '@ai-employee/ai-core';
 import { PrismaService } from '../../prisma/prisma.service';
+import { ProviderKeysService } from './provider-keys.service';
 
 /**
  * Platform default provider/model, used when a tenant has no AiConfiguration
@@ -72,7 +72,10 @@ export type TrackedCompletion = AICompletionResult & { estimatedCostUsd: number;
 export class AiProviderService {
   private readonly logger = new Logger(AiProviderService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly keys: ProviderKeysService,
+  ) {}
 
   async complete(
     tenantId: string,
@@ -85,7 +88,7 @@ export class AiProviderService {
       agentType,
     );
 
-    const provider = getProvider(toAiCoreProviderName(providerName));
+    const { client: provider, keyId } = await this.keys.resolve(tenantId, providerName);
     const start = Date.now();
 
     let result: AICompletionResult;
@@ -100,8 +103,9 @@ export class AiProviderService {
       });
     } catch (err) {
       this.logger.error(
-        `AI completion failed (tenant=${tenantId}, agent=${agentType}, provider=${providerName}, model=${model}): ${(err as Error).message}`,
+        `AI completion failed (tenant=${tenantId}, agent=${agentType}, provider=${providerName}, model=${model}): ${(err as Error).message.split('\n')[0]!.slice(0, 300)}`,
       );
+      if (keyId) await this.keys.recordError(keyId, err);
       throw err;
     }
 
@@ -140,7 +144,7 @@ export class AiProviderService {
     // Logged under AgentType.KNOWLEDGE since embeddings are only ever
     // produced in service of RAG ingestion/search and the schema has no
     // dedicated "embedding" AgentType.
-    const provider = getProvider('gemini');
+    const { client: provider } = await this.keys.resolve(tenantId, PrismaAiProviderName.GEMINI);
     const start = Date.now();
     const result = await provider.embed(text);
     const executionTimeMs = Date.now() - start;

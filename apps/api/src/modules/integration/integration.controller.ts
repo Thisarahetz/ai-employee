@@ -1,4 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { RequirePermissions } from '../../common/decorators/roles.decorator';
 import { CurrentTenant } from '../../common/tenant/current-tenant.decorator';
 import { TenantContext } from '../../common/tenant/tenant-context';
 import { IntegrationService } from './integration.service';
@@ -14,31 +15,44 @@ export class IntegrationController {
   constructor(private readonly integrationService: IntegrationService) {}
 
   @Post()
+  @RequirePermissions('integrations:manage')
   create(@CurrentTenant() tenant: TenantContext, @Body() dto: CreateIntegrationDto) {
     return this.integrationService.create(tenant.tenantId, dto);
   }
 
   @Get()
+  @RequirePermissions('integrations:read')
   findAll(@CurrentTenant() tenant: TenantContext) {
     return this.integrationService.findAll(tenant.tenantId);
   }
 
   @Get(':id')
+  @RequirePermissions('integrations:read')
   findOne(@CurrentTenant() tenant: TenantContext, @Param('id') id: string) {
-    return this.integrationService.findOne(tenant.tenantId, id);
+    return this.integrationService.getForApi(tenant.tenantId, id);
   }
 
   @Patch(':id')
+  @RequirePermissions('integrations:manage')
   update(@CurrentTenant() tenant: TenantContext, @Param('id') id: string, @Body() dto: UpdateIntegrationDto) {
     return this.integrationService.update(tenant.tenantId, id, dto);
   }
 
   @Delete(':id')
+  @RequirePermissions('integrations:manage')
   remove(@CurrentTenant() tenant: TenantContext, @Param('id') id: string) {
     return this.integrationService.remove(tenant.tenantId, id);
   }
 
+  /** Issues a new inbound-webhook secret (shown once); the old one stops working. */
+  @Post(':id/webhook-secret')
+  @RequirePermissions('integrations:manage')
+  rotateWebhookSecret(@CurrentTenant() tenant: TenantContext, @Param('id') id: string) {
+    return this.integrationService.rotateWebhookSecret(tenant.tenantId, id);
+  }
+
   @Post(':id/credentials')
+  @RequirePermissions('integrations:manage')
   addCredential(
     @CurrentTenant() tenant: TenantContext,
     @Param('id') id: string,
@@ -48,26 +62,31 @@ export class IntegrationController {
   }
 
   @Post(':id/discover')
+  @RequirePermissions('integrations:manage')
   discover(@CurrentTenant() tenant: TenantContext, @Param('id') id: string) {
     return this.integrationService.discover(tenant.tenantId, id);
   }
 
   @Get(':id/actions')
+  @RequirePermissions('integrations:read')
   listActions(@CurrentTenant() tenant: TenantContext, @Param('id') id: string) {
     return this.integrationService.listActions(tenant.tenantId, id);
   }
 
   @Post(':id/knowledge/sync')
+  @RequirePermissions('integrations:manage')
   syncKnowledge(@CurrentTenant() tenant: TenantContext, @Param('id') id: string) {
     return this.integrationService.syncKnowledge(tenant.tenantId, id);
   }
 
   @Get(':id/knowledge')
+  @RequirePermissions('integrations:read')
   listSyncedKnowledge(@CurrentTenant() tenant: TenantContext, @Param('id') id: string) {
     return this.integrationService.listSyncedKnowledge(tenant.tenantId, id);
   }
 
   @Post(':id/execute')
+  @RequirePermissions('integrations:manage')
   execute(
     @CurrentTenant() tenant: TenantContext,
     @Param('id') id: string,

@@ -24,6 +24,9 @@ export interface CreateTasksInput {
   scheduleId?: string | null;
   delegatedFromTaskId?: string | null;
   maxAttempts?: number;
+  automationRuleId?: string | null;
+  /** Event data behind an automated task; shown to the AI as untrusted data. */
+  triggerContext?: Record<string, unknown> | null;
 }
 
 export const DEFAULT_MAX_ATTEMPTS = 3;
@@ -89,6 +92,8 @@ export class WorkforceTaskService {
       createdByUserId: userId || null,
       scheduleId: input.scheduleId ?? null,
       delegatedFromTaskId: input.delegatedFromTaskId ?? null,
+      automationRuleId: input.automationRuleId ?? null,
+      triggerContext: input.triggerContext ? (input.triggerContext as Prisma.InputJsonValue) : Prisma.JsonNull,
       maxAttempts: Math.min(10, Math.max(1, input.maxAttempts ?? DEFAULT_MAX_ATTEMPTS)),
     };
 

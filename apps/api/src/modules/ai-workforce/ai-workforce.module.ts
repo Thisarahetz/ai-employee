@@ -18,6 +18,7 @@ import { WorkforceAccessService } from './workforce-access.service';
 import { WorkforceScheduleService } from './workforce-schedule.service';
 import { WorkforceMaintenanceService } from './workforce-maintenance.service';
 import { UsageLimitsService } from './usage-limits.service';
+import { AutomationRuleService } from './automation-rule.service';
 import { MAINTENANCE_QUEUE, TASK_QUEUE, TaskQueueService } from './task-queue.service';
 import { MaintenanceProcessor, TaskWorkerProcessor } from './workforce-workers';
 
@@ -51,8 +52,9 @@ const workers: Provider[] = process.env.AI_WORKFORCE_WORKER === 'false' ? [] : [
     WorkforceAccessService,
     WorkforceScheduleService,
     WorkforceMaintenanceService,
+    AutomationRuleService,
     ...workers,
   ],
-  exports: [WorkforceApprovalService, WorkforceTaskService, UsageLimitsService],
+  exports: [WorkforceApprovalService, WorkforceTaskService, UsageLimitsService, WorkforceScheduleService, AutomationRuleService, TaskQueueService],
 })
 export class AiWorkforceModule {}

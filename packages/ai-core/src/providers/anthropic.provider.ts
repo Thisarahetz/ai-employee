@@ -25,9 +25,12 @@ export class ClaudeProvider implements AIProvider {
 
   private client: Anthropic | null = null;
 
+  /** Explicit key (a business's own key); falls back to the platform env key. */
+  constructor(private readonly apiKey?: string) {}
+
   private getClient(): Anthropic {
     if (!this.client) {
-      const apiKey = process.env.ANTHROPIC_API_KEY;
+      const apiKey = this.apiKey ?? process.env.ANTHROPIC_API_KEY;
       if (!apiKey) {
         throw new Error(
           'ANTHROPIC_API_KEY is not set — cannot call the Anthropic provider. Set it in your environment (see .env.example).',

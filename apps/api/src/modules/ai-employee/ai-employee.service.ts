@@ -1,6 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { BUSINESS_TEMPLATES } from './ai-employee-templates';
 
 export interface CreateAiEmployeeDto {
   name: string;
@@ -19,6 +18,16 @@ export interface CreateAiEmployeeDto {
   connectedTools?: string[];
 }
 
+export interface EmployeeStats {
+  tasksCompleted: number;
+  tasksFailed: number;
+  tasksActive: number;
+  successRate: number | null;
+  pendingApprovals: number;
+  costUsd30d: number;
+  lastActiveAt: Date | null;
+}
+
 export interface UpdateAiEmployeeDto extends Partial<CreateAiEmployeeDto> {
   status?: 'ACTIVE' | 'PAUSED' | 'NEEDS_ATTENTION';
 }
@@ -27,8 +36,62 @@ export interface UpdateAiEmployeeDto extends Partial<CreateAiEmployeeDto> {
 export class AiEmployeeService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Performance figures derived from the employee's real task history — never
+   * stored counters or defaults. `successRate` is null until there is at
+   * least one finished task.
+   */
+  async computeStats(tenantId: string, employeeIds: string[]): Promise<Map<string, EmployeeStats>> {
+    const out = new Map<string, EmployeeStats>();
+    if (!employeeIds.length) return out;
+    const since30 = new Date(Date.now() - 30 * 86400e3);
+    const [byStatus, cost, approvals, last] = await Promise.all([
+      this.prisma.aiTask.groupBy({
+        by: ['employeeId', 'status'],
+        where: { tenantId, employeeId: { in: employeeIds }, kind: { not: 'GROUP' } },
+        _count: { _all: true },
+      }),
+      this.prisma.aiTask.groupBy({
+        by: ['employeeId'],
+        where: { tenantId, employeeId: { in: employeeIds }, createdAt: { gte: since30 } },
+        _sum: { costUsd: true },
+      }),
+      this.prisma.aiEmployeeApproval.groupBy({
+        by: ['employeeId'],
+        where: { tenantId, employeeId: { in: employeeIds }, status: 'PENDING' },
+        _count: { _all: true },
+      }),
+      this.prisma.aiTask.groupBy({
+        by: ['employeeId'],
+        where: { tenantId, employeeId: { in: employeeIds }, completedAt: { not: null } },
+        _max: { completedAt: true },
+      }),
+    ]);
+    for (const id of employeeIds) {
+      const count = (st: string) => byStatus.find((r) => r.employeeId === id && r.status === st)?._count._all ?? 0;
+      const completed = count('COMPLETED');
+      const failed = count('FAILED');
+      const active = ['QUEUED', 'RUNNING', 'WAITING_APPROVAL', 'BLOCKED', 'PAUSED'].reduce((n, st) => n + count(st), 0);
+      out.set(id, {
+        tasksCompleted: completed,
+        tasksFailed: failed,
+        tasksActive: active,
+        successRate: completed + failed > 0 ? Math.round((completed / (completed + failed)) * 100) : null,
+        pendingApprovals: approvals.find((a) => a.employeeId === id)?._count._all ?? 0,
+        costUsd30d: Number(cost.find((c) => c.employeeId === id)?._sum.costUsd ?? 0),
+        lastActiveAt: last.find((l) => l.employeeId === id)?._max.completedAt ?? null,
+      });
+    }
+    return out;
+  }
+
+  private async withStats<T extends { id: string }>(tenantId: string, rows: T[]): Promise<(T & { stats: EmployeeStats })[]> {
+    const stats = await this.computeStats(tenantId, rows.map((r) => r.id));
+    return rows.map((r) => ({ ...r, stats: stats.get(r.id)! }));
+  }
+
   async listEmployees(tenantId: string, filters?: { status?: string; department?: string; branchId?: string }) {
-    return this.prisma.aiEmployee.findMany({
+    const rows = await this.prisma.aiEmployee.findMany({
       where: {
         tenantId,
         ...(filters?.status ? { status: filters.status } : {}),
@@ -37,23 +100,22 @@ export class AiEmployeeService {
       },
       orderBy: { createdAt: 'asc' },
     });
+    return this.withStats(tenantId, rows);
   }
 
   async getStats(tenantId: string) {
-    const [total, active, paused, needsApproval] = await Promise.all([
+    const [total, active, paused, needsApproval, errors] = await Promise.all([
       this.prisma.aiEmployee.count({ where: { tenantId } }),
       this.prisma.aiEmployee.count({ where: { tenantId, status: 'ACTIVE' } }),
       this.prisma.aiEmployee.count({ where: { tenantId, status: 'PAUSED' } }),
       this.prisma.aiEmployeeApproval.count({ where: { tenantId, status: 'PENDING' } }),
+      // Tasks that failed in the last 24 hours.
+      this.prisma.aiTask.count({
+        where: { tenantId, status: 'FAILED', kind: { not: 'GROUP' }, updatedAt: { gte: new Date(Date.now() - 86400e3) } },
+      }),
     ]);
 
-    return {
-      total,
-      active,
-      paused,
-      needsApproval,
-      errors: 0,
-    };
+    return { total, active, paused, needsApproval, errors };
   }
 
   async getEmployee(tenantId: string, id: string) {
@@ -75,7 +137,8 @@ export class AiEmployeeService {
       throw new NotFoundException('AI Employee not found');
     }
 
-    return employee;
+    const [withStats] = await this.withStats(tenantId, [employee]);
+    return withStats!;
   }
 
   async createEmployee(tenantId: string, dto: CreateAiEmployeeDto) {
@@ -96,12 +159,6 @@ export class AiEmployeeService {
         permissions: (dto.permissions ?? {}) as any,
         systemPrompt: dto.systemPrompt ?? '',
         connectedTools: dto.connectedTools ?? [],
-        stats: {
-          conversations: 0,
-          ordersAssisted: 0,
-          tasksCompleted: 0,
-          successRate: 98,
-        },
       },
     });
 
@@ -174,135 +231,6 @@ export class AiEmployeeService {
     });
   }
 
-  getTemplates() {
-    return Object.values(BUSINESS_TEMPLATES).map((tmpl) => ({
-      id: tmpl.id,
-      name: tmpl.name,
-      category: tmpl.category,
-      icon: tmpl.icon,
-      description: tmpl.description,
-      employeeCount: tmpl.suggestedEmployees.length,
-      employees: tmpl.suggestedEmployees.map((e) => ({
-        key: e.key,
-        name: e.name,
-        role: e.role,
-        department: e.department,
-        description: e.description,
-        actionLevel: e.actionLevel,
-      })),
-    }));
-  }
-
-  async applyTemplate(
-    tenantId: string,
-    businessType: string,
-    businessSize: 'SMALL' | 'MEDIUM' | 'LARGE' | 'ENTERPRISE' = 'SMALL',
-    selectedKeys?: string[],
-  ) {
-    const template = BUSINESS_TEMPLATES[businessType] || BUSINESS_TEMPLATES.PHONE_SHOP;
-    if (!template) {
-      throw new NotFoundException(`Template not found for business type: ${businessType}`);
-    }
-
-    const employeesToCreate = selectedKeys && selectedKeys.length > 0
-      ? template.suggestedEmployees.filter((e) => selectedKeys.includes(e.key))
-      : template.suggestedEmployees;
-
-    const createdEmployees = [];
-
-    for (const suggested of employeesToCreate) {
-      // Check if employee with same role already exists for tenant
-      const existing = await this.prisma.aiEmployee.findFirst({
-        where: { tenantId, role: suggested.role },
-      });
-
-      if (existing) {
-        createdEmployees.push(existing);
-        continue;
-      }
-
-      // Initial realistic demo stats
-      const baseConversations = businessSize === 'ENTERPRISE' ? 420 : businessSize === 'LARGE' ? 248 : 86;
-      const baseOrders = Math.floor(baseConversations * 0.32);
-
-      const emp = await this.prisma.aiEmployee.create({
-        data: {
-          tenantId,
-          name: suggested.name,
-          role: suggested.role,
-          department: suggested.department,
-          businessFunction: suggested.businessFunction,
-          description: suggested.description,
-          actionLevel: suggested.actionLevel,
-          scope: 'ALL_BRANCHES',
-          responsibilities: suggested.responsibilities as any,
-          assignedTasks: suggested.assignedTasks as any,
-          permissions: suggested.permissions as any,
-          systemPrompt: suggested.systemPrompt,
-          status: 'ACTIVE',
-          stats: {
-            conversations: baseConversations,
-            ordersAssisted: baseOrders,
-            tasksCompleted: Math.floor(baseConversations * 0.85),
-            leadsGenerated: Math.floor(baseConversations * 0.18),
-            escalations: 2,
-            successRate: 96,
-          },
-        },
-      });
-
-      // Seed initial realistic activity entries
-      await this.prisma.aiEmployeeActivity.createMany({
-        data: [
-          {
-            tenantId,
-            employeeId: emp.id,
-            action: `Employee initialized: ${emp.name}`,
-            category: 'OPERATIONS',
-            details: `Installed from ${template.name} template for ${businessSize.toLowerCase()} business.`,
-            status: 'SUCCESS',
-            createdAt: new Date(Date.now() - 3600 * 1000 * 4),
-          },
-          {
-            tenantId,
-            employeeId: emp.id,
-            action: `Handled customer consultation`,
-            category: 'CUSTOMER',
-            details: `Answered product compatibility and pricing query.`,
-            status: 'SUCCESS',
-            createdAt: new Date(Date.now() - 3600 * 1000 * 2),
-          },
-        ],
-      });
-
-      // If approval required, seed an approval item for demo review
-      if (suggested.actionLevel === 'APPROVAL_REQUIRED') {
-        await this.prisma.aiEmployeeApproval.create({
-          data: {
-            tenantId,
-            employeeId: emp.id,
-            title: `Supplier Reorder Draft: Fast-Moving Inventory`,
-            description: `Stock level dropped below safety buffer. Draft reorder for 20 units ($1,250 total).`,
-            actionType: 'PURCHASE_ORDER',
-            actionPayload: { itemsCount: 20, estimatedCostUsd: 1250 },
-            status: 'PENDING',
-          },
-        });
-      }
-
-      createdEmployees.push(emp);
-    }
-
-    return {
-      templateName: template.name,
-      installedCount: createdEmployees.length,
-      employees: createdEmployees,
-    };
-  }
-
-  /**
-   * Enforces permissions and autonomy level for an AI Employee attempting an action.
-   */
   async checkActionPermission(
     tenantId: string,
     employeeId: string,

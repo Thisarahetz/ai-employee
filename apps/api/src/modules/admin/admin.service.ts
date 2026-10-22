@@ -1,10 +1,10 @@
+import { BusinessType } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { paginationSkip, toPaginatedResponse, toPaginationRequest } from '@ai-employee/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthService } from '../auth/auth.service';
-import { BUSINESS_TEMPLATES } from '../ai-employee/ai-employee-templates';
 import { UpdateTenantDto } from '../tenant/dto/update-tenant.dto';
 import { AdminListQueryDto } from './dto/admin-list-query.dto';
 import { CreateTenantDto } from './dto/create-tenant.dto';
@@ -590,115 +590,48 @@ export class AdminService {
     return updated;
   }
 
-  /** Centralized catalog of all pre-built AI employee templates by industry. */
+  /** Platform industry templates (from the database) with how many businesses use each. */
   async getAiTemplatesCatalog() {
-    const templates = Object.values(BUSINESS_TEMPLATES);
-
-    const businessCounts = await this.prisma.business.groupBy({
-      by: ['type'],
-      _count: { tenantId: true },
+    const [templates, adoption] = await Promise.all([
+      this.prisma.industryTemplate.findMany({ where: { tenantId: null }, orderBy: [{ category: 'asc' }, { name: 'asc' }] }),
+      this.prisma.business.groupBy({ by: ['industryTemplateKey'], _count: { _all: true } }),
+    ]);
+    const used = new Map(adoption.map((a) => [a.industryTemplateKey, a._count._all]));
+    return templates.map((t) => {
+      const employees = ((t.definition as { employees?: unknown[] })?.employees ?? []) as Record<string, unknown>[];
+      return {
+        id: t.key,
+        templateId: t.id,
+        name: t.name,
+        category: t.category,
+        icon: t.icon,
+        description: t.description,
+        isPublished: t.isPublished,
+        suggestedEmployeesCount: employees.length,
+        suggestedEmployees: employees,
+        adoptionCount: used.get(t.key) ?? 0,
+      };
     });
-    const typeMap = new Map<string, number>();
-    for (const b of businessCounts) {
-      typeMap.set(b.type, b._count.tenantId);
-    }
-
-    return templates.map((tmpl) => ({
-      id: tmpl.id,
-      name: tmpl.name,
-      category: tmpl.category,
-      icon: tmpl.icon,
-      description: tmpl.description,
-      suggestedEmployeesCount: tmpl.suggestedEmployees.length,
-      suggestedEmployees: tmpl.suggestedEmployees,
-      adoptionCount: typeMap.get(tmpl.id) ?? 0,
-    }));
   }
 
-  /** Supported business types catalog and metrics. */
+  /** Business types in use, with the platform templates available for each. */
   async getBusinessTypesCatalog() {
-    const businessCounts = await this.prisma.business.groupBy({
-      by: ['type'],
-      _count: { id: true },
+    const [counts, templates] = await Promise.all([
+      this.prisma.business.groupBy({ by: ['type'], _count: { id: true } }),
+      this.prisma.industryTemplate.findMany({ where: { tenantId: null, isPublished: true }, select: { key: true, name: true, businessType: true, category: true } }),
+    ]);
+    const typeCounts = new Map(counts.map((b) => [b.type, b._count.id]));
+    return Object.values(BusinessType).map((type) => {
+      const forType = templates.filter((t) => t.businessType === type);
+      return {
+        id: type,
+        name: type.replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase()),
+        categories: [...new Set(forType.map((t) => t.category))],
+        defaultTemplates: forType.map((t) => t.key),
+        templateNames: forType.map((t) => t.name),
+        activeCount: typeCounts.get(type) ?? 0,
+      };
     });
-    const typeCounts = new Map(businessCounts.map((b) => [b.type, b._count.id]));
-
-    const catalog = [
-      {
-        id: 'SALON',
-        name: 'Salon & Spa',
-        category: 'Services',
-        description: 'Hair salons, nail bars, beauty clinics, wellness spas.',
-        recommendedChannels: ['WhatsApp', 'Website Chat', 'Instagram'],
-        defaultTemplates: ['SALON_SPA'],
-        activeCount: typeCounts.get('SALON') ?? 0,
-      },
-      {
-        id: 'CLINIC',
-        name: 'Medical & Dental Clinic',
-        category: 'Healthcare',
-        description: 'Dental practices, physiotherapy, specialized consultations.',
-        recommendedChannels: ['WhatsApp', 'Website Chat', 'SMS'],
-        defaultTemplates: ['DENTAL_CLINIC', 'HEALTH_CLINIC'],
-        activeCount: typeCounts.get('CLINIC') ?? 0,
-      },
-      {
-        id: 'HOTEL',
-        name: 'Hotel & Hospitality',
-        category: 'Hospitality',
-        description: 'Boutique stays, resorts, serviced apartments, guesthouses.',
-        recommendedChannels: ['WhatsApp', 'Website Chat', 'Telegram'],
-        defaultTemplates: ['HOTEL_HOSPITALITY'],
-        activeCount: typeCounts.get('HOTEL') ?? 0,
-      },
-      {
-        id: 'ECOMMERCE',
-        name: 'Retail & E-commerce',
-        category: 'Retail',
-        description: 'Mobile phone shops, electronics, apparel, grocery, online retail.',
-        recommendedChannels: ['Website Chat', 'WhatsApp', 'Instagram'],
-        defaultTemplates: ['PHONE_SHOP', 'GENERAL_RETAIL', 'GROCERY_SUPERMARKET'],
-        activeCount: typeCounts.get('ECOMMERCE') ?? 0,
-      },
-      {
-        id: 'VEHICLE_SERVICE',
-        name: 'Automotive & Garage',
-        category: 'Trade',
-        description: 'Vehicle servicing, repairs, detailing, MOT & tyre centers.',
-        recommendedChannels: ['WhatsApp', 'Website Chat', 'SMS'],
-        defaultTemplates: ['AUTO_SERVICE'],
-        activeCount: typeCounts.get('VEHICLE_SERVICE') ?? 0,
-      },
-      {
-        id: 'CRM',
-        name: 'Real Estate & Property',
-        category: 'Corporate',
-        description: 'Estate agents, property managers, commercial leasing.',
-        recommendedChannels: ['WhatsApp', 'Website Chat', 'Email'],
-        defaultTemplates: ['REAL_ESTATE'],
-        activeCount: typeCounts.get('CRM') ?? 0,
-      },
-      {
-        id: 'ERP',
-        name: 'Professional Services',
-        category: 'Corporate',
-        description: 'Accountancy, legal consulting, corporate advisory.',
-        recommendedChannels: ['Email', 'Website Chat'],
-        defaultTemplates: ['ACCOUNTING_FIRM', 'FITNESS_GYM'],
-        activeCount: typeCounts.get('ERP') ?? 0,
-      },
-      {
-        id: 'CUSTOM',
-        name: 'General & Custom Business',
-        category: 'General',
-        description: 'Custom setups, educational centers, multi-service companies.',
-        recommendedChannels: ['WhatsApp', 'Website Chat'],
-        defaultTemplates: ['GENERAL_RETAIL'],
-        activeCount: typeCounts.get('CUSTOM') ?? 0,
-      },
-    ];
-
-    return catalog;
   }
 
   /** SaaS subscription plan tiers and tenant subscription distribution. */

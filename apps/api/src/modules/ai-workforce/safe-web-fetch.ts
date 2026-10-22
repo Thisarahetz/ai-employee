@@ -58,8 +58,8 @@ function guardedLookup(hostname: string, options: dns.LookupOptions, callback: L
   });
 }
 
-const httpAgent = new http.Agent({ lookup: guardedLookup as unknown as http.AgentOptions['lookup'] });
-const httpsAgent = new https.Agent({ lookup: guardedLookup as unknown as https.AgentOptions['lookup'] });
+export const httpAgent = new http.Agent({ lookup: guardedLookup as unknown as http.AgentOptions['lookup'] });
+export const httpsAgent = new https.Agent({ lookup: guardedLookup as unknown as https.AgentOptions['lookup'] });
 
 export interface WebPageSummary {
   url: string;
@@ -177,4 +177,16 @@ export async function fetchPublicPage(rawUrl: string): Promise<WebPageSummary> {
     };
   }
   throw new Error(`Too many redirects (more than ${MAX_REDIRECTS}).`);
+}
+
+/**
+ * HTTP agents for calls to tenant-configured integration URLs. Private/internal
+ * addresses are blocked at connect time in production unless
+ * INTEGRATION_ALLOW_PRIVATE_NETWORK=true (e.g. an on-prem system on a VPN);
+ * outside production they are allowed so local systems (localhost) work.
+ */
+export function integrationAgents(env: NodeJS.ProcessEnv = process.env): { httpAgent?: http.Agent; httpsAgent?: https.Agent } {
+  const flag = env.INTEGRATION_ALLOW_PRIVATE_NETWORK;
+  const allowPrivate = flag ? flag === 'true' : env.NODE_ENV !== 'production';
+  return allowPrivate ? {} : { httpAgent, httpsAgent };
 }

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { currentTaskId } from '../common/execution-context';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -21,6 +22,9 @@ export class EventService {
     payload: Record<string, unknown>,
     sourceService?: string,
   ): Promise<void> {
+    // Events caused by an AI workforce task carry its id (see automation loop guard).
+    const causedByTaskId = currentTaskId();
+    if (causedByTaskId) payload = { ...payload, causedByTaskId };
     await this.prisma.event.create({
       data: {
         tenantId,
@@ -30,6 +34,7 @@ export class EventService {
       },
     });
 
-    this.emitter.emit(type, { tenantId, ...payload });
+    // tenantId last: a payload field can never re-route an event to another tenant.
+    this.emitter.emit(type, { ...payload, tenantId });
   }
 }

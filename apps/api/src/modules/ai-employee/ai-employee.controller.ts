@@ -11,6 +11,7 @@ import {
 import { ModuleRef } from '@nestjs/core';
 import { CurrentTenant } from '../../common/tenant/current-tenant.decorator';
 import { TenantContext } from '../../common/tenant/tenant-context';
+import { RequirePermissions } from '../../common/decorators/roles.decorator';
 import {
   AiEmployeeService,
   CreateAiEmployeeDto,
@@ -43,6 +44,7 @@ export class AiEmployeeController {
   }
 
   @Get()
+  @RequirePermissions('ai_employees:read')
   async listEmployees(
     @CurrentTenant() tenant: TenantContext,
     @Query('status') status?: string,
@@ -57,34 +59,13 @@ export class AiEmployeeController {
   }
 
   @Get('stats')
+  @RequirePermissions('ai_employees:read')
   async getStats(@CurrentTenant() tenant: TenantContext) {
     return this.employeeService.getStats(tenant.tenantId);
   }
 
-  @Get('templates')
-  getTemplates() {
-    return this.employeeService.getTemplates();
-  }
-
-  @Post('templates/apply')
-  async applyTemplate(
-    @CurrentTenant() tenant: TenantContext,
-    @Body()
-    body: {
-      businessType: string;
-      businessSize?: 'SMALL' | 'MEDIUM' | 'LARGE' | 'ENTERPRISE';
-      selectedKeys?: string[];
-    },
-  ) {
-    return this.employeeService.applyTemplate(
-      tenant.tenantId,
-      body.businessType,
-      body.businessSize,
-      body.selectedKeys,
-    );
-  }
-
   @Get('approvals')
+  @RequirePermissions('ai_employees:read')
   async listApprovals(
     @CurrentTenant() tenant: TenantContext,
     @Query('status') status?: string,
@@ -93,6 +74,7 @@ export class AiEmployeeController {
   }
 
   @Post('approvals/:id/review')
+  @RequirePermissions('ai_employees:approve')
   async reviewApproval(
     @CurrentTenant() tenant: TenantContext,
     @Param('id') id: string,
@@ -105,6 +87,7 @@ export class AiEmployeeController {
   }
 
   @Get('activities')
+  @RequirePermissions('ai_employees:read')
   async listActivities(
     @CurrentTenant() tenant: TenantContext,
     @Query('employeeId') employeeId?: string,
@@ -121,6 +104,7 @@ export class AiEmployeeController {
   }
 
   @Get(':id')
+  @RequirePermissions('ai_employees:read')
   async getEmployee(
     @CurrentTenant() tenant: TenantContext,
     @Param('id') id: string,
@@ -129,6 +113,7 @@ export class AiEmployeeController {
   }
 
   @Post()
+  @RequirePermissions('ai_employees:manage')
   async createEmployee(
     @CurrentTenant() tenant: TenantContext,
     @Body() dto: CreateAiEmployeeDto,
@@ -137,6 +122,7 @@ export class AiEmployeeController {
   }
 
   @Patch(':id')
+  @RequirePermissions('ai_employees:manage')
   async updateEmployee(
     @CurrentTenant() tenant: TenantContext,
     @Param('id') id: string,
@@ -149,6 +135,7 @@ export class AiEmployeeController {
   }
 
   @Patch(':id/status')
+  @RequirePermissions('ai_employees:manage')
   async toggleStatus(
     @CurrentTenant() tenant: TenantContext,
     @Param('id') id: string,
@@ -158,6 +145,7 @@ export class AiEmployeeController {
   }
 
   @Delete(':id')
+  @RequirePermissions('ai_employees:manage')
   async deleteEmployee(
     @CurrentTenant() tenant: TenantContext,
     @Param('id') id: string,
@@ -166,6 +154,7 @@ export class AiEmployeeController {
   }
 
   @Post(':id/check-action')
+  @RequirePermissions('ai_employees:read')
   async checkActionPermission(
     @CurrentTenant() tenant: TenantContext,
     @Param('id') id: string,

@@ -1,4 +1,5 @@
-import { BadGatewayException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadGatewayException, BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { randomBytes } from 'node:crypto';
 import { IntegrationStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { encrypt } from '../../common/crypto/encryption.util';
@@ -19,8 +20,15 @@ export class IntegrationService {
     private readonly knowledgeBaseService: KnowledgeBaseService,
   ) {}
 
-  create(tenantId: string, dto: CreateIntegrationDto) {
-    return this.prisma.integration.create({
+  /**
+   * Creates the integration with its own inbound-webhook secret. The secret is
+   * returned once here (and by rotateWebhookSecret) and stored encrypted.
+   */
+  async create(tenantId: string, dto: CreateIntegrationDto) {
+    assertIntegrationUrl(dto.baseUrl);
+    if (dto.businessId) await this.assertBusiness(tenantId, dto.businessId);
+    const webhookSecret = randomBytes(32).toString('hex');
+    const row = await this.prisma.integration.create({
       data: {
         tenantId,
         name: dto.name,
@@ -28,12 +36,27 @@ export class IntegrationService {
         baseUrl: dto.baseUrl,
         businessId: dto.businessId,
         config: (dto.config ?? {}) as Prisma.InputJsonValue,
+        webhookSecretEncrypted: encrypt(webhookSecret),
       },
     });
+    return { ...safeIntegration(row), webhookSecret, webhookUrlPath: `/webhooks/${row.id}` };
   }
 
-  findAll(tenantId: string) {
-    return this.prisma.integration.findMany({ where: { tenantId }, orderBy: { createdAt: 'desc' } });
+  async rotateWebhookSecret(tenantId: string, id: string) {
+    await this.findOne(tenantId, id);
+    const webhookSecret = randomBytes(32).toString('hex');
+    await this.prisma.integration.update({ where: { id }, data: { webhookSecretEncrypted: encrypt(webhookSecret) } });
+    return { webhookSecret, webhookUrlPath: `/webhooks/${id}` };
+  }
+
+  private async assertBusiness(tenantId: string, businessId: string) {
+    const b = await this.prisma.business.findFirst({ where: { id: businessId, tenantId }, select: { id: true } });
+    if (!b) throw new NotFoundException('Business not found');
+  }
+
+  async findAll(tenantId: string) {
+    const rows = await this.prisma.integration.findMany({ where: { tenantId }, orderBy: { createdAt: 'desc' } });
+    return rows.map(safeIntegration);
   }
 
   async findOne(tenantId: string, id: string) {
@@ -42,15 +65,23 @@ export class IntegrationService {
     return integration;
   }
 
+  /** findOne without secrets, for API responses. */
+  async getForApi(tenantId: string, id: string) {
+    return safeIntegration(await this.findOne(tenantId, id));
+  }
+
   async update(tenantId: string, id: string, dto: UpdateIntegrationDto) {
     await this.findOne(tenantId, id);
-    return this.prisma.integration.update({
+    if (dto.baseUrl !== undefined) assertIntegrationUrl(dto.baseUrl);
+    if (dto.businessId) await this.assertBusiness(tenantId, dto.businessId);
+    const row = await this.prisma.integration.update({
       where: { id },
       data: {
         ...dto,
         config: dto.config !== undefined ? (dto.config as Prisma.InputJsonValue) : undefined,
       },
     });
+    return safeIntegration(row);
   }
 
   async remove(tenantId: string, id: string) {
@@ -295,4 +326,24 @@ export class IntegrationService {
     await this.findOne(tenantId, integrationId);
     return this.externalActionService.executeAction(integrationId, action, data);
   }
+}
+
+/** Never expose stored secrets (even encrypted) in API responses. */
+export function safeIntegration<T extends { webhookSecretEncrypted?: string | null }>(row: T) {
+  const { webhookSecretEncrypted, ...rest } = row;
+  return { ...rest, hasWebhookSecret: Boolean(webhookSecretEncrypted) };
+}
+
+/** Integration base URLs must be http(s); production requires https. Private hosts are blocked at connect time. */
+export function assertIntegrationUrl(url: string | null | undefined) {
+  if (url === undefined || url === null || url === '') return;
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    throw new BadRequestException('baseUrl must be a valid URL');
+  }
+  if (!['http:', 'https:'].includes(u.protocol)) throw new BadRequestException('baseUrl must use http or https');
+  if (u.username || u.password) throw new BadRequestException('Put credentials in the integration credentials, not in the URL');
+  if (process.env.NODE_ENV === 'production' && u.protocol !== 'https:') throw new BadRequestException('baseUrl must use https in production');
 }

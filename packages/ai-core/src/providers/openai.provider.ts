@@ -24,9 +24,12 @@ export class OpenAIProvider implements AIProvider {
 
   private client: OpenAI | null = null;
 
+  /** Explicit key (a business's own key); falls back to the platform env key. */
+  constructor(private readonly apiKey?: string) {}
+
   private getClient(): OpenAI {
     if (!this.client) {
-      const apiKey = process.env.OPENAI_API_KEY;
+      const apiKey = this.apiKey ?? process.env.OPENAI_API_KEY;
       if (!apiKey) {
         throw new Error(
           'OPENAI_API_KEY is not set — cannot call the OpenAI provider. Set it in your environment (see .env.example).',

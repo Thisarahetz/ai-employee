@@ -59,6 +59,9 @@ model Tenant {
   aiTasks               AiTask[]
   aiTaskSchedules       AiTaskSchedule[]
   aiSettings            TenantAiSettings?
+  industryTemplates     IndustryTemplate[]
+  automationRules       AiAutomationRule[]
+  aiProviderKeys        TenantAiProviderKey[]
   ownerCommandThreads   OwnerCommandThread[]
   dynamicSagas          DynamicSaga[]
   synthesizedInvariants SynthesizedInvariant[]
@@ -80,21 +83,26 @@ enum BusinessType {
 }
 
 model Business {
-  id            String       @id @default(cuid())
-  tenantId      String
-  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  name          String
-  type          BusinessType @default(CUSTOM)
-  timezone      String       @default("UTC")
-  settings      Json         @default("{}")
+  id                  String       @id @default(cuid())
+  tenantId            String
+  tenant              Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name                String
+  type                BusinessType @default(CUSTOM)
+  timezone            String       @default("UTC")
+  settings            Json         @default("{}")
+  /// Industry template this business was set up from (IndustryTemplate.key).
+  industryTemplateKey String?
+  /// Owner-editable business profile fed to every AI employee:
+  /// { description, departments[], services, hours, brandVoice, goals[], policies }
+  profile             Json         @default("{}")
   /// Set when this Location was mirrored from an external system's `GET /ai/knowledge`
   /// locations feed. `integrationId` is nulled (not cascaded) if that integration is
   /// removed; `externalId` is the source system's stable id, used to upsert on re-sync.
-  integrationId String?
-  integration   Integration? @relation("IntegrationSyncedLocations", fields: [integrationId], references: [id], onDelete: SetNull)
-  externalId    String?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  integrationId       String?
+  integration         Integration? @relation("IntegrationSyncedLocations", fields: [integrationId], references: [id], onDelete: SetNull)
+  externalId          String?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
 
   integrations  Integration[]  @relation("BusinessIntegrations")
   channels      Channel[]
@@ -425,23 +433,25 @@ enum IntegrationStatus {
 }
 
 model Integration {
-  id                  String            @id @default(cuid())
-  tenantId            String
-  tenant              Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  businessId          String?
-  business            Business?         @relation("BusinessIntegrations", fields: [businessId], references: [id])
-  name                String
-  type                IntegrationType
-  baseUrl             String?
+  id                     String            @id @default(cuid())
+  tenantId               String
+  tenant                 Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  businessId             String?
+  business               Business?         @relation("BusinessIntegrations", fields: [businessId], references: [id])
+  name                   String
+  type                   IntegrationType
+  baseUrl                String?
   /// REST_API type: endpoint/header/auth/request-response mapping config.
-  config              Json              @default("{}")
-  status              IntegrationStatus @default(DISCONNECTED)
+  config                 Json              @default("{}")
+  status                 IntegrationStatus @default(DISCONNECTED)
   /// Dedicated KnowledgeBase auto-created to hold this integration's `GET /ai/knowledge` sync output.
-  knowledgeBaseId     String?
-  knowledgeBase       KnowledgeBase?    @relation(fields: [knowledgeBaseId], references: [id], onDelete: SetNull)
-  lastKnowledgeSyncAt DateTime?
-  createdAt           DateTime          @default(now())
-  updatedAt           DateTime          @updatedAt
+  knowledgeBaseId        String?
+  knowledgeBase          KnowledgeBase?    @relation(fields: [knowledgeBaseId], references: [id], onDelete: SetNull)
+  lastKnowledgeSyncAt    DateTime?
+  /// Per-integration HMAC secret for inbound webhooks (AES-GCM encrypted).
+  webhookSecretEncrypted String?
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
 
   credentials     IntegrationCredential[]
   actions         IntegrationAction[]
@@ -655,10 +665,11 @@ model AiEmployee {
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
-  approvals  AiEmployeeApproval[]
-  activities AiEmployeeActivity[]
-  tasks      AiTask[]
-  schedules  AiTaskSchedule[]
+  approvals       AiEmployeeApproval[]
+  activities      AiEmployeeActivity[]
+  tasks           AiTask[]
+  schedules       AiTaskSchedule[]
+  automationRules AiAutomationRule[]
 
   @@index([tenantId])
   @@index([tenantId, status])
@@ -752,6 +763,11 @@ model AiTask {
   /// Set when a recurring schedule created this task.
   scheduleId          String?
   schedule            AiTaskSchedule?     @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  /// Set when an automation rule created this task.
+  automationRuleId    String?
+  automationRule      AiAutomationRule?   @relation(fields: [automationRuleId], references: [id], onDelete: SetNull)
+  /// Event data that triggered the task — shown to the AI as untrusted data, never as instructions.
+  triggerContext      Json?
   /// Execution attempts so far (automatic retries + owner retries).
   attempts            Int                 @default(0)
   maxAttempts         Int                 @default(3)
@@ -780,6 +796,114 @@ model AiTask {
 }
 
 /// Execution log: one row per plan note, tool call, approval request, result or error.
+/// Industry template: suggested AI employee roles, recurring schedules and
+/// automation rules for a kind of business. `tenantId` null = platform
+/// template (built-in or created by a platform admin); otherwise a business's
+/// own customised template. `definition` is validated by
+/// business-setup/template-definition.ts.
+model IndustryTemplate {
+  id              String       @id @default(cuid())
+  tenantId        String?
+  tenant          Tenant?      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  key             String
+  name            String
+  category        String       @default("General")
+  icon            String       @default("Briefcase")
+  description     String       @default("")
+  businessType    BusinessType @default(CUSTOM)
+  definition      Json
+  isBuiltIn       Boolean      @default(false)
+  isPublished     Boolean      @default(true)
+  version         Int          @default(1)
+  basedOnKey      String?
+  createdByUserId String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@unique([tenantId, key])
+  @@index([isPublished])
+  @@map("industry_templates")
+}
+
+/// "When <event> happens and <conditions> match, do <action>" — event-driven
+/// work for AI employees. Bounded by a cooldown per dedupe key and a
+/// per-rule hourly cap; events caused by AI tasks are ignored unless
+/// `allowAiTriggered` is set, so rules can't feed each other forever.
+model AiAutomationRule {
+  id               String      @id @default(cuid())
+  tenantId         String
+  tenant           Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name             String
+  description      String      @default("")
+  enabled          Boolean     @default(true)
+  triggerEvent     String
+  /// [{ field: "status", op: "eq", value: "cancelled" }]
+  conditions       Json        @default("[]")
+  /// CREATE_TASK | NOTIFY_OWNER
+  actionType       String      @default("CREATE_TASK")
+  employeeId       String?
+  employee         AiEmployee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  /// May contain {{field}} placeholders filled from the event.
+  taskTitle        String
+  taskDescription  String      @default("")
+  priority         String      @default("MEDIUM")
+  dedupeKey        String?
+  cooldownSeconds  Int         @default(0)
+  maxRunsPerHour   Int         @default(20)
+  allowAiTriggered Boolean     @default(false)
+  triggerCount     Int         @default(0)
+  lastTriggeredAt  DateTime?
+  lastError        String?
+  templateKey      String?
+  createdByUserId  String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  runs  AiAutomationRun[]
+  tasks AiTask[]
+
+  @@index([tenantId, triggerEvent, enabled])
+  @@map("ai_automation_rules")
+}
+
+model AiAutomationRun {
+  id          String           @id @default(cuid())
+  tenantId    String
+  ruleId      String
+  rule        AiAutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  eventType   String
+  dedupeValue String?
+  /// TASK_CREATED | NOTIFIED | SKIPPED_COOLDOWN | SKIPPED_RATE_LIMIT | SKIPPED_LIMIT | FAILED
+  status      String
+  taskId      String?
+  message     String           @default("")
+  createdAt   DateTime         @default(now())
+
+  @@index([ruleId, createdAt])
+  @@index([ruleId, dedupeValue, createdAt])
+  @@index([tenantId, createdAt])
+  @@map("ai_automation_runs")
+}
+
+/// A business's own AI provider API key (bring-your-own-key), AES-GCM
+/// encrypted. Never returned by the API — only `keyHint` (last 4 chars).
+model TenantAiProviderKey {
+  id              String         @id @default(cuid())
+  tenantId        String
+  tenant          Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  provider        AiProviderName
+  encryptedKey    String
+  keyHint         String
+  createdByUserId String?
+  lastUsedAt      DateTime?
+  lastError       String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@unique([tenantId, provider])
+  @@map("tenant_ai_provider_keys")
+}
+
 /// A recurring assignment: the scheduler creates an AiTask for the employee each
 /// time the cron expression fires (evaluated in `timezone`).
 model AiTaskSchedule {

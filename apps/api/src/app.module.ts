@@ -31,6 +31,7 @@ import { AdminModule } from './modules/admin/admin.module';
 import { AiUsageLogsModule } from './modules/ai-usage-logs/ai-usage-logs.module';
 import { AiEmployeeModule } from './modules/ai-employee/ai-employee.module';
 import { AiWorkforceModule } from './modules/ai-workforce/ai-workforce.module';
+import { BusinessSetupModule } from './modules/business-setup/business-setup.module';
 import { HealthModule } from './modules/health/health.module';
 import { DynamicSagaModule } from './modules/saga/dynamic-saga.module';
 import { PolicySynthesisModule } from './modules/policy-synthesis/policy-synthesis.module';
@@ -89,6 +90,7 @@ function redisConnection() {
     AiUsageLogsModule,
     AiEmployeeModule,
     AiWorkforceModule,
+    BusinessSetupModule,
     DynamicSagaModule,
     PolicySynthesisModule,
   ],

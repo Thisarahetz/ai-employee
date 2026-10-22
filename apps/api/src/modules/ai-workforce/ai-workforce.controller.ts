@@ -9,6 +9,8 @@ import { WorkforceAccessService } from './workforce-access.service';
 import { ScheduleInput, WorkforceScheduleService } from './workforce-schedule.service';
 import { AiLimits, UsageLimitsService } from './usage-limits.service';
 import { TaskQueueService } from './task-queue.service';
+import { AutomationRuleService } from './automation-rule.service';
+import type { RuleInput } from './automation-rules';
 
 const CONTROL_ACTIONS: TaskControlAction[] = ['PAUSE', 'RESUME', 'CANCEL', 'PRIORITIZE', 'REASSIGN'];
 
@@ -28,6 +30,7 @@ export class AiWorkforceController {
     private readonly schedules: WorkforceScheduleService,
     private readonly usage: UsageLimitsService,
     private readonly queue: TaskQueueService,
+    private readonly automations: AutomationRuleService,
   ) {}
 
   // ── Command chat ────────────────────────────────────────────────────────
@@ -209,5 +212,56 @@ export class AiWorkforceController {
   async health(@CurrentTenant() t: TenantContext) {
     const [queue, usage] = await Promise.all([this.queue.counts().catch(() => null), this.usage.snapshot(t.tenantId)]);
     return { queueReachable: queue !== null, queue, runningTasks: usage.runningTasks, limits: usage.limits };
+  }
+
+  // ── Automation rules (event-triggered work) ─────────────────────────────
+
+  @Get('automations/triggers')
+  @RequirePermissions('ai_employees:read')
+  automationTriggers() {
+    return this.automations.triggerCatalog();
+  }
+
+  @Get('automations')
+  @RequirePermissions('ai_employees:read')
+  listAutomations(@CurrentTenant() t: TenantContext) {
+    return this.automations.list(t.tenantId);
+  }
+
+  @Get('automations/:id')
+  @RequirePermissions('ai_employees:read')
+  getAutomation(@CurrentTenant() t: TenantContext, @Param('id') id: string) {
+    return this.automations.get(t.tenantId, id);
+  }
+
+  @Get('automations/:id/runs')
+  @RequirePermissions('ai_employees:read')
+  automationRuns(@CurrentTenant() t: TenantContext, @Param('id') id: string) {
+    return this.automations.runs(t.tenantId, id);
+  }
+
+  @Post('automations')
+  @RequirePermissions('ai_employees:manage')
+  createAutomation(@CurrentTenant() t: TenantContext, @Body() body: RuleInput) {
+    return this.automations.create(t.tenantId, t.userId, body ?? {});
+  }
+
+  @Patch('automations/:id')
+  @RequirePermissions('ai_employees:manage')
+  updateAutomation(@CurrentTenant() t: TenantContext, @Param('id') id: string, @Body() body: RuleInput) {
+    return this.automations.update(t.tenantId, t.userId, id, body ?? {});
+  }
+
+  @Delete('automations/:id')
+  @RequirePermissions('ai_employees:manage')
+  deleteAutomation(@CurrentTenant() t: TenantContext, @Param('id') id: string) {
+    return this.automations.remove(t.tenantId, t.userId, id);
+  }
+
+  /** Dry run against a sample event — nothing is created. */
+  @Post('automations/:id/test')
+  @RequirePermissions('ai_employees:read')
+  testAutomation(@CurrentTenant() t: TenantContext, @Param('id') id: string, @Body() body: { payload?: Record<string, unknown> }) {
+    return this.automations.test(t.tenantId, id, body?.payload ?? {});
   }
 }
