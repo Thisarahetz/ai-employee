@@ -9,6 +9,7 @@ import { AiEmployeeApprovalService } from '../ai-employee/ai-employee-approval.s
 import { WorkforceToolExecutorService } from './workforce-tool-executor.service';
 import { WorkforceTaskService } from './workforce-task.service';
 import { WorkforceScheduleService } from './workforce-schedule.service';
+import { SetupCheckService, describeProblems } from './setup-check.service';
 import { WorkforceToolSpec, evaluateToolPolicy } from './workforce-tools';
 import { AiLimits, UsageLimitsService, startOfUtcDay, startOfUtcMonth } from './usage-limits.service';
 import {
@@ -23,6 +24,9 @@ import {
 const MAX_CONSECUTIVE_FAILED_ROUNDS = 3;
 /** A RUNNING task whose heartbeat is older than this is treated as crashed. */
 export const STALE_HEARTBEAT_MS = 5 * 60_000;
+
+/** A task stopped by a setup problem checks again this often. */
+export const SETUP_RECHECK_MS = 15 * 60_000;
 
 export type RunOutcome = 'DONE' | 'NOT_CLAIMED' | 'DEFERRED';
 
@@ -101,6 +105,7 @@ export class TaskExecutorService {
     private readonly audit: AuditLogService,
     private readonly limits: UsageLimitsService,
     private readonly schedules: WorkforceScheduleService,
+    private readonly setup: SetupCheckService,
   ) {}
 
   /**
@@ -129,6 +134,37 @@ export class TaskExecutorService {
     });
   }
 
+  /**
+   * Something the work relies on was removed or is broken: don't run it, tell
+   * the owners, and check again later (the maintenance tick re-queues it).
+   * Logs a step only when the problem is new or has changed.
+   */
+  private async blockedBySetup(taskId: string): Promise<boolean> {
+    const task = await this.prisma.aiTask.findFirst({
+      where: { id: taskId, status: 'QUEUED', kind: { not: 'GROUP' } },
+      select: { id: true, tenantId: true, title: true, error: true, parentTaskId: true },
+    });
+    if (!task) return false;
+    const problems = await this.setup.check(task.tenantId);
+    if (!problems.length) return false;
+    const message = describeProblems(problems).slice(0, 2000);
+    const moved = await this.prisma.aiTask.updateMany({
+      where: { id: task.id, status: 'QUEUED' },
+      data: { status: 'BLOCKED', error: message, nextRunAt: new Date(Date.now() + SETUP_RECHECK_MS), heartbeatAt: null },
+    });
+    if (moved.count !== 1) return false;
+    if (task.error !== message) {
+      await this.tasks.addStep(task.tenantId, task.id, {
+        kind: 'ERROR',
+        status: 'BLOCKED',
+        message: `${message} It checks again every 15 minutes and continues once this is fixed.`,
+      });
+    }
+    await this.setup.alertOwners(task.tenantId, problems, task.title);
+    if (task.parentTaskId) await this.tasks.refreshGroup(task.tenantId, task.parentTaskId);
+    return true;
+  }
+
   async run(taskId: string): Promise<RunOutcome> {
     const owner = await this.prisma.aiTask.findFirst({ where: { id: taskId }, select: { tenantId: true } });
     if (!owner) return 'NOT_CLAIMED';
@@ -136,6 +172,7 @@ export class TaskExecutorService {
   }
 
   private async runInContext(taskId: string): Promise<RunOutcome> {
+    if (await this.blockedBySetup(taskId)) return 'DONE';
     const { claimed, deferred } = await this.claim(taskId);
     if (deferred) return 'DEFERRED';
     if (!claimed) return 'NOT_CLAIMED';

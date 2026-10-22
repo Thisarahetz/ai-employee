@@ -5,6 +5,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { EVENT_TYPES } from '../../events/event-types.const';
 import { N8nService } from '../n8n/n8n.service';
 import { WorkflowService } from './workflow.service';
+import { SetupCheckService, SetupProblem, describeProblems } from '../ai-workforce/setup-check.service';
 
 /**
  * Bridges the internal event bus to n8n. For every value in EVENT_TYPES, subscribes via
@@ -30,6 +31,7 @@ export class WorkflowEventListenerService {
     private readonly prisma: PrismaService,
     private readonly workflowService: WorkflowService,
     private readonly n8nService: N8nService,
+    private readonly setup: SetupCheckService,
   ) {
     for (const eventType of Object.values(EVENT_TYPES)) {
       this.emitter.on(eventType, (payload: Record<string, unknown>) => {
@@ -64,6 +66,31 @@ export class WorkflowEventListenerService {
     payload: Record<string, unknown>,
   ): Promise<void> {
     let executionId: string | undefined;
+
+    // Don't run a workflow whose setup was removed or is broken; tell the owners instead.
+    const problems: SetupProblem[] = await this.setup.check(tenantId, {
+      needsAi: false,
+      integrationId: typeof payload.integrationId === 'string' ? payload.integrationId : null,
+    });
+    if (!process.env.N8N_API_URL?.trim()) {
+      problems.push({ code: 'n8n_missing', message: 'The workflow engine (n8n) is not set up on this server.', href: '/workflows' });
+    }
+    if (problems.length) {
+      await this.setup.alertOwners(tenantId, problems, workflow.name);
+      await this.prisma.workflowExecution
+        .create({
+          data: {
+            tenantId,
+            workflowId: workflow.id,
+            status: 'FAILED',
+            input: payload as Prisma.InputJsonValue,
+            errorMessage: describeProblems(problems),
+            finishedAt: new Date(),
+          },
+        })
+        .catch((err) => this.logger.error(`Failed to record skipped workflow ${workflow.id}: ${err}`));
+      return;
+    }
 
     try {
       const execution = await this.prisma.workflowExecution.create({
@@ -101,6 +128,11 @@ export class WorkflowEventListenerService {
             finishedAt: new Date(),
           },
         });
+        await this.setup.alertOwners(
+          tenantId,
+          [{ code: `n8n_failed:${workflow.id}`, message: 'The workflow engine (n8n) did not accept the workflow. Check that n8n is running and the workflow is active.', href: '/workflows' }],
+          workflow.name,
+        );
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);

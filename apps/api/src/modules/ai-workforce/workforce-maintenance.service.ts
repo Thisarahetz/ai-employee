@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { WorkforceTaskService } from './workforce-task.service';
 import { WorkforceScheduleService } from './workforce-schedule.service';
 import { STALE_HEARTBEAT_MS } from './task-executor.service';
+import { SETUP_BLOCKED_PREFIX } from './setup-check.service';
 
 /** A QUEUED task untouched for this long is assumed to have lost its queue job. */
 export const LOST_JOB_AFTER_MS = 2 * 60_000;
@@ -120,16 +121,21 @@ export class WorkforceMaintenanceService {
   async resumeBudgetBlocked(now = new Date()) {
     const due = await this.prisma.aiTask.findMany({
       where: { status: 'BLOCKED', kind: { not: 'GROUP' }, nextRunAt: { lte: now } },
-      select: { id: true, tenantId: true },
+      select: { id: true, tenantId: true, error: true },
       take: 200,
     });
     for (const t of due) {
+      // Setup-blocked tasks keep their error so a re-check that finds the
+      // same problem doesn't log it again.
+      const setupBlocked = Boolean(t.error?.startsWith(SETUP_BLOCKED_PREFIX));
       const moved = await this.prisma.aiTask.updateMany({
         where: { id: t.id, status: 'BLOCKED', nextRunAt: { lte: now } },
-        data: { status: 'QUEUED', nextRunAt: null, error: null },
+        data: { status: 'QUEUED', nextRunAt: null, ...(setupBlocked ? {} : { error: null }) },
       });
       if (moved.count !== 1) continue;
-      await this.tasks.addStep(t.tenantId, t.id, { kind: 'CONTROL', message: 'Budget period reset — resuming automatically.' });
+      if (!setupBlocked) {
+        await this.tasks.addStep(t.tenantId, t.id, { kind: 'CONTROL', message: 'Budget period reset — resuming automatically.' });
+      }
       await this.tasks.enqueue(t.tenantId, t.id);
     }
     return due.length;

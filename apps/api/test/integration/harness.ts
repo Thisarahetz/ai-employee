@@ -54,6 +54,11 @@ export function configureTestEnv(opts: { worker?: boolean } = {}) {
     CREDENTIALS_ENCRYPTION_KEY: randomBytes(32).toString('base64'),
     INTERNAL_SERVICE_TOKEN: 'test-service-token',
     RESEND_API_KEY: '',
+    // The model is scripted, but the setup check needs an AI key to exist.
+    AI_DEFAULT_PROVIDER: 'GEMINI',
+    AI_ALLOW_PLATFORM_KEYS: 'true',
+    GEMINI_API_KEY: 'test-platform-key-never-called',
+    N8N_API_URL: '',
     // Generous platform defaults so only tests that set limits hit them.
     AI_DEFAULT_DAILY_BUDGET_USD: '100',
     AI_DEFAULT_MONTHLY_BUDGET_USD: '1000',
@@ -192,7 +197,9 @@ export async function createTenant(
     data: { email: `owner-${tag}@example.test`, passwordHash: 'x', firstName: 'Test', lastName: 'Owner' },
   });
   await prisma.tenantMembership.create({ data: { tenantId: tenant.id, userId: owner.id, role: o.role ?? 'OWNER', status: 'ACTIVE' } });
-  await prisma.business.create({ data: { tenantId: tenant.id, name: tenant.name, type: 'SALON', timezone: 'Asia/Colombo' } });
+  await prisma.business.create({
+    data: { tenantId: tenant.id, name: tenant.name, type: 'SALON', timezone: 'Asia/Colombo', profile: { description: 'A neighbourhood hair salon.' } },
+  });
   const emp = await prisma.aiEmployee.create({
     data: {
       tenantId: tenant.id,

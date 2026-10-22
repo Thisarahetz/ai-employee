@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "@/lib/auth-context";
@@ -8,6 +9,12 @@ import { useBusinesses } from "@/lib/hooks/use-businesses";
 import { useMarkNotificationRead, useNotifications } from "@/lib/hooks/use-notifications";
 import { cn, formatDateTime } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+
+/** In-app page an alert links to, e.g. where to fix a setup problem. */
+function fixHref(metadata: Record<string, unknown> | undefined): string | null {
+  const href = metadata?.href;
+  return typeof href === "string" && href.startsWith("/") && !href.startsWith("//") ? href : null;
+}
 
 export function Topbar() {
   const { user, activeTenant, logout } = useAuth();
@@ -83,7 +90,16 @@ export function Topbar() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="truncate text-sm font-medium text-ink-primary">{notification.title}</p>
-                          <p className="mt-0.5 line-clamp-2 text-xs text-ink-secondary">{notification.body}</p>
+                          <p className="mt-0.5 line-clamp-3 text-xs text-ink-secondary">{notification.body}</p>
+                          {fixHref(notification.metadata) && (
+                            <Link
+                              href={fixHref(notification.metadata)!}
+                              onClick={() => setIsNotifOpen(false)}
+                              className="mt-1 inline-block text-xs font-semibold text-brand-600 hover:underline"
+                            >
+                              Fix it →
+                            </Link>
+                          )}
                           <p className="mt-1 text-[11px] text-ink-muted">{formatDateTime(notification.createdAt)}</p>
                         </div>
                         {!notification.isRead && (

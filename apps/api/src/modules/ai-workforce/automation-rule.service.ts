@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { WorkforceTaskService } from './workforce-task.service';
+import { SetupCheckService, describeProblems } from './setup-check.service';
 import {
   RuleCondition,
   RuleInput,
@@ -38,6 +39,7 @@ export class AutomationRuleService implements OnModuleInit {
     private readonly audit: AuditLogService,
     private readonly tasks: WorkforceTaskService,
     private readonly emitter: EventEmitter2,
+    private readonly setup: SetupCheckService,
   ) {}
 
   onModuleInit() {
@@ -165,6 +167,23 @@ export class AutomationRuleService implements OnModuleInit {
     if (payload.causedByTaskId && !rule.allowAiTriggered) return false; // loop guard, silent
     if (!allConditionsMatch((rule.conditions ?? []) as unknown as RuleCondition[], payload)) return false;
     const dedupeValue = rule.dedupeKey ? renderTemplate(rule.dedupeKey, payload) || null : null;
+
+    // Don't start work when something it relies on was removed or is broken.
+    const runsAi = rule.actionType !== 'NOTIFY_OWNER';
+    const problems = await this.setup.check(rule.tenantId, {
+      employeeId: runsAi ? rule.employeeId : undefined,
+      integrationId: typeof payload.integrationId === 'string' ? payload.integrationId : null,
+      needsAi: runsAi,
+      needsBusiness: runsAi,
+    });
+    if (problems.length) {
+      const message = describeProblems(problems).slice(0, 500);
+      await this.setup.alertOwners(rule.tenantId, problems, rule.name);
+      const skips = await this.prisma.aiAutomationRun.count({ where: { ruleId: rule.id, status: 'SKIPPED_SETUP', createdAt: { gte: new Date(Date.now() - 3600e3) } } });
+      if (skips < 20) await this.recordRun(rule, type, dedupeValue, 'SKIPPED_SETUP', message);
+      await this.prisma.aiAutomationRule.update({ where: { id: rule.id }, data: { lastError: message } });
+      return false;
+    }
 
     // Serialise per rule so concurrent events can't both pass the cooldown/rate checks.
     const verdict = await this.prisma.$transaction(async (tx) => {

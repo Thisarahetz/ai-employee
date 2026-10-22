@@ -4,6 +4,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { ACTIVE_STATUSES, WorkforceTaskService } from './workforce-task.service';
 import { UsageLimitsService } from './usage-limits.service';
+import { SetupCheckService, describeProblems } from './setup-check.service';
 import { assertScheduleAllowed, isValidTimezone, nextRun } from './cron';
 
 const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
@@ -38,6 +39,7 @@ export class WorkforceScheduleService {
     private readonly audit: AuditLogService,
     private readonly tasks: WorkforceTaskService,
     private readonly limits: UsageLimitsService,
+    private readonly setup: SetupCheckService,
   ) {}
 
   list(tenantId: string, employeeId?: string) {
@@ -152,6 +154,11 @@ export class WorkforceScheduleService {
         select: { id: true },
       });
       if (active) return skip('SKIPPED_OVERLAP', 'The previous run is still in progress.');
+    }
+    const problems = await this.setup.check(s.tenantId, { employeeId: s.employeeId });
+    if (problems.length) {
+      await this.setup.alertOwners(s.tenantId, problems, s.title);
+      return skip('SKIPPED_SETUP', describeProblems(problems));
     }
     const budget = await this.limits.checkBudget(s.tenantId);
     if (!budget.ok) return skip('SKIPPED_LIMIT', budget.reason);
