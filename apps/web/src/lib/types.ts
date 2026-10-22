@@ -471,6 +471,25 @@ export interface Integration {
   lastKnowledgeSyncAt?: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Where the system posts its events (full URL). */
+  webhookUrl?: string;
+  hasWebhookSecret?: boolean;
+  actionsCount?: number;
+  lastEventType?: string | null;
+  lastEventAt?: string | null;
+}
+
+/** Returned once, on create or when a new secret is issued. */
+export interface IntegrationWebhookSecret {
+  webhookSecret: string;
+  webhookUrl: string;
+}
+
+export interface IntegrationTestResult {
+  ok: boolean;
+  actions: number;
+  knowledge: { documents: number; locations: number } | null;
+  message: string;
 }
 
 export interface IntegrationAction {

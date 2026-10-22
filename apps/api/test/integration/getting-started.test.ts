@@ -36,6 +36,16 @@ test('the guide follows real setup progress, step by step', async () => {
   g = await setup.gettingStarted(f.tenantId);
   assert.ok(done(g, 'team') && done(g, 'profile'));
   assert.equal(done(g, 'schedule'), false, 'template schedules start switched off');
+  assert.equal(g.next.key, 'integration', 'then connect the business software (required)');
+
+  // Keys created but the developer is not done yet: still required.
+  const integ = await t.prisma.integration.create({ data: { tenantId: f.tenantId, name: 'Shop app', type: 'STANDARD_API' } });
+  g = await setup.gettingStarted(f.tenantId);
+  assert.equal(done(g, 'integration'), false);
+  assert.match(g.steps.find((s: any) => s.key === 'integration').detail, /developer/);
+  await t.prisma.integration.update({ where: { id: integ.id }, data: { status: 'CONNECTED' } });
+  g = await setup.gettingStarted(f.tenantId);
+  assert.ok(done(g, 'integration'));
   assert.equal(g.next.key, 'knowledge');
 
   const kb = await t.prisma.knowledgeBase.create({ data: { tenantId: f.tenantId, name: 'Info' } });

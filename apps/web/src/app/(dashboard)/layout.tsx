@@ -8,6 +8,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { FullPageSpinner } from "@/components/ui/spinner";
 import { SetupProgressButton } from "@/components/getting-started/getting-started";
+import { SoftwareRequiredBanner } from "@/components/integrations/software-required";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading, user, memberships } = useAuth();
@@ -42,6 +43,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar />
+        <SoftwareRequiredBanner />
         <main className="flex-1 overflow-y-auto p-6">{children}</main>
       </div>
       <SetupProgressButton />

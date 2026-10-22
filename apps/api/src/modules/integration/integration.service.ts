@@ -39,14 +39,43 @@ export class IntegrationService {
         webhookSecretEncrypted: encrypt(webhookSecret),
       },
     });
-    return { ...safeIntegration(row), webhookSecret, webhookUrlPath: `/webhooks/${row.id}` };
+    return { ...safeIntegration(row), webhookSecret, webhookUrlPath: `/webhooks/${row.id}`, webhookUrl: webhookUrl(row.id) };
+  }
+
+  /**
+   * Owner-friendly setup: AI Employee creates the connection and its keys, so the
+   * owner can hand a ready "developer kit" to whoever builds their software. The
+   * keys are returned once; the Base URL is added later, when the developer is done.
+   */
+  async createDeveloperKit(tenantId: string, name: string) {
+    const clean = String(name ?? '').trim().slice(0, 100);
+    if (!clean) throw new BadRequestException('Give the connection a name, e.g. "Booking system".');
+    const created = await this.create(tenantId, { name: clean, type: 'STANDARD_API', config: { apiKeyHeader: 'X-API-Key' } } as CreateIntegrationDto);
+    const apiKey = await this.issueApiKey(tenantId, created.id);
+    return { integration: created, apiKey, webhookUrl: created.webhookUrl, webhookSecret: created.webhookSecret };
+  }
+
+  /** New API key and webhook secret (old ones stop working at once). For a lost kit. */
+  async renewDeveloperKit(tenantId: string, id: string) {
+    const integration = await this.findOne(tenantId, id);
+    const apiKey = await this.issueApiKey(tenantId, id);
+    const { webhookSecret, webhookUrl: url } = await this.rotateWebhookSecret(tenantId, id);
+    return { integration: safeIntegration(integration), apiKey, webhookUrl: url, webhookSecret };
+  }
+
+  private async issueApiKey(tenantId: string, integrationId: string): Promise<string> {
+    const apiKey = `aie_${randomBytes(24).toString('base64url')}`;
+    // Only the newest credential is used, so older keys stop working immediately.
+    await this.prisma.integrationCredential.deleteMany({ where: { integrationId } });
+    await this.addCredential(tenantId, integrationId, { type: 'API_KEY', payload: { apiKey } } as CreateIntegrationCredentialDto);
+    return apiKey;
   }
 
   async rotateWebhookSecret(tenantId: string, id: string) {
     await this.findOne(tenantId, id);
     const webhookSecret = randomBytes(32).toString('hex');
     await this.prisma.integration.update({ where: { id }, data: { webhookSecretEncrypted: encrypt(webhookSecret) } });
-    return { webhookSecret, webhookUrlPath: `/webhooks/${id}` };
+    return { webhookSecret, webhookUrlPath: `/webhooks/${id}`, webhookUrl: webhookUrl(id) };
   }
 
   private async assertBusiness(tenantId: string, businessId: string) {
@@ -56,7 +85,62 @@ export class IntegrationService {
 
   async findAll(tenantId: string) {
     const rows = await this.prisma.integration.findMany({ where: { tenantId }, orderBy: { createdAt: 'desc' } });
-    return rows.map(safeIntegration);
+    return Promise.all(rows.map((row) => this.withHealth(tenantId, row)));
+  }
+
+  /** What the owner needs to see to know the connection works, from real activity. */
+  private async withHealth<T extends { id: string; webhookSecretEncrypted?: string | null }>(tenantId: string, row: T) {
+    const [actionsCount, lastEvent] = await Promise.all([
+      this.prisma.integrationAction.count({ where: { tenantId, integrationId: row.id, isEnabled: true } }),
+      this.prisma.event.findFirst({
+        where: { tenantId, sourceService: 'webhook', payload: { path: ['integrationId'], equals: row.id } },
+        orderBy: { createdAt: 'desc' },
+        select: { type: true, createdAt: true },
+      }),
+    ]);
+    return {
+      ...safeIntegration(row),
+      webhookUrl: webhookUrl(row.id),
+      actionsCount,
+      lastEventType: lastEvent?.type ?? null,
+      lastEventAt: lastEvent?.createdAt ?? null,
+    };
+  }
+
+  /**
+   * One-click check that the connection works: reach the system and load its actions,
+   * then pull its knowledge feed (optional — a system without one is still connected).
+   * Never throws for a failed check; the result says what failed and how to fix it.
+   */
+  async testConnection(tenantId: string, integrationId: string) {
+    const integration = await this.findOne(tenantId, integrationId);
+    if (!integration.baseUrl) {
+      return { ok: false, actions: 0, knowledge: null, message: 'Add the Base URL first.' };
+    }
+    let actions = 0;
+    try {
+      actions = (await this.discover(tenantId, integrationId)).discovered;
+    } catch (error) {
+      return { ok: false, actions: 0, knowledge: null, message: explainConnectionError(error, integration.baseUrl) };
+    }
+    let knowledge: { documents: number; locations: number } | null = null;
+    let knowledgeError: string | null = null;
+    try {
+      const r = await this.syncKnowledge(tenantId, integrationId);
+      const documents = await this.prisma.document.count({ where: { tenantId, knowledgeBaseId: r.knowledgeBaseId } });
+      const locations = await this.prisma.business.count({ where: { tenantId, integrationId } });
+      knowledge = { documents, locations };
+    } catch (error) {
+      knowledgeError = error instanceof Error ? error.message : String(error);
+    }
+    return {
+      ok: true,
+      actions,
+      knowledge,
+      message: knowledgeError
+        ? `Connected: ${actions} action(s) available. Knowledge could not be synced: ${knowledgeError}`
+        : `Connected: ${actions} action(s) available${knowledge ? `, ${knowledge.documents} knowledge document(s) and ${knowledge.locations} location(s) synced` : ''}.`,
+    };
   }
 
   async findOne(tenantId: string, id: string) {
@@ -67,7 +151,7 @@ export class IntegrationService {
 
   /** findOne without secrets, for API responses. */
   async getForApi(tenantId: string, id: string) {
-    return safeIntegration(await this.findOne(tenantId, id));
+    return this.withHealth(tenantId, await this.findOne(tenantId, id));
   }
 
   async update(tenantId: string, id: string, dto: UpdateIntegrationDto) {
@@ -346,4 +430,18 @@ export function assertIntegrationUrl(url: string | null | undefined) {
   if (!['http:', 'https:'].includes(u.protocol)) throw new BadRequestException('baseUrl must use http or https');
   if (u.username || u.password) throw new BadRequestException('Put credentials in the integration credentials, not in the URL');
   if (process.env.NODE_ENV === 'production' && u.protocol !== 'https:') throw new BadRequestException('baseUrl must use https in production');
+}
+
+/** Full public URL an external system posts its events to. */
+export function webhookUrl(id: string): string {
+  return `${(process.env.API_URL || 'http://localhost:3001').replace(/\/$/, '')}/webhooks/${id}`;
+}
+
+/** Plain-words reason a connection test failed, with the likely fix. */
+function explainConnectionError(error: unknown, baseUrl: string): string {
+  const raw = error instanceof Error ? error.message : String(error);
+  if (/401|403|unauthori[sz]ed|forbidden|api.?key/i.test(raw)) return 'The system rejected the API key. Copy the key again from the other system and save it here.';
+  if (/404|not found/i.test(raw)) return `Nothing answered at ${baseUrl}/ai/actions. Check the Base URL is the system's API address.`;
+  if (/ECONNREFUSED|ENOTFOUND|EAI_AGAIN|timeout|ETIMEDOUT|network/i.test(raw)) return `Could not reach ${baseUrl}. Check the address and that the system is running.`;
+  return raw.replace(/^Failed to discover actions for integration \S+: /, '').slice(0, 300);
 }

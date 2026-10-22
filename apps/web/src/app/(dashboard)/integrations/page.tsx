@@ -1,11 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useIntegrations } from "@/lib/hooks/use-integrations";
 import { getErrorMessage } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { ConnectIntegrationForm } from "@/components/integrations/connect-integration-form";
 import { IntegrationCard } from "@/components/integrations/integration-card";
@@ -13,6 +12,14 @@ import { IntegrationCard } from "@/components/integrations/integration-card";
 export default function IntegrationsPage() {
   const integrationsQuery = useIntegrations();
   const [isConnectOpen, setIsConnectOpen] = useState(false);
+  const list = integrationsQuery.data ?? [];
+  // Connecting software is a required setup step: with nothing added yet, start the steps right away.
+  // Opened once and kept open, so the one-time keys stay on screen after the list changes.
+  const firstTime = integrationsQuery.isSuccess && list.length === 0;
+  useEffect(() => {
+    if (firstTime) setIsConnectOpen(true);
+  }, [firstTime]);
+  const notConnected = integrationsQuery.isSuccess && !list.some((i) => i.status === "CONNECTED");
 
   return (
     <div className="space-y-6">
@@ -20,12 +27,23 @@ export default function IntegrationsPage() {
         <div>
           <h1 className="text-xl font-semibold text-ink-primary">Integrations</h1>
           <p className="text-sm text-ink-secondary">
-            External business systems the Action Agent can call. Sync one&apos;s services &amp; pricing into a
-            knowledge base for the Knowledge Agent to answer from.
+            Connect the software your business runs on (bookings, orders, CRM). AI employees can then look things up,
+            take actions, answer from your real data, and react when something happens.
           </p>
         </div>
-        <Button onClick={() => setIsConnectOpen((v) => !v)}>{isConnectOpen ? "Close" : "+ Connect integration"}</Button>
+        {!firstTime && (
+          <Button onClick={() => setIsConnectOpen((v) => !v)}>{isConnectOpen ? "Close" : "+ Connect your software"}</Button>
+        )}
       </div>
+
+      {notConnected && (
+        <p className="rounded-md bg-status-warning/10 px-3 py-2 text-sm text-ink-primary">
+          <strong>Required setup step.</strong>{" "}
+          {list.length
+            ? "Finish connecting below: paste the Base URL your developer sent and click Test connection."
+            : "Connect your booking or business software so your AI employees work with real data."}
+        </p>
+      )}
 
       {isConnectOpen && <ConnectIntegrationForm onDone={() => setIsConnectOpen(false)} />}
 
@@ -40,14 +58,9 @@ export default function IntegrationsPage() {
           message={getErrorMessage(integrationsQuery.error, "Unable to load integrations.")}
           onRetry={() => integrationsQuery.refetch()}
         />
-      ) : !integrationsQuery.data?.length ? (
-        <EmptyState
-          title="No integrations connected"
-          description="Connect an external system so the AI can look up data and take action on your behalf."
-        />
-      ) : (
+      ) : !list.length ? null : (
         <div className="space-y-4">
-          {integrationsQuery.data.map((integration) => (
+          {list.map((integration) => (
             <IntegrationCard key={integration.id} integration={integration} />
           ))}
         </div>

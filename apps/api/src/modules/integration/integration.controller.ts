@@ -61,6 +61,24 @@ export class IntegrationController {
     return this.integrationService.addCredential(tenant.tenantId, id, dto);
   }
 
+  @Post('developer-kit')
+  @RequirePermissions('integrations:manage')
+  createKit(@CurrentTenant() tenant: TenantContext, @Body() body: { name?: string }) {
+    return this.integrationService.createDeveloperKit(tenant.tenantId, body?.name ?? '');
+  }
+
+  @Post(':id/developer-kit')
+  @RequirePermissions('integrations:manage')
+  renewKit(@CurrentTenant() tenant: TenantContext, @Param('id') id: string) {
+    return this.integrationService.renewDeveloperKit(tenant.tenantId, id);
+  }
+
+  @Post(':id/test')
+  @RequirePermissions('integrations:manage')
+  test(@CurrentTenant() tenant: TenantContext, @Param('id') id: string) {
+    return this.integrationService.testConnection(tenant.tenantId, id);
+  }
+
   @Post(':id/discover')
   @RequirePermissions('integrations:manage')
   discover(@CurrentTenant() tenant: TenantContext, @Param('id') id: string) {

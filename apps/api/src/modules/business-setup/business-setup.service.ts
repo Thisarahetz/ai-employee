@@ -311,7 +311,7 @@ export class BusinessSetupService implements OnApplicationBootstrap {
     const b = await this.business(tenantId);
     const profile = (b.profile ?? {}) as BusinessProfile;
     const settings = (b.settings ?? {}) as Record<string, unknown>;
-    const [employees, readyDocs, docs, channels, conversations, members, limits, schedules, rules, commands, tasks] = await Promise.all([
+    const [employees, readyDocs, docs, channels, conversations, members, limits, schedules, rules, commands, tasks, integrations, connectedIntegrations] = await Promise.all([
       this.prisma.aiEmployee.count({ where: { tenantId } }),
       this.prisma.document.count({ where: { tenantId, status: 'READY' } }),
       this.prisma.document.count({ where: { tenantId } }),
@@ -323,7 +323,18 @@ export class BusinessSetupService implements OnApplicationBootstrap {
       this.prisma.aiAutomationRule.count({ where: { tenantId, enabled: true } }),
       this.prisma.ownerCommandMessage.count({ where: { tenantId, role: 'OWNER' } }),
       this.prisma.aiTask.count({ where: { tenantId, createdByUserId: { not: null } } }),
+      this.prisma.integration.count({ where: { tenantId } }),
+      this.prisma.integration.count({ where: { tenantId, status: 'CONNECTED' } }),
     ]);
+    // The test step opens the connected channel's own page, where the owner
+    // can chat with it (website chat preview / WhatsApp number).
+    const testChannel = channels
+      ? await this.prisma.channel.findFirst({
+          where: { tenantId, status: 'ACTIVE' },
+          orderBy: { createdAt: 'asc' },
+          select: { id: true },
+        })
+      : null;
 
     const steps = [
       {
@@ -343,6 +354,19 @@ export class BusinessSetupService implements OnApplicationBootstrap {
         action: 'Fill in the business profile',
         done: Boolean(profile.description?.trim() && (profile.services?.trim() || profile.hours?.trim())),
         detail: null,
+      },
+      {
+        key: 'integration',
+        title: 'Connect your software',
+        why: 'Your booking or business software is where your real customers, bookings and prices live. Connect it so AI employees can check and act on real data.',
+        href: '/integrations',
+        action: integrations ? 'Finish connecting' : 'Connect your software',
+        done: connectedIntegrations > 0,
+        detail: connectedIntegrations
+          ? `${connectedIntegrations} connected`
+          : integrations
+            ? 'Waiting for your developer: paste their Base URL and click Test connection'
+            : null,
       },
       {
         key: 'knowledge',
@@ -366,7 +390,7 @@ export class BusinessSetupService implements OnApplicationBootstrap {
         key: 'test',
         title: 'Send a test message',
         why: 'Message your business like a customer would and check the answer is right before customers do.',
-        href: '/channels',
+        href: testChannel ? `/channels/${testChannel.id}` : '/channels',
         action: 'Test your channel',
         done: conversations > 0,
         detail: null,

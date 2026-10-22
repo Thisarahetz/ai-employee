@@ -4,11 +4,15 @@ import { useState } from "react";
 
 import {
   useDeleteIntegration,
-  useDiscoverActions,
   useIntegrationActions,
-  useSyncIntegrationKnowledge,
+  useRenewDeveloperKit,
+  useTestIntegration,
+  useUpdateIntegration,
 } from "@/lib/hooks/use-integrations";
 import type { Integration } from "@/lib/types";
+import type { DeveloperKit } from "@/lib/developer-guide";
+import { Input } from "@/components/ui/input";
+import { DeveloperKitPanel } from "@/components/integrations/developer-kit-panel";
 import { integrationStatusStyles } from "@/lib/status-styles";
 import { formatDateTime, getErrorMessage } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,33 +23,45 @@ import { ErrorState } from "@/components/ui/error-state";
 
 export function IntegrationCard({ integration }: { integration: Integration }) {
   const [actionsVisible, setActionsVisible] = useState(false);
-  const [syncResult, setSyncResult] = useState<string | null>(null);
-  const [syncError, setSyncError] = useState<string | null>(null);
-  const discoverActions = useDiscoverActions(integration.id);
-  const syncKnowledge = useSyncIntegrationKnowledge(integration.id);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [baseUrl, setBaseUrl] = useState("");
+  const [kit, setKit] = useState<DeveloperKit | null>(null);
+  const test = useTestIntegration(integration.id);
+  const update = useUpdateIntegration();
+  const renew = useRenewDeveloperKit();
   const deleteIntegration = useDeleteIntegration();
   const actionsQuery = useIntegrationActions(integration.id, actionsVisible);
 
   const style = integrationStatusStyles[integration.status];
 
-  async function handleDiscover() {
-    await discoverActions.mutateAsync();
-    setActionsVisible(true);
+  async function runTest() {
+    setMessage(null);
+    try {
+      const r = await test.mutateAsync(integration.id);
+      setMessage({ ok: r.ok, text: r.message });
+    } catch (err) {
+      setMessage({ ok: false, text: getErrorMessage(err, "Could not test the connection.") });
+    }
   }
 
-  async function handleSyncKnowledge() {
-    setSyncResult(null);
-    setSyncError(null);
+  async function saveBaseUrl() {
+    const url = baseUrl.trim().replace(/\/+$/, "").replace(/\/ai(\/actions)?$/, "");
+    if (!url) return;
     try {
-      const result = await syncKnowledge.mutateAsync();
-      const docs = `Documents: ${result.created} added, ${result.updated} updated, ${result.removed} removed`;
-      const locs =
-        result.locationsCreated || result.locationsUpdated
-          ? `. Locations: ${result.locationsCreated} added, ${result.locationsUpdated} updated`
-          : "";
-      setSyncResult(`Synced from ${integration.name} — ${docs}${locs}.`);
+      await update.mutateAsync({ id: integration.id, baseUrl: url });
+      await runTest();
     } catch (err) {
-      setSyncError(getErrorMessage(err, "Could not sync knowledge from this integration."));
+      setMessage({ ok: false, text: getErrorMessage(err, "Could not save the Base URL.") });
+    }
+  }
+
+  async function newKit() {
+    if (!window.confirm("Create new keys? The current keys stop working right away, so your developer must update them.")) return;
+    try {
+      const r = await renew.mutateAsync(integration.id);
+      setKit({ name: integration.name, apiKey: r.apiKey, webhookUrl: r.webhookUrl, webhookSecret: r.webhookSecret });
+    } catch (err) {
+      setMessage({ ok: false, text: getErrorMessage(err, "Could not create new keys.") });
     }
   }
 
@@ -53,23 +69,23 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
     <Card>
       <CardHeader
         actions={
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="secondary"
-              isLoading={syncKnowledge.isPending}
-              onClick={handleSyncKnowledge}
-            >
-              Sync knowledge base
+          <div className="flex flex-wrap gap-2">
+            {integration.baseUrl && (
+              <Button size="sm" variant="secondary" isLoading={test.isPending} onClick={runTest}>
+                Test connection
+              </Button>
+            )}
+            <Button size="sm" variant="secondary" onClick={() => setActionsVisible((v) => !v)}>
+              {actionsVisible ? "Hide actions" : "Actions"}
             </Button>
-            <Button size="sm" variant="secondary" isLoading={discoverActions.isPending} onClick={handleDiscover}>
-              Discover actions
+            <Button size="sm" variant="ghost" isLoading={renew.isPending} onClick={newKit}>
+              New developer kit
             </Button>
             <Button
               size="sm"
               variant="ghost"
               isLoading={deleteIntegration.isPending}
-              onClick={() => deleteIntegration.mutate(integration.id)}
+              onClick={() => window.confirm(`Remove ${integration.name}? AI employees will no longer use it.`) && deleteIntegration.mutate(integration.id)}
             >
               Remove
             </Button>
@@ -80,30 +96,41 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
           <CardTitle>{integration.name}</CardTitle>
           <StatusBadge {...style} />
         </div>
-        <CardDescription>
-          {integration.type}
-          {integration.baseUrl ? ` · ${integration.baseUrl}` : ""}
-          {integration.lastKnowledgeSyncAt
-            ? ` · knowledge synced ${formatDateTime(integration.lastKnowledgeSyncAt)}`
-            : ""}
-        </CardDescription>
+        <CardDescription>{integration.baseUrl ?? "Waiting for the Base URL from your developer"}</CardDescription>
       </CardHeader>
 
-      {(syncResult || syncError) && (
-        <CardContent className="border-b border-line">
-          {syncError ? (
-            <p className="text-sm text-status-critical">{syncError}</p>
-          ) : (
-            <p className="text-sm text-ink-secondary">{syncResult}</p>
-          )}
-        </CardContent>
-      )}
+      <CardContent className="space-y-3 border-b border-line text-sm">
+        <ul className="grid gap-1 text-ink-secondary sm:grid-cols-3">
+          <li>{integration.actionsCount ? `✓ ${integration.actionsCount} action(s) available` : "○ No actions yet"}</li>
+          <li>{integration.lastKnowledgeSyncAt ? `✓ Knowledge synced ${formatDateTime(integration.lastKnowledgeSyncAt)}` : "○ Knowledge not synced"}</li>
+          <li>
+            {integration.lastEventAt
+              ? `✓ Last event ${integration.lastEventType} ${formatDateTime(integration.lastEventAt)}`
+              : "○ No events received yet"}
+          </li>
+        </ul>
+        {!integration.baseUrl && (
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="min-w-64 flex-1">
+              <Input
+                label="Base URL from your developer"
+                value={baseUrl}
+                onChange={(e) => setBaseUrl(e.target.value)}
+                placeholder="https://api.yourapp.com"
+              />
+            </div>
+            <Button size="sm" isLoading={update.isPending || test.isPending} onClick={saveBaseUrl}>
+              Save and test
+            </Button>
+          </div>
+        )}
+        {message && <p className={message.ok ? "text-status-good" : "text-status-critical"}>{message.text}</p>}
+        {kit && <DeveloperKitPanel kit={kit} />}
+      </CardContent>
 
-      {(actionsVisible || discoverActions.isError) && (
+      {actionsVisible && (
         <CardContent>
-          {discoverActions.isError ? (
-            <ErrorState message={getErrorMessage(discoverActions.error, "Could not discover actions.")} />
-          ) : actionsQuery.isLoading ? (
+          {actionsQuery.isLoading ? (
             <div className="h-16 animate-pulse rounded bg-surface-page" />
           ) : actionsQuery.isError ? (
             <ErrorState
@@ -111,7 +138,7 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
               onRetry={() => actionsQuery.refetch()}
             />
           ) : !actionsQuery.data?.length ? (
-            <EmptyState title="No actions discovered yet" description='Click "Discover actions" to query this system.' />
+            <EmptyState title="No actions yet" description='Click "Test connection" once the Base URL is added.' />
           ) : (
             <table className="w-full text-left text-sm">
               <thead className="text-xs uppercase tracking-wide text-ink-muted">

@@ -16,10 +16,12 @@ import {
   CalendarClock,
   Workflow,
   LayoutTemplate,
+  Plug,
 } from "lucide-react";
 
 import { useAuth } from "@/lib/auth-context";
 import { useAiEmployeeApprovals } from "@/lib/hooks/use-ai-employees";
+import { useSoftwareRequired } from "@/components/integrations/software-required";
 import { cn } from "@/lib/utils";
 
 const MAIN_NAV_ITEMS = [
@@ -29,6 +31,7 @@ const MAIN_NAV_ITEMS = [
   { href: "/automation", label: "Schedules & Limits", icon: CalendarClock },
   { href: "/automations", label: "Automations", icon: Workflow },
   { href: "/business-setup", label: "Business Setup", icon: LayoutTemplate },
+  { href: "/integrations", label: "Integrations", icon: Plug },
   { href: "/conversations", label: "Conversations", icon: MessageSquare },
   { href: "/knowledge-base", label: "Business Info", icon: FileText },
 ];
@@ -45,6 +48,7 @@ export function Sidebar() {
   const { user } = useAuth();
   const pendingApprovals = useAiEmployeeApprovals("PENDING");
   const pendingCount = pendingApprovals.data?.length || 0;
+  const software = useSoftwareRequired();
 
   const isSuperAdmin = user?.platformRole === "SUPER_ADMIN";
 
@@ -93,6 +97,11 @@ export function Sidebar() {
                 {item.href === "/ai-employees" && pendingCount > 0 && (
                   <span className="flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[9px] font-bold text-white">
                     {pendingCount}
+                  </span>
+                )}
+                {item.href === "/integrations" && software.required && (
+                  <span className="rounded-full bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">
+                    Required
                   </span>
                 )}
               </Link>
