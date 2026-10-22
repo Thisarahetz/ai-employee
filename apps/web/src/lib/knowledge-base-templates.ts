@@ -21,13 +21,13 @@ export interface IndividualDocTemplate {
   generateContent: (biz: { name: string; phone: string; address: string; currency: string }) => string;
 }
 
-export const INDUSTRY_STARTER_PACKS: IndustryStarterPack[] = [
+const RAW_STARTER_PACKS: IndustryStarterPack[] = [
   {
     id: "PHONE_SHOP",
     name: "Phone & Mobile Shop",
     category: "Retail & Electronics",
     description: "Smartphones, repairs, device warranty, trade-ins & accessory pricing",
-    defaultName: "Apex Mobile & Electronics",
+    defaultName: "",
     documents: (biz) => [
       {
         title: `${biz.name} - Products & Device Pricing`,
@@ -61,9 +61,9 @@ export const INDUSTRY_STARTER_PACKS: IndustryStarterPack[] = [
         content: `# ${biz.name} - Store Hours, Location & Services
 
 ## Store Location & Contact
-- Address: ${biz.address || "102 Technology Way, Suite 10, Downtown"}
-- Phone: ${biz.phone || "(555) 234-5678"}
-- WhatsApp Hotline: ${biz.phone || "(555) 234-5678"}
+- Address: ${biz.address || "[ADD YOUR ADDRESS]"}
+- Phone: ${biz.phone || "[ADD YOUR PHONE NUMBER]"}
+- WhatsApp Hotline: ${biz.phone || "[ADD YOUR PHONE NUMBER]"}
 - Parking: Free customer parking available in front of the store.
 
 ## Operating Hours
@@ -112,7 +112,7 @@ A: We accept Visa, Mastercard, American Express, Apple Pay, Google Pay, and Cash
     name: "Salon & Spa",
     category: "Beauty & Wellness",
     description: "Hair styling, color, treatments, nail care, appointment rules & spa packages",
-    defaultName: "GlowDesk Beauty & Hair Studio",
+    defaultName: "",
     documents: (biz) => [
       {
         title: `${biz.name} - Services & Pricing Menu`,
@@ -150,8 +150,8 @@ A: We accept Visa, Mastercard, American Express, Apple Pay, Google Pay, and Cash
         content: `# ${biz.name} - Salon Hours, Location & Booking
 
 ## Location & Contact
-- Address: ${biz.address || "450 Blossom Avenue, Suite 2B"}
-- Phone: ${biz.phone || "(555) 345-6789"}
+- Address: ${biz.address || "[ADD YOUR ADDRESS]"}
+- Phone: ${biz.phone || "[ADD YOUR PHONE NUMBER]"}
 - Online Booking: Available 24/7 via website chat or phone.
 - Parking: Complimentary customer parking in rear lot (spots marked "STUDIO").
 
@@ -174,7 +174,7 @@ A: We accept Visa, Mastercard, American Express, Apple Pay, Google Pay, and Cash
         content: `# ${biz.name} - Frequently Asked Questions (FAQ)
 
 Q: How do I book an appointment?
-A: You can book instantly by messaging our AI assistant right here, calling us at ${biz.phone || "(555) 345-6789"}, or dropping by during business hours.
+A: You can book instantly by messaging our AI assistant right here, calling us at ${biz.phone || "[ADD YOUR PHONE NUMBER]"}, or dropping by during business hours.
 
 Q: What hair color and treatment products do you use?
 A: We exclusively use professional, ammonia-free, and cruelty-free formulas including Redken, Wella Professionals, and Olaplex.
@@ -196,7 +196,7 @@ A: We accept all major Credit/Debit cards, Apple Pay, Google Pay, and Cash. Grat
     name: "Restaurant & Café",
     category: "Food & Hospitality",
     description: "Dine-in menu, takeout specials, table reservations, dietary options & catering",
-    defaultName: "Bistro Bella & Artisan Café",
+    defaultName: "",
     documents: (biz) => [
       {
         title: `${biz.name} - Dining Menu & Specials`,
@@ -229,8 +229,8 @@ A: We accept all major Credit/Debit cards, Apple Pay, Google Pay, and Cash. Grat
         content: `# ${biz.name} - Operating Hours, Location & Policies
 
 ## Location & Contact
-- Address: ${biz.address || "78 Gourmet Boulevard, Downtown"}
-- Phone: ${biz.phone || "(555) 456-7890"}
+- Address: ${biz.address || "[ADD YOUR ADDRESS]"}
+- Phone: ${biz.phone || "[ADD YOUR PHONE NUMBER]"}
 - Reservations: Available online or by phone.
 - Delivery: Available through UberEats, DoorDash, and direct online pickup.
 
@@ -274,7 +274,7 @@ A: Absolutely! We have highchairs and a dedicated Little Diners menu ($9 per mea
     name: "Clinic & Medical Center",
     category: "Healthcare",
     description: "Doctor consultations, wellness checks, clinic timings, appointment triage & fees",
-    defaultName: "CarePoint Family Clinic & Wellness",
+    defaultName: "",
     documents: (biz) => [
       {
         title: `${biz.name} - Consultation Services & Fees`,
@@ -305,8 +305,8 @@ A: Absolutely! We have highchairs and a dedicated Little Diners menu ($9 per mea
         content: `# ${biz.name} - Clinic Hours, Location & Guidelines
 
 ## Clinic Location & Contact
-- Address: ${biz.address || "210 Health Plaza, Medical Suite 300"}
-- Phone: ${biz.phone || "(555) 567-8901"}
+- Address: ${biz.address || "[ADD YOUR ADDRESS]"}
+- Phone: ${biz.phone || "[ADD YOUR PHONE NUMBER]"}
 - Emergency Contact: For life-threatening emergencies, please dial 911 immediately.
 - Wheelchair Accessibility: Fully accessible with elevator and reserved patient parking.
 
@@ -349,7 +349,7 @@ A: Yes, official medical certificates and fit-to-work letters are issued followi
     name: "Grocery & Supermarket",
     category: "Retail",
     description: "Produce, pantry staples, home delivery zones, return policy & loyalty savings",
-    defaultName: "GreenGrocer Fresh Market",
+    defaultName: "",
     documents: (biz) => [
       {
         title: `${biz.name} - Product Categories & Pricing`,
@@ -382,8 +382,8 @@ A: Yes, official medical certificates and fit-to-work letters are issued followi
         content: `# ${biz.name} - Store Hours, Delivery & Policies
 
 ## Store Location & Contact
-- Address: ${biz.address || "880 Market Street, Shopping Center"}
-- Phone: ${biz.phone || "(555) 678-9012"}
+- Address: ${biz.address || "[ADD YOUR ADDRESS]"}
+- Phone: ${biz.phone || "[ADD YOUR PHONE NUMBER]"}
 - Curbside Pickup: Free pickup on all orders over ${biz.currency} 35.
 
 ## Store Hours
@@ -424,7 +424,7 @@ A: All refrigerated and frozen groceries are transported in temperature-controll
     name: "Vehicle Service & Garage",
     category: "Automotive Services",
     description: "Oil change, brake repair, periodic maintenance packages & diagnostics rates",
-    defaultName: "Precision Auto Care & Garage",
+    defaultName: "",
     documents: (biz) => [
       {
         title: `${biz.name} - Service Packages & Labor Rates`,
@@ -455,8 +455,8 @@ A: All refrigerated and frozen groceries are transported in temperature-controll
         content: `# ${biz.name} - Garage Hours, Location & Warranties
 
 ## Location & Contact
-- Address: ${biz.address || "500 Motor Way, Industrial District"}
-- Phone: ${biz.phone || "(555) 789-0123"}
+- Address: ${biz.address || "[ADD YOUR ADDRESS]"}
+- Phone: ${biz.phone || "[ADD YOUR PHONE NUMBER]"}
 - Towing Assistance Partner: Call us for 24/7 flatbed tow dispatch to our garage.
 
 ## Operating Hours
@@ -494,7 +494,7 @@ A: Yes, our ASE-certified mechanics are certified to service BMW, Audi, Mercedes
     name: "General Business / Services",
     category: "General Commerce",
     description: "Standard business profile, pricing sheet, return policy & customer FAQs",
-    defaultName: "Apex Commercial Solutions",
+    defaultName: "",
     documents: (biz) => [
       {
         title: `${biz.name} - Services & Pricing Overview`,
@@ -520,8 +520,8 @@ A: Yes, our ASE-certified mechanics are certified to service BMW, Audi, Mercedes
 
 ## Office Location & Contact Details
 - Company Name: ${biz.name}
-- Address: ${biz.address || "100 Main Street, Suite 500"}
-- Phone: ${biz.phone || "(555) 123-4567"}
+- Address: ${biz.address || "[ADD YOUR ADDRESS]"}
+- Phone: ${biz.phone || "[ADD YOUR PHONE NUMBER]"}
 - Email: info@${biz.name.toLowerCase().replace(/[^a-z0-9]/g, "")}.com
 - Customer Support: Available 24/7 via website live chat
 
@@ -539,7 +539,7 @@ A: Yes, our ASE-certified mechanics are certified to service BMW, Audi, Mercedes
 ## Frequently Asked Questions (FAQ)
 
 Q: How can I place an order or book a service?
-A: You can book directly with our AI assistant right here on our website or call us at ${biz.phone || "(555) 123-4567"}.
+A: You can book directly with our AI assistant right here on our website or call us at ${biz.phone || "[ADD YOUR PHONE NUMBER]"}.
 
 Q: What payment methods are accepted?
 A: We accept all major Credit Cards (Visa, Mastercard, Amex), Apple Pay, Google Pay, Bank Transfers, and Cash.
@@ -555,7 +555,7 @@ A: Our AI staff answers immediately 24/7. Complex requests escalated to our mana
   },
 ];
 
-export const INDIVIDUAL_DOC_TEMPLATES: IndividualDocTemplate[] = [
+const RAW_DOC_TEMPLATES: IndividualDocTemplate[] = [
   {
     id: "pricing-menu",
     title: "Services & Pricing Menu",
@@ -583,8 +583,8 @@ export const INDIVIDUAL_DOC_TEMPLATES: IndividualDocTemplate[] = [
     generateContent: (biz) => `# ${biz.name} - Hours, Location & Contact Details
 
 ## Location & Contact
-- Address: ${biz.address || "123 Business Avenue, Suite 100"}
-- Phone: ${biz.phone || "(555) 123-4567"}
+- Address: ${biz.address || "[ADD YOUR ADDRESS]"}
+- Phone: ${biz.phone || "[ADD YOUR PHONE NUMBER]"}
 - Parking: Convenient customer parking available on site.
 
 ## Business Schedule
@@ -601,7 +601,7 @@ export const INDIVIDUAL_DOC_TEMPLATES: IndividualDocTemplate[] = [
     generateContent: (biz) => `# ${biz.name} - Frequently Asked Questions (FAQ)
 
 Q: How do I book an appointment or place an order?
-A: You can book directly with our AI assistant right now, or call us at ${biz.phone || "(555) 123-4567"}.
+A: You can book directly with our AI assistant right now, or call us at ${biz.phone || "[ADD YOUR PHONE NUMBER]"}.
 
 Q: Do you accept walk-ins or do I need a reservation?
 A: Walk-ins are welcomed subject to capacity, but reserving in advance guarantees your time slot.
@@ -613,7 +613,7 @@ Q: What is your cancellation or refund policy?
 A: Cancellations made at least 24 hours before your scheduled time are fully refundable.
 
 Q: Where are you located and is parking free?
-A: We are located at ${biz.address || "our main branch"}. Complimentary customer parking is available.
+A: We are located at ${biz.address || "[ADD YOUR ADDRESS]"}. Complimentary customer parking is available.
 `,
   },
   {
@@ -645,11 +645,35 @@ A: We are located at ${biz.address || "our main branch"}. Complimentary customer
 - Warranty does not cover accidental physical damage, water damage, or unauthorized third-party tampering.
 
 ## How to Claim
-- Bring your receipt or device to our store at ${biz.address || "our location"}.
+- Bring your receipt or device to our store at ${biz.address || "[ADD YOUR ADDRESS]"}.
 - Our team will inspect the item on the spot and resolve the claim promptly.
 `,
   },
 ];
+
+/**
+ * Starter packs and single templates are EXAMPLES: their prices, policies and
+ * warranty terms are illustrations, not this business's facts. Each document
+ * starts with this banner, and saving is blocked (hasUnfilledExample) until the
+ * owner has replaced the examples, filled every [ADD …] blank and deleted the
+ * banner — otherwise the AI would quote invented prices to real customers.
+ */
+export const EXAMPLE_MARKER =
+  "> EXAMPLE — replace every price, policy and detail below with this business's real information, fill each [ADD …] blank, then delete this line.";
+
+export function hasUnfilledExample(text: string): boolean {
+  return text.includes(EXAMPLE_MARKER) || /\[ADD [A-Z ]+\]/.test(text);
+}
+
+export const INDUSTRY_STARTER_PACKS: IndustryStarterPack[] = RAW_STARTER_PACKS.map((pack) => ({
+  ...pack,
+  documents: (biz) => pack.documents(biz).map((d) => ({ ...d, content: `${EXAMPLE_MARKER}\n\n${d.content}` })),
+}));
+
+export const INDIVIDUAL_DOC_TEMPLATES: IndividualDocTemplate[] = RAW_DOC_TEMPLATES.map((t) => ({
+  ...t,
+  generateContent: (biz) => `${EXAMPLE_MARKER}\n\n${t.generateContent(biz)}`,
+}));
 
 export function compileCustomBusinessDocs(data: {
   businessName: string;
@@ -673,11 +697,10 @@ export function compileCustomBusinessDocs(data: {
 
 ## Business Information & Contact
 - Business Name: ${bizName}
-- Phone: ${data.phone.trim() || "Available upon request"}
-${data.email?.trim() ? `- Email: ${data.email.trim()}\n` : ""}- Physical Address: ${data.address.trim() || "Main Business Location"}
+${data.phone.trim() ? `- Phone: ${data.phone.trim()}\n` : ""}${data.email?.trim() ? `- Email: ${data.email.trim()}\n` : ""}${data.address.trim() ? `- Physical Address: ${data.address.trim()}` : ""}
 
 ## Operating Hours
-${data.hours.trim() || "- Monday to Friday: 9:00 AM - 6:00 PM\n- Saturday: 10:00 AM - 4:00 PM\n- Sunday: Closed"}
+${data.hours.trim() || "[ADD YOUR OPENING HOURS]"}
 
 ## Customer Service
 - Live AI Assistant: Available 24/7 for customer inquiries, booking, and assistance.

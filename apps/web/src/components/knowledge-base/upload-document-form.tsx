@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { INDIVIDUAL_DOC_TEMPLATES } from "@/lib/knowledge-base-templates";
+import { INDIVIDUAL_DOC_TEMPLATES, hasUnfilledExample } from "@/lib/knowledge-base-templates";
 
 const SOURCE_TYPES: DocumentSourceType[] = ["PDF", "DOCX", "TEXT", "FAQ", "URL"];
 
@@ -89,6 +89,10 @@ export function UploadDocumentForm({
     }
     if ((needsUrl || needsContent) && !textValue.trim()) {
       setError(needsUrl ? "URL is required." : "Content is required.");
+      return;
+    }
+    if (needsContent && hasUnfilledExample(textValue)) {
+      setError("This template still has example details. Replace them with this business's real information, fill every [ADD …] blank, and delete the EXAMPLE line.");
       return;
     }
 

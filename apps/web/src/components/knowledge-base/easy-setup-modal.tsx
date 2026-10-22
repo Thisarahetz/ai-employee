@@ -31,6 +31,7 @@ import {
   INDUSTRY_STARTER_PACKS,
   compileCustomBusinessDocs,
   type BusinessTemplateDoc,
+  hasUnfilledExample,
 } from "@/lib/knowledge-base-templates";
 
 interface EasySetupModalProps {
@@ -106,12 +107,18 @@ export function EasySetupModal({
   const selectedPack =
     INDUSTRY_STARTER_PACKS.find((p) => p.id === selectedIndustryId) || INDUSTRY_STARTER_PACKS[0];
 
-  const generatedPackDocs: BusinessTemplateDoc[] = selectedPack.documents({
+  // Owner edits to the example documents, by index (reset when the industry changes).
+  const [packEdits, setPackEdits] = useState<Record<number, string>>({});
+  React.useEffect(() => setPackEdits({}), [selectedIndustryId]);
+
+  const examplePackDocs: BusinessTemplateDoc[] = selectedPack.documents({
     name: packBizName.trim() || selectedPack.defaultName,
     phone: packPhone.trim(),
     address: packAddress.trim(),
     currency: packCurrency.trim() || "$",
   });
+  const generatedPackDocs: BusinessTemplateDoc[] = examplePackDocs.map((d, i) => ({ ...d, content: packEdits[i] ?? d.content }));
+  const unfinishedDocs = generatedPackDocs.filter((d) => hasUnfilledExample(d.content));
 
   // Handle saving docs sequentially to ensure proper ingestion
   const uploadDocumentsToKb = async (kbId: string, docs: BusinessTemplateDoc[]) => {
@@ -135,6 +142,12 @@ export function EasySetupModal({
   };
 
   const handleLaunchStarterPack = async () => {
+    if (unfinishedDocs.length) {
+      setErrorMessage(
+        `Replace the example details first: ${unfinishedDocs.map((d) => `"${d.title}"`).join(", ")} still contain example content or [ADD …] blanks. Edit each document below, then delete its EXAMPLE line.`,
+      );
+      return;
+    }
     setIsSubmitting(true);
     setErrorMessage(null);
     try {
@@ -349,8 +362,8 @@ export function EasySetupModal({
                 <label className="text-xs font-bold text-ink-primary uppercase tracking-wider">
                   3. Documents Included in this Starter Pack ({generatedPackDocs.length})
                 </label>
-                <span className="text-[11px] text-brand-600 font-medium">
-                  Editable anytime after setup
+                <span className="text-[11px] text-amber-700 font-medium">
+                  Examples — edit with real details before saving
                 </span>
               </div>
 
@@ -385,10 +398,18 @@ export function EasySetupModal({
                 ))}
               </div>
 
-              {/* Preview Box */}
-              <div className="rounded-xl border border-line bg-slate-900 text-slate-100 p-4 font-mono text-[11px] max-h-48 overflow-y-auto whitespace-pre-wrap leading-relaxed">
-                {generatedPackDocs[previewDocIndex]?.content}
-              </div>
+              {/* Editable document: the AI will repeat these words to customers */}
+              <textarea
+                value={generatedPackDocs[previewDocIndex]?.content ?? ""}
+                onChange={(e) => setPackEdits((m) => ({ ...m, [previewDocIndex]: e.target.value }))}
+                rows={12}
+                className="w-full rounded-xl border border-line bg-white p-4 font-mono text-[11px] leading-relaxed text-ink-primary focus:border-brand-500 focus:outline-none"
+              />
+              <p className="text-[11px] text-ink-secondary">
+                {unfinishedDocs.length
+                  ? `${unfinishedDocs.length} of ${generatedPackDocs.length} document(s) still have example content. Your AI employees tell customers exactly what is written here.`
+                  : "All documents are filled in with real details."}
+              </p>
             </div>
 
             {/* Target Collection Selector */}
