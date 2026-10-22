@@ -8,7 +8,6 @@ import {
   useChannel,
   useChannelConnectionInfo,
   useDeleteChannel,
-  useTestChannel,
   useUpdateChannel,
 } from "@/lib/hooks/use-channels";
 import { useBusinesses } from "@/lib/hooks/use-businesses";
@@ -22,6 +21,7 @@ import { ErrorState } from "@/components/ui/error-state";
 import { FullPageSpinner } from "@/components/ui/spinner";
 import { WhatsAppConnectPanel } from "@/components/channels/whatsapp-connect-panel";
 import { WebsiteChatConnectPanel } from "@/components/channels/website-chat-connect-panel";
+import { ChannelTestPanel } from "@/components/channels/channel-test-panel";
 
 export default function ChannelDetailPage() {
   const params = useParams<{ id: string }>();
@@ -31,7 +31,6 @@ export default function ChannelDetailPage() {
   const channelQuery = useChannel(channelId);
   const connectionInfoQuery = useChannelConnectionInfo(channelId);
   const { data: businesses } = useBusinesses();
-  const testChannel = useTestChannel(channelId);
   const updateChannel = useUpdateChannel(channelId);
   const deleteChannel = useDeleteChannel();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -116,23 +115,8 @@ export default function ChannelDetailPage() {
         <CardHeader>
           <CardTitle>Test</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-sm text-ink-secondary">
-            Sends a canned message through the channel to confirm delivery works end-to-end.
-          </p>
-          <Button size="sm" variant="secondary" isLoading={testChannel.isPending} onClick={() => testChannel.mutate()}>
-            Send test message
-          </Button>
-          {testChannel.data && (
-            <p className={`text-sm ${testChannel.data.ok ? "text-status-good" : "text-status-critical"}`}>
-              {testChannel.data.detail}
-            </p>
-          )}
-          {testChannel.isError && (
-            <p className="text-sm text-status-critical">
-              {getErrorMessage(testChannel.error, "Test failed.")}
-            </p>
-          )}
+        <CardContent>
+          <ChannelTestPanel channelId={channel.id} channelType={channel.type} />
         </CardContent>
       </Card>
 

@@ -180,7 +180,7 @@ export class ChannelRegistryService {
           return {
             ok: false,
             detail:
-              'No customer conversation on this channel yet — send an inbound WhatsApp message first, then retry the test.',
+              'Not connected yet: no one has messaged this WhatsApp number. Send a WhatsApp message to your business number from your own phone, then try again.',
           };
         }
         const config = (channel.config ?? {}) as Record<string, unknown>;
@@ -192,14 +192,14 @@ export class ChannelRegistryService {
         if (typeof config.phoneNumberId !== 'string' || !accessToken) {
           return {
             ok: false,
-            detail: 'Set the phone number ID and save a WhatsApp access token credential first.',
+            detail: 'Not connected yet: fill in the phone number ID and save the WhatsApp access token above, then try again.',
           };
         }
         await this.whatsAppAdapter.sendMessage(destination, testContent, {
           phoneNumberId: config.phoneNumberId,
           accessToken,
         });
-        return { ok: true, detail: `Test message dispatched to ${destination} via the WhatsApp Cloud API.` };
+        return { ok: true, detail: `Connected. Test message sent to ${destination} — check that phone.` };
       }
       case 'WEBSITE_CHAT': {
         const conversation = await this.prisma.conversation.findFirst({
@@ -209,7 +209,7 @@ export class ChannelRegistryService {
         if (!conversation) {
           return {
             ok: false,
-            detail: 'No widget session yet — embed the snippet and send a message from the widget, then retry.',
+            detail: 'Not connected yet: no one has chatted on this widget. Open your website (or the Preview above), send a message in the chat bubble, then try again.',
           };
         }
         await this.prisma.message.create({
@@ -217,7 +217,7 @@ export class ChannelRegistryService {
         });
         return {
           ok: true,
-          detail: 'Added a test message to the most recent widget session — it appears in an open widget within ~2s.',
+          detail: 'Connected. A test message was sent to the latest website chat — it appears in that open chat within about 2 seconds.',
         };
       }
       default:
