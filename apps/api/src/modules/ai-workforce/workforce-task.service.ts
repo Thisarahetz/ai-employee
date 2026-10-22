@@ -1,9 +1,9 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
-import { TASK_QUEUED_EVENT } from './workforce-tool-executor.service';
+import { TaskQueueService } from './task-queue.service';
+import { UsageLimitsService } from './usage-limits.service';
 
 export const TERMINAL_STATUSES = ['COMPLETED', 'FAILED', 'CANCELLED'];
 export const ACTIVE_STATUSES = ['QUEUED', 'RUNNING', 'WAITING_APPROVAL', 'PAUSED', 'BLOCKED'];
@@ -21,7 +21,12 @@ export interface CreateTasksInput {
   kind?: 'TASK' | 'REVIEW';
   reviewOfTaskId?: string | null;
   confidential?: boolean;
+  scheduleId?: string | null;
+  delegatedFromTaskId?: string | null;
+  maxAttempts?: number;
 }
+
+export const DEFAULT_MAX_ATTEMPTS = 3;
 
 export type TaskControlAction = 'PAUSE' | 'RESUME' | 'CANCEL' | 'PRIORITIZE' | 'REASSIGN';
 
@@ -43,7 +48,8 @@ export class WorkforceTaskService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogService: AuditLogService,
-    private readonly emitter: EventEmitter2,
+    private readonly queue: TaskQueueService,
+    private readonly limits: UsageLimitsService,
   ) {}
 
   // ── Creation ────────────────────────────────────────────────────────────
@@ -59,6 +65,7 @@ export class WorkforceTaskService {
       select: { id: true, name: true, status: true },
     });
     if (employees.length !== employeeIds.length) throw new NotFoundException('One or more AI employees were not found.');
+    await this.limits.assertCanCreateTasks(tenantId, employees.length);
 
     const priority = PRIORITIES.includes(String(input.priority).toUpperCase()) ? String(input.priority).toUpperCase() : 'MEDIUM';
     const deadline = input.deadline ? new Date(input.deadline) : null;
@@ -79,7 +86,10 @@ export class WorkforceTaskService {
       kind: input.kind ?? 'TASK',
       reviewOfTaskId,
       confidential: Boolean(input.confidential),
-      createdByUserId: userId,
+      createdByUserId: userId || null,
+      scheduleId: input.scheduleId ?? null,
+      delegatedFromTaskId: input.delegatedFromTaskId ?? null,
+      maxAttempts: Math.min(10, Math.max(1, input.maxAttempts ?? DEFAULT_MAX_ATTEMPTS)),
     };
 
     let parent: { id: string } | null = null;
@@ -102,22 +112,47 @@ export class WorkforceTaskService {
         },
       });
       created.push(task);
-      await this.auditLogService.record(tenantId, userId, 'ai_task.created', 'AiTask', task.id, {
+      await this.auditLogService.record(tenantId, userId || undefined, 'ai_task.created', 'AiTask', task.id, {
         title: task.title,
         employeeId: emp.id,
         priority,
         deadline,
         kind: task.kind,
         parentTaskId: parent?.id ?? null,
+        scheduleId: task.scheduleId,
+        delegatedFromTaskId: task.delegatedFromTaskId,
       });
-      if (!blocked) this.enqueue(tenantId, task.id);
+      if (!blocked) await this.enqueue(tenantId, task.id);
     }
 
     return { parent, tasks: created };
   }
 
-  enqueue(tenantId: string, taskId: string) {
-    this.emitter.emit(TASK_QUEUED_EVENT, { taskId, tenantId });
+  /** Puts a QUEUED task on the durable queue. */
+  async enqueue(tenantId: string, taskId: string, delayMs?: number) {
+    const t = await this.prisma.aiTask.findFirst({ where: { id: taskId, tenantId }, select: { priority: true, attempts: true } });
+    if (!t) return;
+    await this.queue.enqueue(tenantId, taskId, { priority: t.priority, attempt: t.attempts, delayMs });
+  }
+
+  /** In-app notification to every active owner/admin of the tenant. */
+  async notifyOwners(tenantId: string, n: { type: string; title: string; body: string; metadata?: Record<string, unknown> }) {
+    const owners = await this.prisma.tenantMembership.findMany({
+      where: { tenantId, status: 'ACTIVE', role: { in: ['OWNER', 'ADMIN'] } },
+      select: { userId: true },
+    });
+    if (!owners.length) return 0;
+    await this.prisma.notification.createMany({
+      data: owners.map((o) => ({
+        tenantId,
+        userId: o.userId,
+        type: n.type,
+        title: n.title.slice(0, 200),
+        body: n.body.slice(0, 4000),
+        metadata: (n.metadata ?? {}) as Prisma.InputJsonValue,
+      })),
+    });
+    return owners.length;
   }
 
   private async validTaskIds(tenantId: string, ids: string[]): Promise<string[]> {
@@ -219,7 +254,14 @@ export class WorkforceTaskService {
         if (!['PAUSED', 'BLOCKED', 'FAILED'].includes(task.status)) {
           throw new ConflictException(`A ${task.status.toLowerCase()} task cannot be resumed.`);
         }
-        data = { status: 'QUEUED', error: null, completedAt: null };
+        // An owner retry grants a fresh set of automatic retries.
+        data = {
+          status: 'QUEUED',
+          error: null,
+          completedAt: null,
+          nextRunAt: null,
+          ...(task.status === 'FAILED' ? { maxAttempts: task.attempts + DEFAULT_MAX_ATTEMPTS } : {}),
+        };
         note = task.status === 'FAILED' ? 'Retried by owner.' : 'Resumed by owner.';
         break;
       case 'CANCEL':
@@ -265,7 +307,7 @@ export class WorkforceTaskService {
       to: { status: updated.status, priority: updated.priority, employeeId: updated.employeeId },
     });
 
-    if (updated.status === 'QUEUED') this.enqueue(tenantId, task.id);
+    if (updated.status === 'QUEUED') await this.enqueue(tenantId, task.id);
     if (task.parentTaskId) await this.refreshGroup(tenantId, task.parentTaskId);
     return updated;
   }

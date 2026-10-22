@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RagService } from '../rag/rag.service';
@@ -9,9 +8,11 @@ import { toJsonSchema } from '../ai-tools/ai-tools.service';
 import { matchEmployees } from './command-interpreter';
 import { fetchPublicPage } from './safe-web-fetch';
 import { INTERNAL_TOOLS, WorkforceToolSpec, buildIntegrationTool } from './workforce-tools';
+import { WorkforceTaskService } from './workforce-task.service';
 
-export const TASK_QUEUED_EVENT = 'ai_workforce.task_queued';
 export const MAX_DELEGATION_DEPTH = 2;
+/** Hand-offs a single task may create — stops one task fanning out without bound. */
+export const MAX_DELEGATIONS_PER_TASK = 3;
 
 export interface ToolResult {
   success: boolean;
@@ -49,7 +50,7 @@ export class WorkforceToolExecutorService {
     private readonly ragService: RagService,
     private readonly notificationService: NotificationService,
     private readonly externalActionService: ExternalActionService,
-    private readonly emitter: EventEmitter2,
+    private readonly tasks: WorkforceTaskService,
   ) {}
 
   /** Internal tools + every enabled integration action for the tenant. */
@@ -327,6 +328,10 @@ export class WorkforceToolExecutorService {
     if (depth >= MAX_DELEGATION_DEPTH) {
       return { success: false, message: `Delegation limit reached (max ${MAX_DELEGATION_DEPTH} hand-offs). Do the work yourself or report back.` };
     }
+    const spawned = await this.prisma.aiTask.count({ where: { tenantId: ctx.tenantId, delegatedFromTaskId: ctx.task.id } });
+    if (spawned >= MAX_DELEGATIONS_PER_TASK) {
+      return { success: false, message: `This task already delegated ${spawned} pieces of work (max ${MAX_DELEGATIONS_PER_TASK}). Finish with what you have.` };
+    }
 
     const employees = await this.prisma.aiEmployee.findMany({
       where: { tenantId: ctx.tenantId },
@@ -337,21 +342,16 @@ export class WorkforceToolExecutorService {
     if (target.status !== 'ACTIVE') return { success: false, message: `${target.name} is paused and cannot take work.` };
 
     const priority = PRIORITIES.has(str(args.priority).toUpperCase()) ? str(args.priority).toUpperCase() : 'MEDIUM';
-    const created = await this.prisma.aiTask.create({
-      data: {
-        tenantId: ctx.tenantId,
-        employeeId: target.id,
-        title,
-        description: `${str(args.description, 4000)}\n\n(Delegated by ${ctx.employee.name}.)`.trim(),
-        priority,
-        status: 'QUEUED',
-        delegatedFromTaskId: ctx.task.id,
-        contextTaskIds: [ctx.task.id],
-        threadId: ctx.task.threadId,
-        createdByUserId: ctx.task.createdByUserId,
-      },
+    const { tasks } = await this.tasks.createTasks(ctx.tenantId, ctx.task.createdByUserId ?? '', {
+      employeeIds: [target.id],
+      title,
+      description: `${str(args.description, 4000)}\n\n(Delegated by ${ctx.employee.name}.)`.trim(),
+      priority,
+      delegatedFromTaskId: ctx.task.id,
+      contextTaskIds: [ctx.task.id],
+      threadId: ctx.task.threadId,
     });
-    this.emitter.emit(TASK_QUEUED_EVENT, { taskId: created.id, tenantId: ctx.tenantId });
+    const created = tasks[0]!;
     return { success: true, message: `Delegated to ${target.name} as task ${created.id}`, data: { taskId: created.id, employee: target.name } };
   }
 

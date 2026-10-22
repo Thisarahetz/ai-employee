@@ -21,17 +21,43 @@ export class NotificationService {
       text: payload.text,
       html: payload.html,
     });
+    // "simulated" means no email provider is configured — nothing was sent.
+    const simulated = result.status === 'simulated';
     return {
-      success: result.success,
-      messageId: result.id || `email_${Date.now()}`,
+      success: result.success && !simulated,
+      messageId: result.id ?? null,
       status: result.status,
-      error: result.error,
+      error: simulated ? 'No email provider is configured (RESEND_API_KEY).' : result.error,
     };
   }
 
+  /**
+   * Posts to a Slack incoming webhook (SLACK_INCOMING_WEBHOOK_URL). Returns
+   * success only when Slack accepted the message.
+   */
   async sendSlack(payload: { text: string; blocks?: any; tenantId?: string }) {
-    this.logger.log(`[Slack Dispatched] Text: "${payload.text}"`);
-    return { success: true, messageId: `slack_${Date.now()}` };
+    const url = process.env.SLACK_INCOMING_WEBHOOK_URL?.trim();
+    if (!url) return { success: false, messageId: null, status: 'not_configured', error: 'SLACK_INCOMING_WEBHOOK_URL is not set.' };
+    if (!/^https:\/\/hooks\.slack\.com\//.test(url)) {
+      return { success: false, messageId: null, status: 'not_configured', error: 'SLACK_INCOMING_WEBHOOK_URL must be a https://hooks.slack.com/ URL.' };
+    }
+    if (!payload?.text?.trim()) return { success: false, messageId: null, status: 'rejected', error: 'text is required' };
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: payload.text.slice(0, 3000), ...(payload.blocks ? { blocks: payload.blocks } : {}) }),
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!res.ok) {
+        const body = (await res.text()).slice(0, 200);
+        this.logger.warn(`Slack webhook rejected the message: ${res.status} ${body}`);
+        return { success: false, messageId: null, status: 'failed', error: `Slack responded ${res.status}: ${body}` };
+      }
+      return { success: true, messageId: null, status: 'sent' };
+    } catch (err) {
+      return { success: false, messageId: null, status: 'failed', error: (err as Error).message };
+    }
   }
 
   list(tenantId: string, userId: string) {

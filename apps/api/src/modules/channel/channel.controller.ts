@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { ServiceTokenGuard } from '../../common/guards/service-token.guard';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentTenant } from '../../common/tenant/current-tenant.decorator';
 import { TenantContext } from '../../common/tenant/tenant-context';
@@ -21,9 +22,10 @@ export class ChannelController {
 
   /**
    * Outbound message dispatch endpoint called by automation workflows (n8n HTTP nodes).
-   * Delivers via channel adapter if configured or logs mock delivery.
+   * Internal only: requires the `x-service-token` header (INTERNAL_SERVICE_TOKEN).
    */
   @Public()
+  @UseGuards(ServiceTokenGuard)
   @Post('send')
   async send(@Body() dto: SendChannelMessageDto) {
     return this.channelRegistry.dispatchOutbound(dto);

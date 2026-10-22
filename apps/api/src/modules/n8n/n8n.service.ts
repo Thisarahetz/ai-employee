@@ -7,6 +7,7 @@ export interface TriggerWorkflowPayload {
   customerId?: string;
   conversationId?: string;
   eventType: string;
+  business?: { id: string | null; name: string | null; type: string | null; timezone: string };
   data: unknown;
 }
 

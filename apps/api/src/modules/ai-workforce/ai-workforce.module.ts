@@ -1,4 +1,5 @@
-import { Module } from '@nestjs/common';
+import { Module, Provider } from '@nestjs/common';
+import { BullModule } from '@nestjs/bullmq';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { AuditLogModule } from '../audit-log/audit-log.module';
 import { NotificationModule } from '../notification/notification.module';
@@ -14,19 +15,44 @@ import { WorkforceToolExecutorService } from './workforce-tool-executor.service'
 import { TaskExecutorService } from './task-executor.service';
 import { WorkforceApprovalService } from './workforce-approval.service';
 import { WorkforceAccessService } from './workforce-access.service';
+import { WorkforceScheduleService } from './workforce-schedule.service';
+import { WorkforceMaintenanceService } from './workforce-maintenance.service';
+import { UsageLimitsService } from './usage-limits.service';
+import { MAINTENANCE_QUEUE, TASK_QUEUE, TaskQueueService } from './task-queue.service';
+import { MaintenanceProcessor, TaskWorkerProcessor } from './workforce-workers';
+
+/**
+ * Set AI_WORKFORCE_WORKER=false on API-only instances to keep them from
+ * executing tasks (run dedicated worker instances instead).
+ */
+const workers: Provider[] = process.env.AI_WORKFORCE_WORKER === 'false' ? [] : [TaskWorkerProcessor, MaintenanceProcessor];
 
 @Module({
-  imports: [PrismaModule, AuditLogModule, NotificationModule, RagModule, ExternalActionModule, AiProviderModule, AiEmployeeModule],
+  imports: [
+    PrismaModule,
+    AuditLogModule,
+    NotificationModule,
+    RagModule,
+    ExternalActionModule,
+    AiProviderModule,
+    AiEmployeeModule,
+    BullModule.registerQueue({ name: TASK_QUEUE }, { name: MAINTENANCE_QUEUE }),
+  ],
   controllers: [AiWorkforceController],
   providers: [
     OwnerAuthorityService,
+    UsageLimitsService,
+    TaskQueueService,
     WorkforceCommandService,
     WorkforceTaskService,
     WorkforceToolExecutorService,
     TaskExecutorService,
     WorkforceApprovalService,
     WorkforceAccessService,
+    WorkforceScheduleService,
+    WorkforceMaintenanceService,
+    ...workers,
   ],
-  exports: [WorkforceApprovalService, WorkforceTaskService],
+  exports: [WorkforceApprovalService, WorkforceTaskService, UsageLimitsService],
 })
 export class AiWorkforceModule {}

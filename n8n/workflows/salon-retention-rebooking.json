@@ -6,7 +6,10 @@
       "name": "Webhook - Appointment Completed",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [200, 300],
+      "position": [
+        200,
+        300
+      ],
       "webhookId": "salon-retention-rebooking",
       "notes": "Triggers when an appointment is completed.",
       "parameters": {
@@ -21,16 +24,35 @@
       "name": "Extract Completion Info",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.3,
-      "position": [420, 300],
+      "position": [
+        420,
+        300
+      ],
       "notes": "Extracts customer & service data.",
       "parameters": {
         "mode": "manual",
         "assignments": {
           "assignments": [
-            { "name": "tenantId", "value": "={{ ($json.body || $json).tenantId }}", "type": "string" },
-            { "name": "clientName", "value": "={{ ($json.body || $json).data?.clientName || ($json.body || $json).clientName || 'Valued Client' }}", "type": "string" },
-            { "name": "customerPhone", "value": "={{ ($json.body || $json).data?.customerPhone || ($json.body || $json).data?.phone || ($json.body || $json).customerPhone }}", "type": "string" },
-            { "name": "service", "value": "={{ ($json.body || $json).data?.service || ($json.body || $json).service || 'salon service' }}", "type": "string" }
+            {
+              "name": "tenantId",
+              "value": "={{ ($json.body || $json).tenantId }}",
+              "type": "string"
+            },
+            {
+              "name": "clientName",
+              "value": "={{ ($json.body || $json).data?.clientName || ($json.body || $json).clientName || 'Valued Client' }}",
+              "type": "string"
+            },
+            {
+              "name": "customerPhone",
+              "value": "={{ ($json.body || $json).data?.customerPhone || ($json.body || $json).data?.phone || ($json.body || $json).customerPhone }}",
+              "type": "string"
+            },
+            {
+              "name": "service",
+              "value": "={{ ($json.body || $json).data?.service || ($json.body || $json).service || 'salon service' }}",
+              "type": "string"
+            }
           ]
         },
         "options": {}
@@ -41,7 +63,10 @@
       "name": "Wait 1 Day",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [640, 300],
+      "position": [
+        640,
+        300
+      ],
       "notes": "Waits 1 day after appointment.",
       "parameters": {
         "amount": 24,
@@ -53,16 +78,28 @@
       "name": "Send Thank You & Review Request",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [860, 300],
+      "position": [
+        860,
+        300
+      ],
       "notes": "Requests feedback & review on WhatsApp.",
       "parameters": {
         "method": "POST",
         "url": "={{ $env.WHATSAPP_API_URL || 'http://host.docker.internal:3001/api/v1/channels/send' }}",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { \"recipient\": $json.customerPhone, \"content\": \"Hi \" + $json.clientName + \"! 🌟 Thank you for visiting Acme Salon yesterday. We hope you loved your \" + $json.service + \"! Could you take a moment to leave us a quick review? ⭐⭐⭐⭐⭐\", \"tenantId\": $json.tenantId } }}",
+        "jsonBody": "={{ { \"recipient\": $json.customerPhone, \"content\": \"Hi \" + $json.clientName + \"! 🌟 Thank you for visiting \" + ($('Webhook - Appointment Completed').first().json.body.business?.name || 'our team') + \" yesterday. We hope you loved your \" + $json.service + \"! Could you take a moment to leave us a quick review? ⭐⭐⭐⭐⭐\", \"tenantId\": $json.tenantId } }}",
         "options": {
           "timeout": 10000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-service-token",
+              "value": "={{ $env.AI_EMPLOYEE_SERVICE_TOKEN }}"
+            }
+          ]
         }
       }
     },
@@ -71,7 +108,10 @@
       "name": "Wait 29 Days (30 Days Total)",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [1080, 300],
+      "position": [
+        1080,
+        300
+      ],
       "notes": "Waits until 30 days post-appointment.",
       "parameters": {
         "amount": 29,
@@ -83,7 +123,10 @@
       "name": "Send 30-Day Rebooking Reminder",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1300, 300],
+      "position": [
+        1300,
+        300
+      ],
       "notes": "Encourages recurring salon visit.",
       "parameters": {
         "method": "POST",
@@ -93,6 +136,15 @@
         "jsonBody": "={{ { \"recipient\": $('Extract Completion Info').item.json.customerPhone, \"content\": \"Hi \" + $('Extract Completion Info').item.json.clientName + \"! 👋 It's been about a month since your last \" + $('Extract Completion Info').item.json.service + \". Ready for a fresh look? Reply anytime and I will find the best available slot for you this week!\", \"tenantId\": $('Extract Completion Info').item.json.tenantId } }}",
         "options": {
           "timeout": 10000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-service-token",
+              "value": "={{ $env.AI_EMPLOYEE_SERVICE_TOKEN }}"
+            }
+          ]
         }
       }
     }
@@ -100,27 +152,57 @@
   "connections": {
     "Webhook - Appointment Completed": {
       "main": [
-        [{ "node": "Extract Completion Info", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Extract Completion Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Extract Completion Info": {
       "main": [
-        [{ "node": "Wait 1 Day", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Wait 1 Day",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Wait 1 Day": {
       "main": [
-        [{ "node": "Send Thank You & Review Request", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Send Thank You & Review Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Send Thank You & Review Request": {
       "main": [
-        [{ "node": "Wait 29 Days (30 Days Total)", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Wait 29 Days (30 Days Total)",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Wait 29 Days (30 Days Total)": {
       "main": [
-        [{ "node": "Send 30-Day Rebooking Reminder", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Send 30-Day Rebooking Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   }

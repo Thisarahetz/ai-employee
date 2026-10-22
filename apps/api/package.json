@@ -2,7 +2,7 @@
   "name": "@ai-employee/api",
   "version": "0.1.0",
   "private": true,
-  "description": "AI Employee \u2014 NestJS API (core infra, auth, tenancy, conversations, integrations glue).",
+  "description": "AI Employee — NestJS API (core infra, auth, tenancy, conversations, integrations glue).",
   "license": "UNLICENSED",
   "prisma": {
     "schema": "../../prisma/schema.prisma",
@@ -16,12 +16,13 @@
     "typecheck": "tsc --noEmit -p tsconfig.build.json",
     "promote-admin": "ts-node --transpile-only scripts/promote-admin.ts",
     "seed": "ts-node --transpile-only scripts/seed.ts",
-    "test": "node --test --require ts-node/register/transpile-only test/*.test.ts"
+    "test": "node --test --require ts-node/register/transpile-only test/*.test.ts",
+    "test:integration": "node --test --test-concurrency=1 --require ts-node/register/transpile-only test/integration/*.test.ts",
+    "worker": "AI_WORKFORCE_WORKER=true node dist/main.js"
   },
   "dependencies": {
     "@ai-employee/ai-core": "workspace:*",
     "@ai-employee/channel-sdk": "workspace:*",
-    "ai-employee-integration-sdk": "workspace:*",
     "@ai-employee/shared": "workspace:*",
     "@ai-employee/types": "workspace:*",
     "@anthropic-ai/sdk": "^0.27.3",
@@ -37,11 +38,13 @@
     "@nestjs/swagger": "^7.4.2",
     "@nestjs/throttler": "^6.2.1",
     "@prisma/client": "^5.20.0",
+    "ai-employee-integration-sdk": "workspace:*",
     "axios": "^1.7.7",
     "bcrypt": "^5.1.1",
     "bullmq": "^5.13.2",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
+    "cron-parser": "4.9.0",
     "helmet": "^7.1.0",
     "ioredis": "^5.4.1",
     "multer": "^1.4.5-lts.1",

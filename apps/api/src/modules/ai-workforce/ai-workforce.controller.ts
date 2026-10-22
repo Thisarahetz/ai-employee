@@ -6,6 +6,9 @@ import { WorkforceCommandService } from './workforce-command.service';
 import { TaskControlAction, WorkforceTaskService } from './workforce-task.service';
 import { WorkforceApprovalService } from './workforce-approval.service';
 import { WorkforceAccessService } from './workforce-access.service';
+import { ScheduleInput, WorkforceScheduleService } from './workforce-schedule.service';
+import { AiLimits, UsageLimitsService } from './usage-limits.service';
+import { TaskQueueService } from './task-queue.service';
 
 const CONTROL_ACTIONS: TaskControlAction[] = ['PAUSE', 'RESUME', 'CANCEL', 'PRIORITIZE', 'REASSIGN'];
 
@@ -22,6 +25,9 @@ export class AiWorkforceController {
     private readonly tasks: WorkforceTaskService,
     private readonly approvals: WorkforceApprovalService,
     private readonly access: WorkforceAccessService,
+    private readonly schedules: WorkforceScheduleService,
+    private readonly usage: UsageLimitsService,
+    private readonly queue: TaskQueueService,
   ) {}
 
   // ── Command chat ────────────────────────────────────────────────────────
@@ -144,5 +150,64 @@ export class AiWorkforceController {
   @RequirePermissions('ai_employees:manage')
   setTools(@CurrentTenant() t: TenantContext, @Param('id') id: string, @Body() body: { grants: string[] }) {
     return this.access.setToolAccess(t.tenantId, t.userId, id, body?.grants);
+  }
+
+  // ── Recurring schedules ─────────────────────────────────────────────────
+
+  @Get('schedules')
+  @RequirePermissions('ai_employees:read')
+  listSchedules(@CurrentTenant() t: TenantContext, @Query('employeeId') employeeId?: string) {
+    return this.schedules.list(t.tenantId, employeeId);
+  }
+
+  @Get('schedules/:id')
+  @RequirePermissions('ai_employees:read')
+  getSchedule(@CurrentTenant() t: TenantContext, @Param('id') id: string) {
+    return this.schedules.get(t.tenantId, id);
+  }
+
+  @Post('schedules')
+  @RequirePermissions('ai_employees:command')
+  createSchedule(@CurrentTenant() t: TenantContext, @Body() body: ScheduleInput) {
+    return this.schedules.create(t.tenantId, t.userId, body ?? {});
+  }
+
+  @Patch('schedules/:id')
+  @RequirePermissions('ai_employees:command')
+  updateSchedule(@CurrentTenant() t: TenantContext, @Param('id') id: string, @Body() body: ScheduleInput) {
+    return this.schedules.update(t.tenantId, t.userId, id, body ?? {});
+  }
+
+  @Delete('schedules/:id')
+  @RequirePermissions('ai_employees:command')
+  deleteSchedule(@CurrentTenant() t: TenantContext, @Param('id') id: string) {
+    return this.schedules.remove(t.tenantId, t.userId, id);
+  }
+
+  @Post('schedules/:id/run')
+  @RequirePermissions('ai_employees:command')
+  runSchedule(@CurrentTenant() t: TenantContext, @Param('id') id: string) {
+    return this.schedules.runNow(t.tenantId, t.userId, id);
+  }
+
+  // ── Usage, limits & health ──────────────────────────────────────────────
+
+  @Get('usage')
+  @RequirePermissions('ai_employees:read')
+  getUsage(@CurrentTenant() t: TenantContext) {
+    return this.usage.snapshot(t.tenantId);
+  }
+
+  @Put('limits')
+  @RequirePermissions('ai:configure')
+  setLimits(@CurrentTenant() t: TenantContext, @Body() body: Partial<Record<keyof AiLimits, unknown>>) {
+    return this.usage.updateSettings(t.tenantId, t.userId, body ?? {});
+  }
+
+  @Get('health')
+  @RequirePermissions('ai_employees:read')
+  async health(@CurrentTenant() t: TenantContext) {
+    const [queue, usage] = await Promise.all([this.queue.counts().catch(() => null), this.usage.snapshot(t.tenantId)]);
+    return { queueReachable: queue !== null, queue, runningTasks: usage.runningTasks, limits: usage.limits };
   }
 }

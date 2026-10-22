@@ -82,6 +82,8 @@ export class WorkflowEventListenerService {
         customerId: payload.customerId as string | undefined,
         conversationId: payload.conversationId as string | undefined,
         eventType,
+        // Workflows address customers in the business's own name, never a hardcoded one.
+        business: await this.businessProfile(tenantId, payload.businessId as string | undefined),
         data: payload,
       });
 
@@ -115,5 +117,16 @@ export class WorkflowEventListenerService {
           );
       }
     }
+  }
+
+  private async businessProfile(tenantId: string, businessId?: string) {
+    const b = await this.prisma.business.findFirst({
+      where: { tenantId, ...(businessId ? { id: businessId } : {}) },
+      select: { id: true, name: true, type: true, timezone: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    if (b) return b;
+    const t = await this.prisma.tenant.findFirst({ where: { id: tenantId }, select: { name: true } });
+    return { id: null, name: t?.name ?? null, type: null, timezone: 'UTC' };
   }
 }

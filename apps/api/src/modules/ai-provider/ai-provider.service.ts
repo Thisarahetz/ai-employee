@@ -12,23 +12,23 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 
 /**
- * Default provider/model used when a tenant has no AiConfiguration yet for a
- * given AgentType. In a real deployment this should be seeded automatically
- * on tenant signup (one AiAgent + AiConfiguration row per AgentType) — this
- * fallback exists purely for scaffold safety so the pipeline still runs
- * end-to-end against a freshly created tenant.
- *
- * Gemini is the scaffold default: it's the one provider with a key wired in
- * `.env` out of the box (`GEMINI_API_KEY`). Swap per tenant/agent via the
- * `AiConfiguration` model.
+ * Platform default provider/model, used when a tenant has no AiConfiguration
+ * for an AgentType. Set per deployment with AI_DEFAULT_PROVIDER
+ * (OPENAI | ANTHROPIC | GEMINI) and AI_DEFAULT_MODEL; tenants override per
+ * agent via the `AiConfiguration` model.
  */
-const DEFAULT_CONFIG_BY_AGENT: Record<AgentType, { provider: PrismaAiProviderName; model: string }> = {
-  [AgentType.ROUTER]: { provider: PrismaAiProviderName.GEMINI, model: 'gemini-2.5-flash' },
-  [AgentType.SUPPORT]: { provider: PrismaAiProviderName.GEMINI, model: 'gemini-2.5-flash' },
-  [AgentType.KNOWLEDGE]: { provider: PrismaAiProviderName.GEMINI, model: 'gemini-2.5-flash' },
-  [AgentType.ACTION]: { provider: PrismaAiProviderName.GEMINI, model: 'gemini-2.5-flash' },
-  [AgentType.HUMAN]: { provider: PrismaAiProviderName.GEMINI, model: 'gemini-2.5-flash' },
-};
+export function platformDefaultModel(env: NodeJS.ProcessEnv = process.env): { provider: PrismaAiProviderName; model: string } {
+  const raw = (env.AI_DEFAULT_PROVIDER ?? '').toUpperCase();
+  const provider = (Object.values(PrismaAiProviderName) as string[]).includes(raw)
+    ? (raw as PrismaAiProviderName)
+    : PrismaAiProviderName.GEMINI;
+  const fallbackModel: Record<PrismaAiProviderName, string> = {
+    [PrismaAiProviderName.GEMINI]: 'gemini-2.5-flash',
+    [PrismaAiProviderName.OPENAI]: 'gpt-4o-mini',
+    [PrismaAiProviderName.ANTHROPIC]: 'claude-haiku-4-5',
+  };
+  return { provider, model: env.AI_DEFAULT_MODEL?.trim() || fallbackModel[provider] };
+}
 
 const DEFAULT_TEMPERATURE = 0.3;
 const DEFAULT_MAX_TOKENS = 1024;
@@ -56,7 +56,11 @@ export interface AiCompleteOptions {
    * way to satisfy that without inventing a parallel code path.
    */
   responseFormat?: 'text' | 'json';
+  /** AI workforce task this call belongs to (cost attribution). */
+  taskId?: string;
 }
+
+export type TrackedCompletion = AICompletionResult & { estimatedCostUsd: number; model: string };
 
 /**
  * Bridges @ai-employee/ai-core's provider abstraction into the tenant-aware,
@@ -75,7 +79,7 @@ export class AiProviderService {
     agentType: AgentType,
     messages: AIMessage[],
     opts?: AiCompleteOptions,
-  ): Promise<AICompletionResult> {
+  ): Promise<TrackedCompletion> {
     const { provider: providerName, model, temperature, maxTokens } = await this.resolveConfig(
       tenantId,
       agentType,
@@ -121,10 +125,11 @@ export class AiProviderService {
         outputTokens: result.outputTokens,
         estimatedCostUsd,
         executionTimeMs,
+        taskId: opts?.taskId,
       },
     });
 
-    return result;
+    return { ...result, estimatedCostUsd, model };
   }
 
   async embed(tenantId: string, text: string): Promise<AIEmbeddingResult> {
@@ -171,10 +176,8 @@ export class AiProviderService {
       return { provider, model, temperature, maxTokens };
     }
 
-    const fallback = DEFAULT_CONFIG_BY_AGENT[agentType];
-    this.logger.warn(
-      `No AiConfiguration for tenant=${tenantId} agent=${agentType}; using scaffold default ${fallback.provider}/${fallback.model}. This should be seeded on tenant signup.`,
-    );
+    const fallback = platformDefaultModel();
+    this.logger.debug(`No AiConfiguration for tenant=${tenantId} agent=${agentType}; using platform default ${fallback.provider}/${fallback.model}.`);
     return { ...fallback, temperature: DEFAULT_TEMPERATURE, maxTokens: DEFAULT_MAX_TOKENS };
   }
 }

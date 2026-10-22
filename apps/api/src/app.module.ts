@@ -3,7 +3,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { BullModule } from '@nestjs/bullmq';
-import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 import { PrismaModule } from './prisma/prisma.module';
 import { EventModule } from './events/event.module';
@@ -26,7 +26,6 @@ import { AiAgentModule } from './modules/ai-agent/ai-agent.module';
 import { KnowledgeBaseModule } from './modules/knowledge-base/knowledge-base.module';
 import { IntegrationModule } from './modules/integration/integration.module';
 import { ChannelModule } from './modules/channel/channel.module';
-import { CrmMockModule } from './modules/crm-mock/crm-mock.module';
 import { WorkflowModule } from './modules/workflow/workflow.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { AiUsageLogsModule } from './modules/ai-usage-logs/ai-usage-logs.module';
@@ -36,22 +35,37 @@ import { HealthModule } from './modules/health/health.module';
 import { DynamicSagaModule } from './modules/saga/dynamic-saga.module';
 import { PolicySynthesisModule } from './modules/policy-synthesis/policy-synthesis.module';
 
+/** REDIS_URL (supports password and rediss:// TLS) wins over REDIS_HOST/REDIS_PORT. */
+function redisConnection() {
+  const url = process.env.REDIS_URL?.trim();
+  if (url) {
+    const u = new URL(url);
+    return {
+      host: u.hostname,
+      port: Number(u.port || 6379),
+      username: u.username ? decodeURIComponent(u.username) : undefined,
+      password: u.password ? decodeURIComponent(u.password) : undefined,
+      db: u.pathname && u.pathname.length > 1 ? Number(u.pathname.slice(1)) || 0 : 0,
+      tls: u.protocol === 'rediss:' ? {} : undefined,
+      maxRetriesPerRequest: null,
+    };
+  }
+  return { host: process.env.REDIS_HOST || 'localhost', port: +(process.env.REDIS_PORT ?? 6379), maxRetriesPerRequest: null };
+}
+
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     EventEmitterModule.forRoot(),
     BullModule.forRoot({
-      connection: {
-        host: process.env.REDIS_HOST,
-        port: +(process.env.REDIS_PORT ?? 6379),
-      },
+      connection: redisConnection(),
+      // Separate key namespaces let tests / several environments share one Redis.
+      prefix: process.env.BULL_PREFIX || 'bull',
     }),
-    ThrottlerModule.forRoot([
-      {
-        ttl: 60_000,
-        limit: 100,
-      },
-    ]),
+    ThrottlerModule.forRoot({
+      throttlers: [{ ttl: 60_000, limit: Number(process.env.RATE_LIMIT_PER_MINUTE) || 120 }],
+      skipIf: () => process.env.NODE_ENV === 'test',
+    }),
     PrismaModule,
     EventModule,
     HealthModule,
@@ -70,7 +84,6 @@ import { PolicySynthesisModule } from './modules/policy-synthesis/policy-synthes
     KnowledgeBaseModule,
     IntegrationModule,
     ChannelModule,
-    CrmMockModule,
     WorkflowModule,
     AdminModule,
     AiUsageLogsModule,
@@ -80,6 +93,8 @@ import { PolicySynthesisModule } from './modules/policy-synthesis/policy-synthes
     PolicySynthesisModule,
   ],
   providers: [
+    // Per-IP rate limit on every route (tighter per-route limits via @Throttle).
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
   ],

@@ -37,17 +37,15 @@ done
 echo "-- Generating Prisma client"
 pnpm prisma:generate
 
-echo "-- Applying database schema"
-if ! pnpm prisma:migrate -- --name init --skip-seed; then
-  echo "   (non-interactive shell — falling back to 'prisma db push')"
-  pnpm --filter @ai-employee/api exec prisma db push
-fi
+echo "-- Applying database migrations"
+pnpm db:migrate:deploy
 
-echo "-- Seeding demo accounts (idempotent — safe to re-run)"
+echo "-- Bootstrapping the platform admin (only if BOOTSTRAP_ADMIN_EMAIL is set in .env)"
+set -a; [ -f .env ] && . ./.env; set +a
 pnpm prisma:seed
 
 echo
 echo "✔ Install complete."
-echo "  Log in with: admin@davinlabs.com / ChangeMe123! (super admin)"
-echo "           or: owner@acme.test / ChangeMe123! (salon tenant owner)"
+echo "  No demo data is created. Sign up at the web app to create your business,"
+echo "  or set BOOTSTRAP_ADMIN_EMAIL / BOOTSTRAP_ADMIN_PASSWORD in .env for a platform admin."
 echo "  Next: ./start.sh"

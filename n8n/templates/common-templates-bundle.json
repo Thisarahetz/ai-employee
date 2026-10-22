@@ -141,9 +141,18 @@
               "url": "={{ $env.WHATSAPP_API_URL || 'http://host.docker.internal:3001/api/v1/channels/send' }}",
               "sendBody": true,
               "specifyBody": "json",
-              "jsonBody": "={{ { \"recipient\": $json.customerPhone, \"content\": \"Hi \" + $json.clientName + \"! 👋 Your appointment for \" + $json.service + \" is confirmed for \" + $json.localTime + \". We look forward to seeing you at Acme Salon! Reply anytime if you need to make changes.\", \"tenantId\": $json.tenantId } }}",
+              "jsonBody": "={{ { \"recipient\": $json.customerPhone, \"content\": \"Hi \" + $json.clientName + \"! 👋 Your appointment for \" + $json.service + \" is confirmed for \" + $json.localTime + \". We look forward to seeing you at \" + ($('Webhook - Appointment Created').first().json.body.business?.name || 'our team') + \"! Reply anytime if you need to make changes.\", \"tenantId\": $json.tenantId } }}",
               "options": {
                 "timeout": 10000
+              },
+              "sendHeaders": true,
+              "headerParameters": {
+                "parameters": [
+                  {
+                    "name": "x-service-token",
+                    "value": "={{ $env.AI_EMPLOYEE_SERVICE_TOKEN }}"
+                  }
+                ]
               }
             }
           },
@@ -162,9 +171,18 @@
               "url": "={{ $env.EMAIL_API_URL || 'http://host.docker.internal:3001/api/v1/notifications/email' }}",
               "sendBody": true,
               "specifyBody": "json",
-              "jsonBody": "={{ { \"to\": $json.customerEmail || 'customer@example.com', \"subject\": \"Appointment Confirmation: \" + $json.service, \"text\": \"Dear \" + $json.clientName + \",\\n\\nYour appointment ID is \" + $json.appointmentId + \" for \" + $json.service + \" on \" + $json.localTime + \".\\n\\nThank you for choosing Acme Salon!\" } }}",
+              "jsonBody": "={{ { \"to\": $json.customerEmail || 'customer@example.com', \"subject\": \"Appointment Confirmation: \" + $json.service, \"text\": \"Dear \" + $json.clientName + \",\\n\\nYour appointment ID is \" + $json.appointmentId + \" for \" + $json.service + \" on \" + $json.localTime + \".\\n\\nThank you for choosing \" + ($('Webhook - Appointment Created').first().json.body.business?.name || 'our team') + \"!\" } }}",
               "options": {
                 "timeout": 10000
+              },
+              "sendHeaders": true,
+              "headerParameters": {
+                "parameters": [
+                  {
+                    "name": "x-service-token",
+                    "value": "={{ $env.AI_EMPLOYEE_SERVICE_TOKEN }}"
+                  }
+                ]
               }
             }
           },
@@ -253,6 +271,15 @@
               "jsonBody": "={{ { \"recipient\": $('Extract Booking Details').item.json.customerPhone, \"content\": \"Hi \" + $('Extract Booking Details').item.json.clientName + \" 👋 Just a reminder that you have your \" + $('Extract Booking Details').item.json.service + \" appointment tomorrow at \" + $('Extract Booking Details').item.json.localTime + \". Reply 1 to confirm or 2 to reschedule.\", \"tenantId\": $('Extract Booking Details').item.json.tenantId } }}",
               "options": {
                 "timeout": 10000
+              },
+              "sendHeaders": true,
+              "headerParameters": {
+                "parameters": [
+                  {
+                    "name": "x-service-token",
+                    "value": "={{ $env.AI_EMPLOYEE_SERVICE_TOKEN }}"
+                  }
+                ]
               }
             }
           },
@@ -338,9 +365,18 @@
               "url": "={{ $env.WHATSAPP_API_URL || 'http://host.docker.internal:3001/api/v1/channels/send' }}",
               "sendBody": true,
               "specifyBody": "json",
-              "jsonBody": "={{ { \"recipient\": $('Extract Booking Details').item.json.customerPhone, \"content\": \"Hi \" + $('Extract Booking Details').item.json.clientName + \"! 🌟 Thank you for visiting Acme Salon today! How was your \" + $('Extract Booking Details').item.json.service + \"? We would love your feedback: ⭐⭐⭐⭐⭐\", \"tenantId\": $('Extract Booking Details').item.json.tenantId } }}",
+              "jsonBody": "={{ { \"recipient\": $('Extract Booking Details').item.json.customerPhone, \"content\": \"Hi \" + $('Extract Booking Details').item.json.clientName + \"! 🌟 Thank you for visiting \" + ($('Webhook - Appointment Created').first().json.body.business?.name || 'our team') + \" today! How was your \" + $('Extract Booking Details').item.json.service + \"? We would love your feedback: ⭐⭐⭐⭐⭐\", \"tenantId\": $('Extract Booking Details').item.json.tenantId } }}",
               "options": {
                 "timeout": 10000
+              },
+              "sendHeaders": true,
+              "headerParameters": {
+                "parameters": [
+                  {
+                    "name": "x-service-token",
+                    "value": "={{ $env.AI_EMPLOYEE_SERVICE_TOKEN }}"
+                  }
+                ]
               }
             }
           },
@@ -718,6 +754,15 @@
               "jsonBody": "={{ { \"recipient\": $('Parse Timing & Customer').item.json.customerPhone, \"content\": \"Hi \" + $('Parse Timing & Customer').item.json.clientName + \" 👋 Reminder: You have your \" + $('Parse Timing & Customer').item.json.service + \" appointment tomorrow at \" + $('Parse Timing & Customer').item.json.localTime + \".\\n\\nReply 1 to confirm or 2 to reschedule.\", \"tenantId\": $('Parse Timing & Customer').item.json.tenantId } }}",
               "options": {
                 "timeout": 10000
+              },
+              "sendHeaders": true,
+              "headerParameters": {
+                "parameters": [
+                  {
+                    "name": "x-service-token",
+                    "value": "={{ $env.AI_EMPLOYEE_SERVICE_TOKEN }}"
+                  }
+                ]
               }
             }
           },
@@ -751,9 +796,18 @@
               "url": "={{ $env.WHATSAPP_API_URL || 'http://host.docker.internal:3001/api/v1/channels/send' }}",
               "sendBody": true,
               "specifyBody": "json",
-              "jsonBody": "={{ { \"recipient\": $('Parse Timing & Customer').item.json.customerPhone, \"content\": \"Hi \" + $('Parse Timing & Customer').item.json.clientName + \"! ⏰ See you in 2 hours for your \" + $('Parse Timing & Customer').item.json.service + \" at Acme Salon. We have prepared your station!\", \"tenantId\": $('Parse Timing & Customer').item.json.tenantId } }}",
+              "jsonBody": "={{ { \"recipient\": $('Parse Timing & Customer').item.json.customerPhone, \"content\": \"Hi \" + $('Parse Timing & Customer').item.json.clientName + \"! ⏰ See you in 2 hours for your \" + $('Parse Timing & Customer').item.json.service + \" at \" + ($('Webhook - Appointment Created').first().json.body.business?.name || 'our team') + \". We have prepared your station!\", \"tenantId\": $('Parse Timing & Customer').item.json.tenantId } }}",
               "options": {
                 "timeout": 10000
+              },
+              "sendHeaders": true,
+              "headerParameters": {
+                "parameters": [
+                  {
+                    "name": "x-service-token",
+                    "value": "={{ $env.AI_EMPLOYEE_SERVICE_TOKEN }}"
+                  }
+                ]
               }
             }
           }
@@ -930,9 +984,18 @@
               "url": "={{ $env.WHATSAPP_API_URL || 'http://host.docker.internal:3001/api/v1/channels/send' }}",
               "sendBody": true,
               "specifyBody": "json",
-              "jsonBody": "={{ { \"recipient\": $json.customerPhone, \"content\": \"Hi \" + $json.customerName + \"! 👋 Thanks for reaching out to Acme Salon. Our haircut services start from Rs. 4,500 and coloring from Rs. 12,000. Would you like me to check available appointment slots for you?\", \"tenantId\": $json.tenantId } }}",
+              "jsonBody": "={{ { \"recipient\": $json.customerPhone, \"content\": \"Hi \" + $json.customerName + \"! 👋 Thanks for reaching out to \" + ($('Webhook - New Lead Inquiry').first().json.body.business?.name || 'our team') + \". Our haircut services start from Rs. 4,500 and coloring from Rs. 12,000. Would you like me to check available appointment slots for you?\", \"tenantId\": $json.tenantId } }}",
               "options": {
                 "timeout": 10000
+              },
+              "sendHeaders": true,
+              "headerParameters": {
+                "parameters": [
+                  {
+                    "name": "x-service-token",
+                    "value": "={{ $env.AI_EMPLOYEE_SERVICE_TOKEN }}"
+                  }
+                ]
               }
             }
           },
@@ -1021,6 +1084,15 @@
               "jsonBody": "={{ { \"recipient\": $('Extract Customer Info').item.json.customerPhone, \"content\": \"Hi \" + $('Extract Customer Info').item.json.customerName + \"! Just checking in 😊 Would you like me to find an available time for your salon appointment this week?\", \"tenantId\": $('Extract Customer Info').item.json.tenantId } }}",
               "options": {
                 "timeout": 10000
+              },
+              "sendHeaders": true,
+              "headerParameters": {
+                "parameters": [
+                  {
+                    "name": "x-service-token",
+                    "value": "={{ $env.AI_EMPLOYEE_SERVICE_TOKEN }}"
+                  }
+                ]
               }
             }
           },
@@ -1109,6 +1181,15 @@
               "jsonBody": "={{ { \"recipient\": $('Extract Customer Info').item.json.customerPhone, \"content\": \"Hi \" + $('Extract Customer Info').item.json.customerName + \", we have some prime slots open this weekend! Would you like me to hold a time for you?\", \"tenantId\": $('Extract Customer Info').item.json.tenantId } }}",
               "options": {
                 "timeout": 10000
+              },
+              "sendHeaders": true,
+              "headerParameters": {
+                "parameters": [
+                  {
+                    "name": "x-service-token",
+                    "value": "={{ $env.AI_EMPLOYEE_SERVICE_TOKEN }}"
+                  }
+                ]
               }
             }
           },
@@ -1145,6 +1226,15 @@
               "jsonBody": "={{ { \"text\": \"🔔 Unconverted Lead Alert: \" + $('Extract Customer Info').item.json.customerName + \" (\" + $('Extract Customer Info').item.json.customerPhone + \") has not booked after automated follow-up sequence. Manual contact recommended.\" } }}",
               "options": {
                 "timeout": 10000
+              },
+              "sendHeaders": true,
+              "headerParameters": {
+                "parameters": [
+                  {
+                    "name": "x-service-token",
+                    "value": "={{ $env.AI_EMPLOYEE_SERVICE_TOKEN }}"
+                  }
+                ]
               }
             }
           },
@@ -1435,9 +1525,18 @@
               "url": "={{ $env.WHATSAPP_API_URL || 'http://host.docker.internal:3001/api/v1/channels/send' }}",
               "sendBody": true,
               "specifyBody": "json",
-              "jsonBody": "={{ { \"recipient\": $json.customerPhone, \"content\": \"Hi \" + $json.clientName + \"! 🌟 Thank you for visiting Acme Salon yesterday. We hope you loved your \" + $json.service + \"! Could you take a moment to leave us a quick review? ⭐⭐⭐⭐⭐\", \"tenantId\": $json.tenantId } }}",
+              "jsonBody": "={{ { \"recipient\": $json.customerPhone, \"content\": \"Hi \" + $json.clientName + \"! 🌟 Thank you for visiting \" + ($('Webhook - Appointment Completed').first().json.body.business?.name || 'our team') + \" yesterday. We hope you loved your \" + $json.service + \"! Could you take a moment to leave us a quick review? ⭐⭐⭐⭐⭐\", \"tenantId\": $json.tenantId } }}",
               "options": {
                 "timeout": 10000
+              },
+              "sendHeaders": true,
+              "headerParameters": {
+                "parameters": [
+                  {
+                    "name": "x-service-token",
+                    "value": "={{ $env.AI_EMPLOYEE_SERVICE_TOKEN }}"
+                  }
+                ]
               }
             }
           },
@@ -1474,6 +1573,15 @@
               "jsonBody": "={{ { \"recipient\": $('Extract Completion Info').item.json.customerPhone, \"content\": \"Hi \" + $('Extract Completion Info').item.json.clientName + \"! 👋 It's been about a month since your last \" + $('Extract Completion Info').item.json.service + \". Ready for a fresh look? Reply anytime and I will find the best available slot for you this week!\", \"tenantId\": $('Extract Completion Info').item.json.tenantId } }}",
               "options": {
                 "timeout": 10000
+              },
+              "sendHeaders": true,
+              "headerParameters": {
+                "parameters": [
+                  {
+                    "name": "x-service-token",
+                    "value": "={{ $env.AI_EMPLOYEE_SERVICE_TOKEN }}"
+                  }
+                ]
               }
             }
           }
@@ -1556,7 +1664,7 @@
         {
           "key": "CRM_BASE_URL",
           "description": "CRM REST API endpoint",
-          "default": "http://host.docker.internal:3001/api/v1/crm"
+          "default": ""
         },
         {
           "key": "SLACK_WEBHOOK_URL",

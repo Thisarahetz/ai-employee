@@ -109,67 +109,57 @@ export class ChannelRegistryService {
    * Dispatches an outbound message called by automation workflows / n8n HTTP Request nodes.
    * Handles finding the tenant channel or gracefully recording the delivery.
    */
+  /**
+   * Sends a message through the tenant's own channel. Reports the real outcome:
+   * `success` is true only when the provider accepted the message. There is no
+   * cross-tenant or "global" fallback — a tenant without a connected channel
+   * gets a clear failure, never a message sent from someone else's number.
+   */
   async dispatchOutbound(params: {
     tenantId?: string;
     recipient: string;
     content: string;
     channelId?: string;
-  }): Promise<{ success: boolean; messageId: string; status: string; detail?: string }> {
-    const messageId = `msg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-    this.logger.log(
-      `dispatchOutbound: tenant=${params.tenantId ?? 'unknown'} recipient=${params.recipient} messageId=${messageId}`,
-    );
-
+  }): Promise<{ success: boolean; messageId: string | null; status: string; detail?: string }> {
     if (!params.tenantId) {
-      // Graceful fallback for workflows triggered without tenantId
-      this.logger.log(`[Mock Outbound] To: ${params.recipient} | Body: "${params.content}"`);
-      return { success: true, messageId, status: 'mock_delivered' };
+      return { success: false, messageId: null, status: 'rejected', detail: 'tenantId is required' };
     }
 
     const channel = params.channelId
       ? await this.prisma.channel.findFirst({ where: { id: params.channelId, tenantId: params.tenantId } })
       : await this.prisma.channel.findFirst({
-          where: { tenantId: params.tenantId, type: 'WHATSAPP' },
+          where: { tenantId: params.tenantId, type: 'WHATSAPP', status: 'ACTIVE' },
+          orderBy: { createdAt: 'asc' },
         });
 
-    if (channel && channel.type === 'WHATSAPP') {
-      try {
-        const config = (channel.config ?? {}) as Record<string, unknown>;
-        const credential = await this.channelService.getDecryptedCredential(params.tenantId, channel.id);
-        const accessToken =
-          credential?.type === CredentialType.BEARER_TOKEN && typeof credential.token === 'string'
-            ? credential.token
-            : undefined;
-
-        await this.whatsAppAdapter.sendMessage(params.recipient, params.content, {
-          phoneNumberId: typeof config.phoneNumberId === 'string' ? config.phoneNumberId : undefined,
-          accessToken,
-          provider: (config.provider as any) || (process.env.WHATSAPP_PROVIDER as any) || 'waha',
-          wahaApiUrl: typeof config.wahaApiUrl === 'string' ? config.wahaApiUrl : undefined,
-          wahaApiKey: typeof config.wahaApiKey === 'string' ? config.wahaApiKey : undefined,
-          wahaSession: typeof config.wahaSession === 'string' ? config.wahaSession : undefined,
-        });
-        return { success: true, messageId, status: 'delivered', detail: 'Sent via WhatsApp' };
-      } catch (err: any) {
-        this.logger.warn(`WhatsApp dispatch attempt failed: ${err.message}. Falling back to recorded delivery.`);
-      }
-    } else {
-      // If no tenant channel row exists, check if WAHA is enabled globally
-      const globalProvider = process.env.WHATSAPP_PROVIDER || 'waha';
-      if (globalProvider === 'waha') {
-        try {
-          await this.whatsAppAdapter.sendMessage(params.recipient, params.content, {
-            provider: 'waha',
-          });
-          return { success: true, messageId, status: 'delivered', detail: 'Sent via WAHA' };
-        } catch (err: any) {
-          this.logger.warn(`WAHA dispatch failed: ${err.message}`);
-        }
-      }
+    if (!channel) {
+      return { success: false, messageId: null, status: 'not_configured', detail: 'No active messaging channel is connected for this business.' };
+    }
+    if (channel.type !== 'WHATSAPP') {
+      return { success: false, messageId: null, status: 'unsupported', detail: `Outbound dispatch is not supported for ${channel.type} channels.` };
     }
 
-    this.logger.log(`[Outbound Channel Recorded] To: ${params.recipient} | Body: "${params.content}"`);
-    return { success: true, messageId, status: 'simulated_delivered' };
+    try {
+      const config = (channel.config ?? {}) as Record<string, unknown>;
+      const credential = await this.channelService.getDecryptedCredential(params.tenantId, channel.id);
+      const accessToken =
+        credential?.type === CredentialType.BEARER_TOKEN && typeof credential.token === 'string' ? credential.token : undefined;
+
+      const sent: unknown = await this.whatsAppAdapter.sendMessage(params.recipient, params.content, {
+        phoneNumberId: typeof config.phoneNumberId === 'string' ? config.phoneNumberId : undefined,
+        accessToken,
+        provider: (config.provider as any) || (process.env.WHATSAPP_PROVIDER as any) || 'waha',
+        wahaApiUrl: typeof config.wahaApiUrl === 'string' ? config.wahaApiUrl : undefined,
+        wahaApiKey: typeof config.wahaApiKey === 'string' ? config.wahaApiKey : undefined,
+        wahaSession: typeof config.wahaSession === 'string' ? config.wahaSession : undefined,
+      });
+      const providerId = extractMessageId(sent);
+      this.logger.log(`dispatchOutbound: tenant=${params.tenantId} channel=${channel.id} delivered${providerId ? ` id=${providerId}` : ''}`);
+      return { success: true, messageId: providerId, status: 'sent', detail: 'Accepted by WhatsApp provider' };
+    } catch (err: any) {
+      this.logger.warn(`dispatchOutbound: tenant=${params.tenantId} channel=${channel.id} failed: ${err.message}`);
+      return { success: false, messageId: null, status: 'failed', detail: String(err.message ?? err).slice(0, 300) };
+    }
   }
 
   /**
@@ -251,4 +241,11 @@ export class ChannelRegistryService {
     });
     return conversation?.customer?.phone ?? conversation?.customer?.externalId ?? undefined;
   }
+}
+
+/** Best-effort: provider message id from a WhatsApp Cloud API or WAHA send response. */
+function extractMessageId(res: unknown): string | null {
+  if (!res || typeof res !== 'object') return null;
+  const r = res as Record<string, any>;
+  return r.messages?.[0]?.id ?? r.id?._serialized ?? (typeof r.id === 'string' ? r.id : null) ?? null;
 }

@@ -6,7 +6,10 @@
       "name": "Webhook - Appointment Created",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [200, 300],
+      "position": [
+        200,
+        300
+      ],
       "webhookId": "scheduled-appointment-reminders",
       "notes": "Triggers on appointment.created event to schedule multi-tier reminders.",
       "parameters": {
@@ -21,19 +24,50 @@
       "name": "Parse Timing & Customer",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.3,
-      "position": [420, 300],
+      "position": [
+        420,
+        300
+      ],
       "notes": "Extracts start time and phone number.",
       "parameters": {
         "mode": "manual",
         "assignments": {
           "assignments": [
-            { "name": "tenantId", "value": "={{ ($json.body || $json).tenantId }}", "type": "string" },
-            { "name": "appointmentId", "value": "={{ ($json.body || $json).data?.appointmentId || ($json.body || $json).appointmentId }}", "type": "string" },
-            { "name": "clientName", "value": "={{ ($json.body || $json).data?.clientName || ($json.body || $json).clientName || 'Valued Client' }}", "type": "string" },
-            { "name": "service", "value": "={{ ($json.body || $json).data?.service || ($json.body || $json).service || 'Service' }}", "type": "string" },
-            { "name": "startTime", "value": "={{ ($json.body || $json).data?.startTime || ($json.body || $json).startTime }}", "type": "string" },
-            { "name": "localTime", "value": "={{ ($json.body || $json).data?.localTime || ($json.body || $json).localTime || 'Scheduled Time' }}", "type": "string" },
-            { "name": "customerPhone", "value": "={{ ($json.body || $json).data?.customerPhone || ($json.body || $json).customerPhone }}", "type": "string" }
+            {
+              "name": "tenantId",
+              "value": "={{ ($json.body || $json).tenantId }}",
+              "type": "string"
+            },
+            {
+              "name": "appointmentId",
+              "value": "={{ ($json.body || $json).data?.appointmentId || ($json.body || $json).appointmentId }}",
+              "type": "string"
+            },
+            {
+              "name": "clientName",
+              "value": "={{ ($json.body || $json).data?.clientName || ($json.body || $json).clientName || 'Valued Client' }}",
+              "type": "string"
+            },
+            {
+              "name": "service",
+              "value": "={{ ($json.body || $json).data?.service || ($json.body || $json).service || 'Service' }}",
+              "type": "string"
+            },
+            {
+              "name": "startTime",
+              "value": "={{ ($json.body || $json).data?.startTime || ($json.body || $json).startTime }}",
+              "type": "string"
+            },
+            {
+              "name": "localTime",
+              "value": "={{ ($json.body || $json).data?.localTime || ($json.body || $json).localTime || 'Scheduled Time' }}",
+              "type": "string"
+            },
+            {
+              "name": "customerPhone",
+              "value": "={{ ($json.body || $json).data?.customerPhone || ($json.body || $json).customerPhone }}",
+              "type": "string"
+            }
           ]
         },
         "options": {}
@@ -44,7 +78,10 @@
       "name": "Wait Until 24h Before",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [640, 300],
+      "position": [
+        640,
+        300
+      ],
       "notes": "Waits until 24h before appointment time.",
       "parameters": {
         "amount": 24,
@@ -56,7 +93,10 @@
       "name": "Check 24h Status",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [860, 300],
+      "position": [
+        860,
+        300
+      ],
       "notes": "Ensures booking is still active.",
       "parameters": {
         "method": "POST",
@@ -64,7 +104,10 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Authorization", "value": "Bearer ai-employee-test-token" }
+            {
+              "name": "Authorization",
+              "value": "Bearer ai-employee-test-token"
+            }
           ]
         },
         "sendBody": true,
@@ -80,7 +123,10 @@
       "name": "Send 24h WhatsApp Reminder",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1080, 300],
+      "position": [
+        1080,
+        300
+      ],
       "notes": "Sends reminder with confirm / reschedule options.",
       "parameters": {
         "method": "POST",
@@ -90,6 +136,15 @@
         "jsonBody": "={{ { \"recipient\": $('Parse Timing & Customer').item.json.customerPhone, \"content\": \"Hi \" + $('Parse Timing & Customer').item.json.clientName + \" 👋 Reminder: You have your \" + $('Parse Timing & Customer').item.json.service + \" appointment tomorrow at \" + $('Parse Timing & Customer').item.json.localTime + \".\\n\\nReply 1 to confirm or 2 to reschedule.\", \"tenantId\": $('Parse Timing & Customer').item.json.tenantId } }}",
         "options": {
           "timeout": 10000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-service-token",
+              "value": "={{ $env.AI_EMPLOYEE_SERVICE_TOKEN }}"
+            }
+          ]
         }
       }
     },
@@ -98,7 +153,10 @@
       "name": "Wait Until 2h Before",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [1300, 300],
+      "position": [
+        1300,
+        300
+      ],
       "notes": "Waits until 2 hours before the appointment.",
       "parameters": {
         "amount": 22,
@@ -110,16 +168,28 @@
       "name": "Send 2h Quick Reminder",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1520, 300],
+      "position": [
+        1520,
+        300
+      ],
       "notes": "Sends arrival and directions reminder 2 hours before slot.",
       "parameters": {
         "method": "POST",
         "url": "={{ $env.WHATSAPP_API_URL || 'http://host.docker.internal:3001/api/v1/channels/send' }}",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { \"recipient\": $('Parse Timing & Customer').item.json.customerPhone, \"content\": \"Hi \" + $('Parse Timing & Customer').item.json.clientName + \"! ⏰ See you in 2 hours for your \" + $('Parse Timing & Customer').item.json.service + \" at Acme Salon. We have prepared your station!\", \"tenantId\": $('Parse Timing & Customer').item.json.tenantId } }}",
+        "jsonBody": "={{ { \"recipient\": $('Parse Timing & Customer').item.json.customerPhone, \"content\": \"Hi \" + $('Parse Timing & Customer').item.json.clientName + \"! ⏰ See you in 2 hours for your \" + $('Parse Timing & Customer').item.json.service + \" at \" + ($('Webhook - Appointment Created').first().json.body.business?.name || 'our team') + \". We have prepared your station!\", \"tenantId\": $('Parse Timing & Customer').item.json.tenantId } }}",
         "options": {
           "timeout": 10000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-service-token",
+              "value": "={{ $env.AI_EMPLOYEE_SERVICE_TOKEN }}"
+            }
+          ]
         }
       }
     }
@@ -127,32 +197,68 @@
   "connections": {
     "Webhook - Appointment Created": {
       "main": [
-        [{ "node": "Parse Timing & Customer", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Parse Timing & Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Parse Timing & Customer": {
       "main": [
-        [{ "node": "Wait Until 24h Before", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Wait Until 24h Before",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Wait Until 24h Before": {
       "main": [
-        [{ "node": "Check 24h Status", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Check 24h Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Check 24h Status": {
       "main": [
-        [{ "node": "Send 24h WhatsApp Reminder", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Send 24h WhatsApp Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Send 24h WhatsApp Reminder": {
       "main": [
-        [{ "node": "Wait Until 2h Before", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Wait Until 2h Before",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Wait Until 2h Before": {
       "main": [
-        [{ "node": "Send 2h Quick Reminder", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Send 2h Quick Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   }

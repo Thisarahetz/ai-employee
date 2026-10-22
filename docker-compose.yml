@@ -55,7 +55,10 @@ services:
       # vars the example workflows expect through to the container.
       N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
       N8N_RUNNERS_TASK_ENV_ALLOW_LIST: "*"
-      CRM_BASE_URL: ${CRM_BASE_URL:-http://host.docker.internal:3001/api/v1/crm}
+      # Your real CRM's REST endpoint; leave empty to keep CRM nodes disabled.
+      CRM_BASE_URL: ${CRM_BASE_URL:-}
+      # Lets workflows call back into the AI Employee API (/channels/send, /notifications/*).
+      AI_EMPLOYEE_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-}
       SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-http://host.docker.internal:3001/api/v1/notifications/slack}
       GLOWDESK_API_URL: ${GLOWDESK_API_URL:-http://host.docker.internal:3141}
       WHATSAPP_API_URL: ${WHATSAPP_API_URL:-http://host.docker.internal:3001/api/v1/channels/send}

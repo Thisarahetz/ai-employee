@@ -46,7 +46,9 @@ export class WebhookService {
       throw new UnauthorizedException('Missing webhook signature');
     }
 
-    const secret = process.env.WEBHOOK_SIGNING_SECRET ?? '';
+    const secret = process.env.WEBHOOK_SIGNING_SECRET;
+    // An empty secret would make every signature trivially forgeable.
+    if (!secret) throw new UnauthorizedException('Webhook signing is not configured');
     const expected = createHmac('sha256', secret).update(JSON.stringify(body)).digest('hex');
 
     const expectedBuffer = Buffer.from(expected, 'hex');

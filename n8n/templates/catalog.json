@@ -70,7 +70,7 @@
     "isCommon": true,
     "tags": ["crm", "sync", "slack", "webhooks"],
     "variables": [
-      { "key": "CRM_BASE_URL", "description": "CRM REST API endpoint", "default": "http://host.docker.internal:3001/api/v1/crm" },
+      { "key": "CRM_BASE_URL", "description": "CRM REST API endpoint", "default": "" },
       { "key": "SLACK_WEBHOOK_URL", "description": "Team Slack alert webhook", "default": "http://host.docker.internal:3001/api/v1/notifications/slack" }
     ]
   }

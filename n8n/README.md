@@ -74,6 +74,11 @@ In `.env`, the following variables configure workflow integrations:
 - `WHATSAPP_API_URL`: `http://host.docker.internal:3001/api/v1/channels/send`
 - `EMAIL_API_URL`: `http://host.docker.internal:3001/api/v1/notifications/email`
 - `SLACK_WEBHOOK_URL`: `http://host.docker.internal:3001/api/v1/notifications/slack`
-- `CRM_BASE_URL`: `http://host.docker.internal:3001/api/v1/crm`
+- `CRM_BASE_URL`: your real CRM's REST endpoint (empty = CRM nodes fail visibly; there is no mock CRM)
 - `GLOWDESK_API_URL`: `http://host.docker.internal:3141`
+- `AI_EMPLOYEE_SERVICE_TOKEN`: set from `INTERNAL_SERVICE_TOKEN`. Every callback node sends it as
+  the `x-service-token` header — `/channels/send` and `/notifications/*` reject calls without it.
+
+Workflow messages use the tenant's business name from the trigger payload
+(`body.business.name`), never a hardcoded one.
 

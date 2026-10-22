@@ -6,7 +6,10 @@
       "name": "Webhook - New Lead Inquiry",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [200, 300],
+      "position": [
+        200,
+        300
+      ],
       "webhookId": "lead-followup-sequence",
       "notes": "Receives customer.created / lead inquiry event.",
       "parameters": {
@@ -21,16 +24,35 @@
       "name": "Extract Customer Info",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.3,
-      "position": [420, 300],
+      "position": [
+        420,
+        300
+      ],
       "notes": "Extracts customer details.",
       "parameters": {
         "mode": "manual",
         "assignments": {
           "assignments": [
-            { "name": "tenantId", "value": "={{ ($json.body || $json).tenantId }}", "type": "string" },
-            { "name": "customerId", "value": "={{ ($json.body || $json).customerId || ($json.body || $json).data?.customerId }}", "type": "string" },
-            { "name": "customerName", "value": "={{ ($json.body || $json).data?.name || ($json.body || $json).name || 'there' }}", "type": "string" },
-            { "name": "customerPhone", "value": "={{ ($json.body || $json).data?.phone || ($json.body || $json).data?.customerPhone || ($json.body || $json).phone }}", "type": "string" }
+            {
+              "name": "tenantId",
+              "value": "={{ ($json.body || $json).tenantId }}",
+              "type": "string"
+            },
+            {
+              "name": "customerId",
+              "value": "={{ ($json.body || $json).customerId || ($json.body || $json).data?.customerId }}",
+              "type": "string"
+            },
+            {
+              "name": "customerName",
+              "value": "={{ ($json.body || $json).data?.name || ($json.body || $json).name || 'there' }}",
+              "type": "string"
+            },
+            {
+              "name": "customerPhone",
+              "value": "={{ ($json.body || $json).data?.phone || ($json.body || $json).data?.customerPhone || ($json.body || $json).phone }}",
+              "type": "string"
+            }
           ]
         },
         "options": {}
@@ -41,16 +63,28 @@
       "name": "Send Day 0 Welcome & Pricing",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [640, 300],
+      "position": [
+        640,
+        300
+      ],
       "notes": "Sends instant welcome message.",
       "parameters": {
         "method": "POST",
         "url": "={{ $env.WHATSAPP_API_URL || 'http://host.docker.internal:3001/api/v1/channels/send' }}",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { \"recipient\": $json.customerPhone, \"content\": \"Hi \" + $json.customerName + \"! 👋 Thanks for reaching out to Acme Salon. Our haircut services start from Rs. 4,500 and coloring from Rs. 12,000. Would you like me to check available appointment slots for you?\", \"tenantId\": $json.tenantId } }}",
+        "jsonBody": "={{ { \"recipient\": $json.customerPhone, \"content\": \"Hi \" + $json.customerName + \"! 👋 Thanks for reaching out to \" + ($('Webhook - New Lead Inquiry').first().json.body.business?.name || 'our team') + \". Our haircut services start from Rs. 4,500 and coloring from Rs. 12,000. Would you like me to check available appointment slots for you?\", \"tenantId\": $json.tenantId } }}",
         "options": {
           "timeout": 10000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-service-token",
+              "value": "={{ $env.AI_EMPLOYEE_SERVICE_TOKEN }}"
+            }
+          ]
         }
       }
     },
@@ -59,7 +93,10 @@
       "name": "Wait 1 Day",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [860, 300],
+      "position": [
+        860,
+        300
+      ],
       "notes": "Waits 1 day before first follow-up.",
       "parameters": {
         "amount": 24,
@@ -71,7 +108,10 @@
       "name": "Check Day 1 Booking Status",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1080, 300],
+      "position": [
+        1080,
+        300
+      ],
       "notes": "Checks if lead has booked an appointment.",
       "parameters": {
         "method": "POST",
@@ -79,7 +119,10 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Authorization", "value": "Bearer ai-employee-test-token" }
+            {
+              "name": "Authorization",
+              "value": "Bearer ai-employee-test-token"
+            }
           ]
         },
         "sendBody": true,
@@ -95,7 +138,10 @@
       "name": "Did Customer Book (Day 1)?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1300, 300],
+      "position": [
+        1300,
+        300
+      ],
       "notes": "Stops sequence if customer already booked.",
       "parameters": {
         "conditions": {
@@ -114,7 +160,10 @@
       "name": "Send Day 1 Follow-up",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1540, 360],
+      "position": [
+        1540,
+        360
+      ],
       "notes": "Sends polite Day 1 follow-up message.",
       "parameters": {
         "method": "POST",
@@ -124,6 +173,15 @@
         "jsonBody": "={{ { \"recipient\": $('Extract Customer Info').item.json.customerPhone, \"content\": \"Hi \" + $('Extract Customer Info').item.json.customerName + \"! Just checking in 😊 Would you like me to find an available time for your salon appointment this week?\", \"tenantId\": $('Extract Customer Info').item.json.tenantId } }}",
         "options": {
           "timeout": 10000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-service-token",
+              "value": "={{ $env.AI_EMPLOYEE_SERVICE_TOKEN }}"
+            }
+          ]
         }
       }
     },
@@ -132,7 +190,10 @@
       "name": "Wait 2 Days",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [1760, 360],
+      "position": [
+        1760,
+        360
+      ],
       "notes": "Waits 2 days before second follow-up.",
       "parameters": {
         "amount": 48,
@@ -144,7 +205,10 @@
       "name": "Check Day 3 Booking Status",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1980, 360],
+      "position": [
+        1980,
+        360
+      ],
       "notes": "Checks if lead booked after 1st follow-up.",
       "parameters": {
         "method": "POST",
@@ -152,7 +216,10 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Authorization", "value": "Bearer ai-employee-test-token" }
+            {
+              "name": "Authorization",
+              "value": "Bearer ai-employee-test-token"
+            }
           ]
         },
         "sendBody": true,
@@ -168,7 +235,10 @@
       "name": "Did Customer Book (Day 3)?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [2200, 360],
+      "position": [
+        2200,
+        360
+      ],
       "notes": "Stops if booked.",
       "parameters": {
         "conditions": {
@@ -187,7 +257,10 @@
       "name": "Send Day 3 Availability Offer",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2440, 420],
+      "position": [
+        2440,
+        420
+      ],
       "notes": "Sends urgency/availability offer.",
       "parameters": {
         "method": "POST",
@@ -197,6 +270,15 @@
         "jsonBody": "={{ { \"recipient\": $('Extract Customer Info').item.json.customerPhone, \"content\": \"Hi \" + $('Extract Customer Info').item.json.customerName + \", we have some prime slots open this weekend! Would you like me to hold a time for you?\", \"tenantId\": $('Extract Customer Info').item.json.tenantId } }}",
         "options": {
           "timeout": 10000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-service-token",
+              "value": "={{ $env.AI_EMPLOYEE_SERVICE_TOKEN }}"
+            }
+          ]
         }
       }
     },
@@ -205,7 +287,10 @@
       "name": "Wait 3 Days",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [2660, 420],
+      "position": [
+        2660,
+        420
+      ],
       "notes": "Waits 3 days before escalating unconverted lead.",
       "parameters": {
         "amount": 72,
@@ -217,7 +302,10 @@
       "name": "Notify Staff / Sales (Slack)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2880, 420],
+      "position": [
+        2880,
+        420
+      ],
       "notes": "Alerts human team to follow up manually with unconverted lead.",
       "parameters": {
         "method": "POST",
@@ -227,6 +315,15 @@
         "jsonBody": "={{ { \"text\": \"🔔 Unconverted Lead Alert: \" + $('Extract Customer Info').item.json.customerName + \" (\" + $('Extract Customer Info').item.json.customerPhone + \") has not booked after automated follow-up sequence. Manual contact recommended.\" } }}",
         "options": {
           "timeout": 10000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-service-token",
+              "value": "={{ $env.AI_EMPLOYEE_SERVICE_TOKEN }}"
+            }
+          ]
         }
       }
     },
@@ -235,13 +332,20 @@
       "name": "Stop - Lead Booked ✅",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.3,
-      "position": [1540, 180],
+      "position": [
+        1540,
+        180
+      ],
       "notes": "Terminates sequence when booking detected.",
       "parameters": {
         "mode": "manual",
         "assignments": {
           "assignments": [
-            { "name": "result", "value": "CONVERTED_BOOKED", "type": "string" }
+            {
+              "name": "result",
+              "value": "CONVERTED_BOOKED",
+              "type": "string"
+            }
           ]
         },
         "options": {}
@@ -251,64 +355,148 @@
   "connections": {
     "Webhook - New Lead Inquiry": {
       "main": [
-        [{ "node": "Extract Customer Info", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Extract Customer Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Extract Customer Info": {
       "main": [
-        [{ "node": "Send Day 0 Welcome & Pricing", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Send Day 0 Welcome & Pricing",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Send Day 0 Welcome & Pricing": {
       "main": [
-        [{ "node": "Wait 1 Day", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Wait 1 Day",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Wait 1 Day": {
       "main": [
-        [{ "node": "Check Day 1 Booking Status", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Check Day 1 Booking Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Check Day 1 Booking Status": {
       "main": [
-        [{ "node": "Did Customer Book (Day 1)?", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Did Customer Book (Day 1)?",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Did Customer Book (Day 1)?": {
       "main": [
-        [{ "node": "Stop - Lead Booked ✅", "type": "main", "index": 0 }],
-        [{ "node": "Send Day 1 Follow-up", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Stop - Lead Booked ✅",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Day 1 Follow-up",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Send Day 1 Follow-up": {
       "main": [
-        [{ "node": "Wait 2 Days", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Wait 2 Days",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Wait 2 Days": {
       "main": [
-        [{ "node": "Check Day 3 Booking Status", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Check Day 3 Booking Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Check Day 3 Booking Status": {
       "main": [
-        [{ "node": "Did Customer Book (Day 3)?", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Did Customer Book (Day 3)?",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Did Customer Book (Day 3)?": {
       "main": [
-        [{ "node": "Stop - Lead Booked ✅", "type": "main", "index": 0 }],
-        [{ "node": "Send Day 3 Availability Offer", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Stop - Lead Booked ✅",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Day 3 Availability Offer",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Send Day 3 Availability Offer": {
       "main": [
-        [{ "node": "Wait 3 Days", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Wait 3 Days",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Wait 3 Days": {
       "main": [
-        [{ "node": "Notify Staff / Sales (Slack)", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Notify Staff / Sales (Slack)",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   }

@@ -6,7 +6,10 @@
       "name": "Webhook - Appointment Created",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [200, 300],
+      "position": [
+        200,
+        300
+      ],
       "webhookId": "appointment-lifecycle-sequence",
       "notes": "Receives the {tenantId, businessId, customerId, conversationId, eventType, data} envelope sent when an appointment is booked.",
       "parameters": {
@@ -21,22 +24,65 @@
       "name": "Extract Booking Details",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.3,
-      "position": [420, 300],
+      "position": [
+        420,
+        300
+      ],
       "notes": "Extracts client name, phone, email, service, time, and appointment ID.",
       "parameters": {
         "mode": "manual",
         "assignments": {
           "assignments": [
-            { "name": "tenantId", "value": "={{ ($json.body || $json).tenantId }}", "type": "string" },
-            { "name": "conversationId", "value": "={{ ($json.body || $json).conversationId }}", "type": "string" },
-            { "name": "customerId", "value": "={{ ($json.body || $json).customerId || ($json.body || $json).data?.customerId }}", "type": "string" },
-            { "name": "appointmentId", "value": "={{ ($json.body || $json).data?.appointmentId || ($json.body || $json).appointmentId }}", "type": "string" },
-            { "name": "clientName", "value": "={{ ($json.body || $json).data?.clientName || ($json.body || $json).clientName || 'Valued Client' }}", "type": "string" },
-            { "name": "service", "value": "={{ ($json.body || $json).data?.service || ($json.body || $json).service || 'Service' }}", "type": "string" },
-            { "name": "startTime", "value": "={{ ($json.body || $json).data?.startTime || ($json.body || $json).startTime }}", "type": "string" },
-            { "name": "localTime", "value": "={{ ($json.body || $json).data?.localTime || ($json.body || $json).localTime || 'Scheduled Time' }}", "type": "string" },
-            { "name": "customerPhone", "value": "={{ ($json.body || $json).data?.customerPhone || ($json.body || $json).customerPhone }}", "type": "string" },
-            { "name": "customerEmail", "value": "={{ ($json.body || $json).data?.customerEmail || ($json.body || $json).customerEmail }}", "type": "string" }
+            {
+              "name": "tenantId",
+              "value": "={{ ($json.body || $json).tenantId }}",
+              "type": "string"
+            },
+            {
+              "name": "conversationId",
+              "value": "={{ ($json.body || $json).conversationId }}",
+              "type": "string"
+            },
+            {
+              "name": "customerId",
+              "value": "={{ ($json.body || $json).customerId || ($json.body || $json).data?.customerId }}",
+              "type": "string"
+            },
+            {
+              "name": "appointmentId",
+              "value": "={{ ($json.body || $json).data?.appointmentId || ($json.body || $json).appointmentId }}",
+              "type": "string"
+            },
+            {
+              "name": "clientName",
+              "value": "={{ ($json.body || $json).data?.clientName || ($json.body || $json).clientName || 'Valued Client' }}",
+              "type": "string"
+            },
+            {
+              "name": "service",
+              "value": "={{ ($json.body || $json).data?.service || ($json.body || $json).service || 'Service' }}",
+              "type": "string"
+            },
+            {
+              "name": "startTime",
+              "value": "={{ ($json.body || $json).data?.startTime || ($json.body || $json).startTime }}",
+              "type": "string"
+            },
+            {
+              "name": "localTime",
+              "value": "={{ ($json.body || $json).data?.localTime || ($json.body || $json).localTime || 'Scheduled Time' }}",
+              "type": "string"
+            },
+            {
+              "name": "customerPhone",
+              "value": "={{ ($json.body || $json).data?.customerPhone || ($json.body || $json).customerPhone }}",
+              "type": "string"
+            },
+            {
+              "name": "customerEmail",
+              "value": "={{ ($json.body || $json).data?.customerEmail || ($json.body || $json).customerEmail }}",
+              "type": "string"
+            }
           ]
         },
         "options": {}
@@ -47,16 +93,28 @@
       "name": "Send WhatsApp Confirmation",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [640, 300],
+      "position": [
+        640,
+        300
+      ],
       "notes": "Sends instant WhatsApp booking confirmation to the customer.",
       "parameters": {
         "method": "POST",
         "url": "={{ $env.WHATSAPP_API_URL || 'http://host.docker.internal:3001/api/v1/channels/send' }}",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { \"recipient\": $json.customerPhone, \"content\": \"Hi \" + $json.clientName + \"! 👋 Your appointment for \" + $json.service + \" is confirmed for \" + $json.localTime + \". We look forward to seeing you at Acme Salon! Reply anytime if you need to make changes.\", \"tenantId\": $json.tenantId } }}",
+        "jsonBody": "={{ { \"recipient\": $json.customerPhone, \"content\": \"Hi \" + $json.clientName + \"! 👋 Your appointment for \" + $json.service + \" is confirmed for \" + $json.localTime + \". We look forward to seeing you at \" + ($('Webhook - Appointment Created').first().json.body.business?.name || 'our team') + \"! Reply anytime if you need to make changes.\", \"tenantId\": $json.tenantId } }}",
         "options": {
           "timeout": 10000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-service-token",
+              "value": "={{ $env.AI_EMPLOYEE_SERVICE_TOKEN }}"
+            }
+          ]
         }
       }
     },
@@ -65,16 +123,28 @@
       "name": "Send Email Receipt",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [860, 300],
+      "position": [
+        860,
+        300
+      ],
       "notes": "Dispatches an email receipt if customer provided an email address.",
       "parameters": {
         "method": "POST",
         "url": "={{ $env.EMAIL_API_URL || 'http://host.docker.internal:3001/api/v1/notifications/email' }}",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { \"to\": $json.customerEmail || 'customer@example.com', \"subject\": \"Appointment Confirmation: \" + $json.service, \"text\": \"Dear \" + $json.clientName + \",\\n\\nYour appointment ID is \" + $json.appointmentId + \" for \" + $json.service + \" on \" + $json.localTime + \".\\n\\nThank you for choosing Acme Salon!\" } }}",
+        "jsonBody": "={{ { \"to\": $json.customerEmail || 'customer@example.com', \"subject\": \"Appointment Confirmation: \" + $json.service, \"text\": \"Dear \" + $json.clientName + \",\\n\\nYour appointment ID is \" + $json.appointmentId + \" for \" + $json.service + \" on \" + $json.localTime + \".\\n\\nThank you for choosing \" + ($('Webhook - Appointment Created').first().json.body.business?.name || 'our team') + \"!\" } }}",
         "options": {
           "timeout": 10000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-service-token",
+              "value": "={{ $env.AI_EMPLOYEE_SERVICE_TOKEN }}"
+            }
+          ]
         }
       }
     },
@@ -83,7 +153,10 @@
       "name": "Wait 24 Hours",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [1080, 300],
+      "position": [
+        1080,
+        300
+      ],
       "notes": "Waits 24 hours before sending the upcoming appointment reminder.",
       "parameters": {
         "amount": 24,
@@ -95,7 +168,10 @@
       "name": "Check Appointment Status",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1300, 300],
+      "position": [
+        1300,
+        300
+      ],
       "notes": "Queries GlowDesk integration to check if the appointment is still active.",
       "parameters": {
         "method": "POST",
@@ -103,7 +179,10 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Authorization", "value": "Bearer ai-employee-test-token" }
+            {
+              "name": "Authorization",
+              "value": "Bearer ai-employee-test-token"
+            }
           ]
         },
         "sendBody": true,
@@ -119,7 +198,10 @@
       "name": "Is Still Confirmed?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1520, 300],
+      "position": [
+        1520,
+        300
+      ],
       "notes": "Verifies appointment status is not cancelled before sending reminder.",
       "parameters": {
         "conditions": {
@@ -138,7 +220,10 @@
       "name": "Send WhatsApp Reminder",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1760, 200],
+      "position": [
+        1760,
+        200
+      ],
       "notes": "Sends interactive 24h reminder with confirmation/reschedule options.",
       "parameters": {
         "method": "POST",
@@ -148,6 +233,15 @@
         "jsonBody": "={{ { \"recipient\": $('Extract Booking Details').item.json.customerPhone, \"content\": \"Hi \" + $('Extract Booking Details').item.json.clientName + \" 👋 Just a reminder that you have your \" + $('Extract Booking Details').item.json.service + \" appointment tomorrow at \" + $('Extract Booking Details').item.json.localTime + \". Reply 1 to confirm or 2 to reschedule.\", \"tenantId\": $('Extract Booking Details').item.json.tenantId } }}",
         "options": {
           "timeout": 10000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-service-token",
+              "value": "={{ $env.AI_EMPLOYEE_SERVICE_TOKEN }}"
+            }
+          ]
         }
       }
     },
@@ -156,7 +250,10 @@
       "name": "Wait Until Post-Appointment",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [1980, 200],
+      "position": [
+        1980,
+        200
+      ],
       "notes": "Waits until appointment has concluded.",
       "parameters": {
         "amount": 24,
@@ -168,7 +265,10 @@
       "name": "Check Final Status",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2200, 200],
+      "position": [
+        2200,
+        200
+      ],
       "notes": "Checks if appointment was marked completed.",
       "parameters": {
         "method": "POST",
@@ -176,7 +276,10 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Authorization", "value": "Bearer ai-employee-test-token" }
+            {
+              "name": "Authorization",
+              "value": "Bearer ai-employee-test-token"
+            }
           ]
         },
         "sendBody": true,
@@ -192,7 +295,10 @@
       "name": "Is Visit Completed?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [2420, 200],
+      "position": [
+        2420,
+        200
+      ],
       "notes": "Branches on completed vs cancelled.",
       "parameters": {
         "conditions": {
@@ -211,16 +317,28 @@
       "name": "Ask For Review (WhatsApp)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2660, 100],
+      "position": [
+        2660,
+        100
+      ],
       "notes": "Sends post-appointment feedback and review request.",
       "parameters": {
         "method": "POST",
         "url": "={{ $env.WHATSAPP_API_URL || 'http://host.docker.internal:3001/api/v1/channels/send' }}",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { \"recipient\": $('Extract Booking Details').item.json.customerPhone, \"content\": \"Hi \" + $('Extract Booking Details').item.json.clientName + \"! 🌟 Thank you for visiting Acme Salon today! How was your \" + $('Extract Booking Details').item.json.service + \"? We would love your feedback: ⭐⭐⭐⭐⭐\", \"tenantId\": $('Extract Booking Details').item.json.tenantId } }}",
+        "jsonBody": "={{ { \"recipient\": $('Extract Booking Details').item.json.customerPhone, \"content\": \"Hi \" + $('Extract Booking Details').item.json.clientName + \"! 🌟 Thank you for visiting \" + ($('Webhook - Appointment Created').first().json.body.business?.name || 'our team') + \" today! How was your \" + $('Extract Booking Details').item.json.service + \"? We would love your feedback: ⭐⭐⭐⭐⭐\", \"tenantId\": $('Extract Booking Details').item.json.tenantId } }}",
         "options": {
           "timeout": 10000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-service-token",
+              "value": "={{ $env.AI_EMPLOYEE_SERVICE_TOKEN }}"
+            }
+          ]
         }
       }
     },
@@ -229,7 +347,10 @@
       "name": "Update CRM Notes",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2880, 100],
+      "position": [
+        2880,
+        100
+      ],
       "notes": "Logs completion and feedback survey sent in client CRM profile.",
       "parameters": {
         "method": "POST",
@@ -237,7 +358,10 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Authorization", "value": "Bearer ai-employee-test-token" }
+            {
+              "name": "Authorization",
+              "value": "Bearer ai-employee-test-token"
+            }
           ]
         },
         "sendBody": true,
@@ -253,14 +377,25 @@
       "name": "Stop Workflow (Cancelled)",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.3,
-      "position": [1760, 440],
+      "position": [
+        1760,
+        440
+      ],
       "notes": "Logs cancellation and gracefully stops.",
       "parameters": {
         "mode": "manual",
         "assignments": {
           "assignments": [
-            { "name": "status", "value": "CANCELLED_STOPPED", "type": "string" },
-            { "name": "appointmentId", "value": "={{ $('Extract Booking Details').item.json.appointmentId }}", "type": "string" }
+            {
+              "name": "status",
+              "value": "CANCELLED_STOPPED",
+              "type": "string"
+            },
+            {
+              "name": "appointmentId",
+              "value": "={{ $('Extract Booking Details').item.json.appointmentId }}",
+              "type": "string"
+            }
           ]
         },
         "options": {}
@@ -270,64 +405,148 @@
   "connections": {
     "Webhook - Appointment Created": {
       "main": [
-        [{ "node": "Extract Booking Details", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Extract Booking Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Extract Booking Details": {
       "main": [
-        [{ "node": "Send WhatsApp Confirmation", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Send WhatsApp Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Send WhatsApp Confirmation": {
       "main": [
-        [{ "node": "Send Email Receipt", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Send Email Receipt",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Send Email Receipt": {
       "main": [
-        [{ "node": "Wait 24 Hours", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Wait 24 Hours",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Wait 24 Hours": {
       "main": [
-        [{ "node": "Check Appointment Status", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Check Appointment Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Check Appointment Status": {
       "main": [
-        [{ "node": "Is Still Confirmed?", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Is Still Confirmed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Is Still Confirmed?": {
       "main": [
-        [{ "node": "Send WhatsApp Reminder", "type": "main", "index": 0 }],
-        [{ "node": "Stop Workflow (Cancelled)", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Send WhatsApp Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stop Workflow (Cancelled)",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Send WhatsApp Reminder": {
       "main": [
-        [{ "node": "Wait Until Post-Appointment", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Wait Until Post-Appointment",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Wait Until Post-Appointment": {
       "main": [
-        [{ "node": "Check Final Status", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Check Final Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Check Final Status": {
       "main": [
-        [{ "node": "Is Visit Completed?", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Is Visit Completed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Is Visit Completed?": {
       "main": [
-        [{ "node": "Ask For Review (WhatsApp)", "type": "main", "index": 0 }],
-        [{ "node": "Stop Workflow (Cancelled)", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Ask For Review (WhatsApp)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stop Workflow (Cancelled)",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Ask For Review (WhatsApp)": {
       "main": [
-        [{ "node": "Update CRM Notes", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Update CRM Notes",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   }

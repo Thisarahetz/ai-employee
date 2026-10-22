@@ -1,66 +1,67 @@
+/**
+ * Connects one AI Employee tenant to its GlowDesk workspace.
+ *
+ * In GlowDesk, the salon owner creates an AI Employee API key (Settings →
+ * AI Employee). Then, from this repo:
+ *
+ *   pnpm --filter @ai-employee/api exec ts-node --transpile-only scripts/setup-glowdesk.ts \
+ *     --tenant <ai-employee-tenant-slug> \
+ *     --base-url https://<salon-slug>.glowdesk.app/api \
+ *     --api-key <key shown once in GlowDesk>
+ *
+ * (--api-key may instead come from GLOWDESK_AI_API_KEY.) Idempotent: re-running
+ * rotates the stored credential and re-discovers actions/knowledge.
+ */
 import { NestFactory } from '@nestjs/core';
+import { CredentialType, IntegrationType } from '@prisma/client';
 import { AppModule } from '../src/app.module';
 import { IntegrationService } from '../src/modules/integration/integration.service';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { IntegrationType, CredentialType } from '@prisma/client';
 
-async function bootstrap() {
-  const app = await NestFactory.createApplicationContext(AppModule);
-  const prisma = app.get(PrismaService);
-  const integrationService = app.get(IntegrationService);
-
-  // Find the first tenant in the system (the user's workspace)
-  const tenant = await prisma.tenant.findFirst();
-  if (!tenant) {
-    console.error('No tenant found. Run the seed script first.');
-    process.exit(1);
-  }
-
-  console.log(`Using tenant: ${tenant.name} (${tenant.id})`);
-
-  // Create the GlowDesk Integration (idempotent — reuse an existing one by name)
-  let integration = await prisma.integration.findFirst({
-    where: { tenantId: tenant.id, name: 'GlowDesk' },
-  });
-  if (integration) {
-    console.log(`Reusing existing integration: ${integration.id}`);
-  } else {
-    integration = await integrationService.create(tenant.id, {
-      name: 'GlowDesk',
-      type: IntegrationType.REST_API,
-      baseUrl: 'http://localhost:3141',
-      config: {},
-    });
-    console.log(`Created integration: ${integration.id}`);
-
-    await integrationService.addCredential(tenant.id, integration.id, {
-      type: CredentialType.BEARER_TOKEN,
-      payload: { token: 'ai-employee-test-token' },
-    });
-    console.log('Added bearer token credential.');
-  }
-
-  // Discover actions (GET /ai/actions -> IntegrationAction rows for the Action Agent)
-  try {
-    const result = await integrationService.discover(tenant.id, integration.id);
-    console.log(`Discovery successful: found ${result.discovered} actions.`);
-  } catch (err: any) {
-    console.error('Discovery failed:', err.message);
-  }
-
-  // Sync knowledge (GET /ai/knowledge -> docs in the "GlowDesk (synced)" KB + Location records)
-  try {
-    const result = await integrationService.syncKnowledge(tenant.id, integration.id);
-    console.log(
-      `Knowledge sync successful: KB ${result.knowledgeBaseId} — ` +
-        `documents ${result.created} added / ${result.updated} updated / ${result.removed} removed, ` +
-        `locations ${result.locationsCreated} added / ${result.locationsUpdated} updated.`,
-    );
-  } catch (err: any) {
-    console.error('Knowledge sync failed:', err.message);
-  }
-
-  await app.close();
+function arg(name: string): string | undefined {
+  const i = process.argv.indexOf(`--${name}`);
+  return i >= 0 ? process.argv[i + 1] : undefined;
 }
 
-bootstrap();
+async function main() {
+  const slug = arg('tenant');
+  const baseUrl = arg('base-url')?.replace(/\/+$/, '');
+  const apiKey = arg('api-key') ?? process.env.GLOWDESK_AI_API_KEY;
+  if (!slug || !baseUrl || !apiKey) {
+    throw new Error('Usage: setup-glowdesk.ts --tenant <slug> --base-url <glowdesk api url> --api-key <key>');
+  }
+  if (!/^https?:\/\//.test(baseUrl)) throw new Error('--base-url must start with http:// or https://');
+  if (process.env.NODE_ENV === 'production' && !baseUrl.startsWith('https://')) throw new Error('--base-url must use https in production');
+
+  const app = await NestFactory.createApplicationContext(AppModule, { logger: ['error', 'warn'] });
+  try {
+    const prisma = app.get(PrismaService);
+    const integrations = app.get(IntegrationService);
+
+    const tenant = await prisma.tenant.findUnique({ where: { slug } });
+    if (!tenant) throw new Error(`No AI Employee tenant with slug "${slug}".`);
+
+    let integration = await prisma.integration.findFirst({ where: { tenantId: tenant.id, name: 'GlowDesk' } });
+    if (integration) {
+      if (integration.baseUrl !== baseUrl) integration = await integrations.update(tenant.id, integration.id, { baseUrl });
+      console.log(`Using existing GlowDesk integration ${integration.id}`);
+    } else {
+      integration = await integrations.create(tenant.id, { name: 'GlowDesk', type: IntegrationType.REST_API, baseUrl, config: {} });
+      console.log(`Created GlowDesk integration ${integration.id}`);
+    }
+    await integrations.addCredential(tenant.id, integration.id, { type: CredentialType.BEARER_TOKEN, payload: { token: apiKey } });
+    console.log('Stored the API key (encrypted).');
+
+    const discovered = await integrations.discover(tenant.id, integration.id);
+    console.log(`Discovered ${discovered.discovered} GlowDesk actions.`);
+    const kb = await integrations.syncKnowledge(tenant.id, integration.id);
+    console.log(`Knowledge synced: ${kb.created} added, ${kb.updated} updated, ${kb.removed} removed; locations ${kb.locationsCreated} added, ${kb.locationsUpdated} updated.`);
+  } finally {
+    await app.close();
+  }
+}
+
+main().catch((err) => {
+  console.error(err instanceof Error ? err.message : err);
+  process.exit(1);
+});

@@ -57,6 +57,8 @@ model Tenant {
   aiEmployeeApprovals   AiEmployeeApproval[]
   aiEmployeeActivities  AiEmployeeActivity[]
   aiTasks               AiTask[]
+  aiTaskSchedules       AiTaskSchedule[]
+  aiSettings            TenantAiSettings?
   ownerCommandThreads   OwnerCommandThread[]
   dynamicSagas          DynamicSaga[]
   synthesizedInvariants SynthesizedInvariant[]
@@ -78,26 +80,26 @@ enum BusinessType {
 }
 
 model Business {
-  id        String       @id @default(cuid())
-  tenantId  String
-  tenant    Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  name      String
-  type      BusinessType @default(CUSTOM)
-  timezone  String       @default("UTC")
-  settings  Json         @default("{}")
+  id            String       @id @default(cuid())
+  tenantId      String
+  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name          String
+  type          BusinessType @default(CUSTOM)
+  timezone      String       @default("UTC")
+  settings      Json         @default("{}")
   /// Set when this Location was mirrored from an external system's `GET /ai/knowledge`
   /// locations feed. `integrationId` is nulled (not cascaded) if that integration is
   /// removed; `externalId` is the source system's stable id, used to upsert on re-sync.
   integrationId String?
   integration   Integration? @relation("IntegrationSyncedLocations", fields: [integrationId], references: [id], onDelete: SetNull)
   externalId    String?
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
-  integrations       Integration[] @relation("BusinessIntegrations")
-  channels           Channel[]
-  conversations      Conversation[]
-  workflows          Workflow[]
+  integrations  Integration[]  @relation("BusinessIntegrations")
+  channels      Channel[]
+  conversations Conversation[]
+  workflows     Workflow[]
 
   @@unique([integrationId, externalId])
   @@index([tenantId])
@@ -423,28 +425,28 @@ enum IntegrationStatus {
 }
 
 model Integration {
-  id         String            @id @default(cuid())
-  tenantId   String
-  tenant     Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  businessId String?
-  business   Business?         @relation("BusinessIntegrations", fields: [businessId], references: [id])
-  name       String
-  type       IntegrationType
-  baseUrl    String?
+  id                  String            @id @default(cuid())
+  tenantId            String
+  tenant              Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  businessId          String?
+  business            Business?         @relation("BusinessIntegrations", fields: [businessId], references: [id])
+  name                String
+  type                IntegrationType
+  baseUrl             String?
   /// REST_API type: endpoint/header/auth/request-response mapping config.
-  config     Json              @default("{}")
-  status     IntegrationStatus @default(DISCONNECTED)
+  config              Json              @default("{}")
+  status              IntegrationStatus @default(DISCONNECTED)
   /// Dedicated KnowledgeBase auto-created to hold this integration's `GET /ai/knowledge` sync output.
   knowledgeBaseId     String?
-  knowledgeBase       KnowledgeBase? @relation(fields: [knowledgeBaseId], references: [id], onDelete: SetNull)
+  knowledgeBase       KnowledgeBase?    @relation(fields: [knowledgeBaseId], references: [id], onDelete: SetNull)
   lastKnowledgeSyncAt DateTime?
-  createdAt  DateTime          @default(now())
-  updatedAt  DateTime          @updatedAt
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
 
   credentials     IntegrationCredential[]
   actions         IntegrationAction[]
   syncedDocuments Document[]
-  syncedLocations Business[] @relation("IntegrationSyncedLocations")
+  syncedLocations Business[]              @relation("IntegrationSyncedLocations")
 
   @@index([tenantId])
   @@index([knowledgeBaseId])
@@ -611,10 +613,14 @@ model AiUsageLog {
   outputTokens     Int
   estimatedCostUsd Decimal        @db.Decimal(10, 6)
   executionTimeMs  Int
+  /// Set when the call was made while executing an AI workforce task.
+  taskId           String?
   createdAt        DateTime       @default(now())
 
   @@index([tenantId])
   @@index([tenantId, agentType, createdAt])
+  @@index([tenantId, createdAt])
+  @@index([taskId])
   @@map("ai_usage_logs")
 }
 
@@ -623,35 +629,36 @@ model AiUsageLog {
 // ─────────────────────────────────────────────────────────────────────────
 
 model AiEmployee {
-  id               String       @id @default(cuid())
-  tenantId         String
-  tenant           Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  name             String
-  role             String
-  department       String
-  businessFunction String
-  description      String
-  avatar           String?
-  status           String       @default("ACTIVE") // ACTIVE, PAUSED, NEEDS_ATTENTION
-  actionLevel      String       @default("AUTOMATIC") // AUTOMATIC, APPROVAL_REQUIRED, OWNER_ONLY
-  scope            String       @default("ALL_BRANCHES") // ALL_BRANCHES, SELECTED_BRANCHES
-  branchIds        String[]     @default([])
-  responsibilities Json         @default("[]")
-  assignedTasks    Json         @default("[]")
-  permissions      Json         @default("{}")
-  systemPrompt     String       @default("")
+  id                   String   @id @default(cuid())
+  tenantId             String
+  tenant               Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name                 String
+  role                 String
+  department           String
+  businessFunction     String
+  description          String
+  avatar               String?
+  status               String   @default("ACTIVE") // ACTIVE, PAUSED, NEEDS_ATTENTION
+  actionLevel          String   @default("AUTOMATIC") // AUTOMATIC, APPROVAL_REQUIRED, OWNER_ONLY
+  scope                String   @default("ALL_BRANCHES") // ALL_BRANCHES, SELECTED_BRANCHES
+  branchIds            String[] @default([])
+  responsibilities     Json     @default("[]")
+  assignedTasks        Json     @default("[]")
+  permissions          Json     @default("{}")
+  systemPrompt         String   @default("")
   /// Command-engine tool grants (see ai-workforce/workforce-tools.ts). Only
   /// authoritative once `toolAccessConfigured` is true; before that the
   /// role-safe default grant set applies.
-  connectedTools   String[]     @default([])
+  connectedTools       String[] @default([])
   toolAccessConfigured Boolean  @default(false)
-  stats            Json         @default("{}")
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
+  stats                Json     @default("{}")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
-  approvals        AiEmployeeApproval[]
-  activities       AiEmployeeActivity[]
-  tasks            AiTask[]
+  approvals  AiEmployeeApproval[]
+  activities AiEmployeeActivity[]
+  tasks      AiTask[]
+  schedules  AiTaskSchedule[]
 
   @@index([tenantId])
   @@index([tenantId, status])
@@ -659,24 +666,24 @@ model AiEmployee {
 }
 
 model AiEmployeeApproval {
-  id               String       @id @default(cuid())
+  id               String     @id @default(cuid())
   tenantId         String
-  tenant           Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant           Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   employeeId       String
-  employee         AiEmployee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee         AiEmployee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   title            String
   description      String
   actionType       String
-  actionPayload    Json         @default("{}")
-  status           String       @default("PENDING") // PENDING, APPROVED, REJECTED
-  requestedAt      DateTime     @default(now())
+  actionPayload    Json       @default("{}")
+  status           String     @default("PENDING") // PENDING, APPROVED, REJECTED
+  requestedAt      DateTime   @default(now())
   reviewedAt       DateTime?
   reviewedByUserId String?
   reviewNotes      String?
   /// Set when the approval gates a command-engine tool call. `actionPayload`
   /// then holds `{ kind: "tool_call", tool, args }`, executed on approval.
   taskId           String?
-  task             AiTask?      @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  task             AiTask?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
   executedAt       DateTime?
   executionResult  Json?
 
@@ -711,41 +718,54 @@ model AiEmployeeActivity {
 /// A unit of work assigned to an AI employee by the owner (directly, via a
 /// chat command, or delegated by another AI employee).
 model AiTask {
-  id                  String     @id @default(cuid())
+  id                  String              @id @default(cuid())
   tenantId            String
-  tenant              Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant              Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   employeeId          String?
-  employee            AiEmployee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  employee            AiEmployee?         @relation(fields: [employeeId], references: [id], onDelete: SetNull)
   /// Group parent for commands sent to several employees at once.
   parentTaskId        String?
-  parent              AiTask?    @relation("AiTaskGroup", fields: [parentTaskId], references: [id], onDelete: Cascade)
-  children            AiTask[]   @relation("AiTaskGroup")
+  parent              AiTask?             @relation("AiTaskGroup", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  children            AiTask[]            @relation("AiTaskGroup")
   /// Set when another AI employee delegated this task.
   delegatedFromTaskId String?
   /// Set for review tasks: the task whose result is being reviewed.
   reviewOfTaskId      String?
   threadId            String?
   thread              OwnerCommandThread? @relation(fields: [threadId], references: [id], onDelete: SetNull)
-  kind                String     @default("TASK") // TASK, REVIEW, GROUP
+  kind                String              @default("TASK") // TASK, REVIEW, GROUP
   title               String
-  description         String     @default("")
+  description         String              @default("")
   goal                String?
-  priority            String     @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  priority            String              @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
   /// QUEUED, RUNNING, WAITING_APPROVAL, PAUSED, BLOCKED, COMPLETED, FAILED, CANCELLED
-  status              String     @default("QUEUED")
-  progress            Int        @default(0)
+  status              String              @default("QUEUED")
+  progress            Int                 @default(0)
   deadline            DateTime?
   /// Confidential results are never shown to other employees' context.
-  confidential        Boolean    @default(false)
+  confidential        Boolean             @default(false)
   /// Ids of earlier tasks whose results this task may use as context.
-  contextTaskIds      String[]   @default([])
+  contextTaskIds      String[]            @default([])
   result              String?
   error               String?
   createdByUserId     String?
+  /// Set when a recurring schedule created this task.
+  scheduleId          String?
+  schedule            AiTaskSchedule?     @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  /// Execution attempts so far (automatic retries + owner retries).
+  attempts            Int                 @default(0)
+  maxAttempts         Int                 @default(3)
+  /// When a retry is scheduled, the earliest time it will run.
+  nextRunAt           DateTime?
+  /// Refreshed by the worker while RUNNING; a stale heartbeat means the worker died.
+  heartbeatAt         DateTime?
+  inputTokens         Int                 @default(0)
+  outputTokens        Int                 @default(0)
+  costUsd             Decimal             @default(0) @db.Decimal(10, 6)
   startedAt           DateTime?
   completedAt         DateTime?
-  createdAt           DateTime   @default(now())
-  updatedAt           DateTime   @updatedAt
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
 
   steps     AiTaskStep[]
   approvals AiEmployeeApproval[]
@@ -754,10 +774,71 @@ model AiTask {
   @@index([tenantId, status])
   @@index([tenantId, employeeId, createdAt])
   @@index([parentTaskId])
+  @@index([scheduleId, status])
+  @@index([status, heartbeatAt])
   @@map("ai_tasks")
 }
 
 /// Execution log: one row per plan note, tool call, approval request, result or error.
+/// A recurring assignment: the scheduler creates an AiTask for the employee each
+/// time the cron expression fires (evaluated in `timezone`).
+model AiTaskSchedule {
+  id                     String     @id @default(cuid())
+  tenantId               String
+  tenant                 Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employeeId             String
+  employee               AiEmployee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  title                  String
+  description            String     @default("")
+  goal                   String?
+  priority               String     @default("MEDIUM")
+  /// Standard 5-field cron expression, e.g. "0 9 * * 1-5".
+  cron                   String
+  timezone               String     @default("UTC")
+  enabled                Boolean    @default(true)
+  /// SKIP: don't start a new run while the previous one is still active.
+  /// QUEUE: always create the next run.
+  overlapPolicy          String     @default("SKIP")
+  nextRunAt              DateTime?
+  lastRunAt              DateTime?
+  lastTaskId             String?
+  lastStatus             String?
+  /// The schedule disables itself after this many failed runs in a row.
+  consecutiveFailures    Int        @default(0)
+  maxConsecutiveFailures Int        @default(3)
+  createdByUserId        String?
+  createdAt              DateTime   @default(now())
+  updatedAt              DateTime   @updatedAt
+
+  tasks AiTask[]
+
+  @@index([tenantId])
+  @@index([enabled, nextRunAt])
+  @@index([employeeId])
+  @@map("ai_task_schedules")
+}
+
+/// Per-tenant AI safety limits. A missing row means platform defaults apply
+/// (see ai-workforce/usage-limits.ts).
+model TenantAiSettings {
+  tenantId           String   @id
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// Kill switch: when false no AI workforce task runs for this tenant.
+  aiEnabled          Boolean  @default(true)
+  monthlyBudgetUsd   Decimal? @db.Decimal(10, 2)
+  dailyBudgetUsd     Decimal? @db.Decimal(10, 2)
+  maxTaskCostUsd     Decimal? @db.Decimal(10, 4)
+  maxTaskSteps       Int?
+  maxConcurrentTasks Int?
+  maxTasksPerDay     Int?
+  maxSchedules       Int?
+  updatedByUserId    String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("tenant_ai_settings")
+}
+
 model AiTaskStep {
   id        String   @id @default(cuid())
   tenantId  String
@@ -1013,7 +1094,7 @@ model DynamicSaga {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
-  steps          SagaStep[]
+  steps SagaStep[]
 
   @@index([tenantId])
   @@index([tenantId, conversationId])
@@ -1054,8 +1135,8 @@ model SynthesizedInvariant {
   sourceHandoff      HumanHandoff    @relation(fields: [sourceHandoffId], references: [id], onDelete: Cascade)
   name               String
   description        String
-  conditionRule      Json            // Structured predicate JSON logic
-  actionOverride     Json?           // Structured action / routing override
+  conditionRule      Json // Structured predicate JSON logic
+  actionOverride     Json? // Structured action / routing override
   confidenceScore    Float           @default(0.0)
   regressionPassRate Float?
   status             InvariantStatus @default(CANDIDATE)
@@ -1067,4 +1148,3 @@ model SynthesizedInvariant {
   @@index([tenantId, status])
   @@map("synthesized_invariants")
 }
-

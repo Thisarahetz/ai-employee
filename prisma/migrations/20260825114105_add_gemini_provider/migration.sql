@@ -1,1 +1,0 @@
-ALTER TYPE "AiProviderName" ADD VALUE 'GEMINI';

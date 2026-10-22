@@ -1,19 +1,28 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
-import { OnEvent } from '@nestjs/event-emitter';
+import { Injectable, Logger } from '@nestjs/common';
 import { AgentType, Prisma } from '@prisma/client';
 import type { AIMessage, AIToolCall, AIToolDefinition } from '@ai-employee/ai-core';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AiProviderService } from '../ai-provider/ai-provider.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { AiEmployeeApprovalService } from '../ai-employee/ai-employee-approval.service';
-import { TASK_QUEUED_EVENT, WorkforceToolExecutorService } from './workforce-tool-executor.service';
+import { WorkforceToolExecutorService } from './workforce-tool-executor.service';
 import { WorkforceTaskService } from './workforce-task.service';
+import { WorkforceScheduleService } from './workforce-schedule.service';
 import { WorkforceToolSpec, evaluateToolPolicy } from './workforce-tools';
+import { AiLimits, UsageLimitsService, startOfUtcDay, startOfUtcMonth } from './usage-limits.service';
+import {
+  AI_CALL_RETRY_DELAYS_MS,
+  LimitReachedError,
+  RepeatedCallGuard,
+  TRANSIENT_ERROR,
+  decideOnFailure,
+} from './retry-policy';
 
-export const MAX_STEPS = 8;
 const MAX_CONSECUTIVE_FAILED_ROUNDS = 3;
-const MAX_CONCURRENT = 3;
-const PRIORITY_RANK: Record<string, number> = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+/** A RUNNING task whose heartbeat is older than this is treated as crashed. */
+export const STALE_HEARTBEAT_MS = 5 * 60_000;
+
+export type RunOutcome = 'DONE' | 'NOT_CLAIMED' | 'DEFERRED';
 
 type TaskRow = Prisma.AiTaskGetPayload<{ include: { employee: true } }>;
 
@@ -39,8 +48,6 @@ function describeCall(name: string, args: Record<string, unknown>): string {
   return `${name}(${parts.join(', ')})`;
 }
 
-const TRANSIENT_AI_ERROR = /\b(429|500|502|503|504)\b|UNAVAILABLE|RESOURCE_EXHAUSTED|overloaded|high demand|rate limit|timed? ?out|ECONNRESET|ETIMEDOUT|socket hang up/i;
-export const AI_RETRY_DELAYS_MS = [2000, 6000, 15000];
 
 /** Turns provider errors (often raw JSON) into one readable sentence for the owner. */
 export function friendlyAiError(err: unknown): string {
@@ -52,8 +59,8 @@ export function friendlyAiError(err: unknown): string {
   } catch {
     // Not JSON — keep the original text.
   }
-  if (TRANSIENT_AI_ERROR.test(raw)) {
-    return `The AI provider is busy or unavailable right now (${msg.slice(0, 160)}). Say “retry it” in a minute.`;
+  if (TRANSIENT_ERROR.test(raw)) {
+    return `The AI provider is busy or unavailable right now (${msg.slice(0, 160)}).`;
   }
   return msg.slice(0, 500);
 }
@@ -71,16 +78,14 @@ function compact(value: unknown, max = 2500): string {
  * outcomes" section is built from recorded steps, not from model prose, so
  * the owner can always see what really happened.
  *
- * Execution is in-process (bounded concurrency, priority ordered). Tasks
- * interrupted by a restart are marked PAUSED so the owner can resume them.
+ * Tasks arrive from the durable queue (TaskWorkerProcessor). Safeguards:
+ * per-tenant concurrency, daily/monthly budgets checked before every model
+ * call, a per-task cost cap, a step cap, repeated-call detection, and a
+ * heartbeat so crashed runs are recovered by the maintenance tick.
  */
 @Injectable()
-export class TaskExecutorService implements OnApplicationBootstrap {
+export class TaskExecutorService {
   private readonly logger = new Logger(TaskExecutorService.name);
-  private readonly queue: { taskId: string; rank: number; at: number }[] = [];
-  private active = 0;
-  /** Set to false in tests to drive `run()` directly. */
-  autoDrain = true;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -89,107 +94,93 @@ export class TaskExecutorService implements OnApplicationBootstrap {
     private readonly tasks: WorkforceTaskService,
     private readonly approvals: AiEmployeeApprovalService,
     private readonly audit: AuditLogService,
+    private readonly limits: UsageLimitsService,
+    private readonly schedules: WorkforceScheduleService,
   ) {}
 
-  async onApplicationBootstrap() {
-    try {
-      const interrupted = await this.prisma.aiTask.updateMany({
-        where: { status: 'RUNNING', kind: { not: 'GROUP' } },
-        data: { status: 'PAUSED', error: 'Interrupted by a server restart. Resume the task to continue.' },
+  /**
+   * Claims a QUEUED task (QUEUED → RUNNING, attempts+1) if the tenant is under
+   * its concurrency limit. A per-tenant advisory lock makes count+claim atomic
+   * across every worker instance.
+   */
+  private async claim(taskId: string): Promise<{ claimed: boolean; deferred: boolean }> {
+    const row = await this.prisma.aiTask.findFirst({ where: { id: taskId }, select: { tenantId: true, status: true } });
+    if (!row || row.status !== 'QUEUED') return { claimed: false, deferred: false };
+    const limits = await this.limits.limits(row.tenantId);
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'aiw:' + row.tenantId}))`;
+      const running = await tx.aiTask.count({ where: { tenantId: row.tenantId, status: 'RUNNING', kind: { not: 'GROUP' } } });
+      if (running >= limits.maxConcurrentTasks) {
+        // Mark when it will be looked at again, so the lost-job sweep leaves it alone.
+        await tx.aiTask.updateMany({ where: { id: taskId, status: 'QUEUED' }, data: { nextRunAt: new Date(Date.now() + 15_000) } });
+        return { claimed: false, deferred: true };
+      }
+      const now = new Date();
+      const res = await tx.aiTask.updateMany({
+        where: { id: taskId, status: 'QUEUED' },
+        data: { status: 'RUNNING', startedAt: now, heartbeatAt: now, nextRunAt: null, error: null, attempts: { increment: 1 } },
       });
-      if (interrupted.count) this.logger.warn(`Marked ${interrupted.count} interrupted task(s) as PAUSED.`);
-      const queued = await this.prisma.aiTask.findMany({
-        where: { status: 'QUEUED', kind: { not: 'GROUP' } },
-        select: { id: true, priority: true },
-        take: 200,
-      });
-      for (const t of queued) this.push(t.id, t.priority);
-      this.drain();
-    } catch (err) {
-      this.logger.error(`Task recovery on startup failed: ${(err as Error).message}`);
-    }
-  }
-
-  @OnEvent(TASK_QUEUED_EVENT)
-  async onQueued(payload: { taskId: string; tenantId: string }) {
-    const task = await this.prisma.aiTask.findFirst({ where: { id: payload.taskId, tenantId: payload.tenantId }, select: { priority: true } });
-    if (!task) return;
-    this.push(payload.taskId, task.priority);
-    this.drain();
-  }
-
-  private push(taskId: string, priority: string) {
-    if (this.queue.some((q) => q.taskId === taskId)) return;
-    this.queue.push({ taskId, rank: PRIORITY_RANK[priority] ?? 2, at: Date.now() });
-    this.queue.sort((a, b) => a.rank - b.rank || a.at - b.at);
-  }
-
-  private drain() {
-    if (!this.autoDrain) return;
-    while (this.active < MAX_CONCURRENT && this.queue.length) {
-      const next = this.queue.shift()!;
-      this.active++;
-      this.run(next.taskId)
-        .catch((err) => this.logger.error(`Task ${next.taskId} crashed: ${(err as Error).message}`))
-        .finally(() => {
-          this.active--;
-          this.drain();
-        });
-    }
-  }
-
-  // ── Execution ───────────────────────────────────────────────────────────
-
-  async run(taskId: string): Promise<void> {
-    // Atomic claim: only one runner can move QUEUED → RUNNING.
-    const claimed = await this.prisma.aiTask.updateMany({
-      where: { id: taskId, status: 'QUEUED' },
-      data: { status: 'RUNNING', startedAt: new Date(), error: null },
+      return { claimed: res.count === 1, deferred: false };
     });
-    if (claimed.count !== 1) return;
+  }
+
+  async run(taskId: string): Promise<RunOutcome> {
+    const { claimed, deferred } = await this.claim(taskId);
+    if (deferred) return 'DEFERRED';
+    if (!claimed) return 'NOT_CLAIMED';
 
     const task = (await this.prisma.aiTask.findFirst({ where: { id: taskId }, include: { employee: true } })) as TaskRow | null;
-    if (!task) return;
+    if (!task) return 'NOT_CLAIMED';
     const { tenantId } = task;
 
     if (!task.employee) {
-      await this.fail(task, 'This task has no AI employee assigned. Reassign it to continue.');
-      return;
+      await this.fail(task, new Error('This task has no AI employee assigned. Reassign it to continue.'));
+      return 'DONE';
     }
     if (task.employee.status !== 'ACTIVE') {
       await this.prisma.aiTask.update({ where: { id: task.id }, data: { status: 'BLOCKED', error: `${task.employee.name} is paused.` } });
       await this.tasks.addStep(tenantId, task.id, { kind: 'ERROR', status: 'BLOCKED', message: `${task.employee.name} is paused by the owner.` });
       if (task.parentTaskId) await this.tasks.refreshGroup(tenantId, task.parentTaskId);
-      return;
+      return 'DONE';
     }
 
     try {
+      const limits = await this.limits.limits(tenantId);
+      await this.assertBudget(tenantId, limits);
+
       const toolset = await this.tools.loadToolset(tenantId);
       const offered = this.offeredTools(task.employee, toolset);
       const messages = await this.buildMessages(task, toolset);
       await this.tasks.addStep(tenantId, task.id, {
         kind: 'NOTE',
-        message: `Started by ${task.employee.name}. Tools available: ${offered.map((t) => t.name).join(', ') || 'none'}.`,
+        message: `Started by ${task.employee.name}${task.attempts > 1 ? ` (attempt ${task.attempts} of ${task.maxAttempts})` : ''}. Tools available: ${offered.map((t) => t.name).join(', ') || 'none'}.`,
       });
 
       const transcript: AIMessage[] = [];
+      const repeats = new RepeatedCallGuard(2);
       let finalText = '';
       let failedRounds = 0;
+      const maxSteps = limits.maxTaskSteps;
 
-      for (let step = 0; step < MAX_STEPS; step++) {
+      for (let step = 0; step < maxSteps; step++) {
         if (await this.stopped(task.id)) return this.onStopped(task);
 
-        const res = await this.completeWithRetry(task.id, () =>
-          this.aiProvider.complete(tenantId, AgentType.ACTION, [...messages, ...transcript], {
-            tools: offered.length ? offered : undefined,
-          }),
-        );
+        const res = await this.callModel(task, limits, [...messages, ...transcript], offered.length ? offered : undefined);
 
         if (!res.toolCalls?.length) {
           finalText = res.content?.trim() ?? '';
           break;
         }
         if (await this.stopped(task.id)) return this.onStopped(task);
+
+        if (res.toolCalls.some((c) => repeats.record(c.name, c.arguments))) {
+          await this.tasks.addStep(tenantId, task.id, {
+            kind: 'NOTE',
+            status: 'FAILED',
+            message: 'Stopped tool use: the same call was repeated several times with identical inputs.',
+          });
+          break;
+        }
 
         const outcomes = await this.runToolCalls(task, toolset, res.toolCalls);
         failedRounds = outcomes.every((o) => o.status !== 'SUCCESS' && o.status !== 'PENDING') ? failedRounds + 1 : 0;
@@ -199,9 +190,11 @@ export class TaskExecutorService implements OnApplicationBootstrap {
           role: 'user',
           content:
             `Tool results:\n${outcomes.map((o) => `- ${o.name} [${o.status}]: ${o.summary}`).join('\n')}\n\n` +
-            'Continue the task. When you have enough information, write the final report (no more tool calls).',
+            (step + 1 >= maxSteps - 1
+              ? 'You are almost out of steps. Write the final report now (no more tool calls).'
+              : 'Continue the task. When you have enough information, write the final report (no more tool calls).'),
         });
-        await this.prisma.aiTask.update({ where: { id: task.id }, data: { progress: Math.min(90, Math.round(((step + 1) / MAX_STEPS) * 90)) } });
+        await this.prisma.aiTask.update({ where: { id: task.id }, data: { progress: Math.min(90, Math.round(((step + 1) / maxSteps) * 90)) } });
 
         if (failedRounds >= MAX_CONSECUTIVE_FAILED_ROUNDS) {
           await this.tasks.addStep(tenantId, task.id, { kind: 'NOTE', status: 'FAILED', message: 'Stopping tool use after repeated failures.' });
@@ -212,19 +205,48 @@ export class TaskExecutorService implements OnApplicationBootstrap {
       if (await this.stopped(task.id)) return this.onStopped(task);
 
       if (!finalText) {
-        const wrap = await this.completeWithRetry(task.id, () => this.aiProvider.complete(tenantId, AgentType.ACTION, [
+        const wrap = await this.callModel(task, limits, [
           ...messages,
           ...transcript,
           { role: 'user', content: 'Write the final report now, based strictly on the tool results above. Do not call tools.' },
-        ]));
+        ]);
         finalText = wrap.content?.trim() ?? '';
       }
       if (!finalText) throw new Error('The AI model returned an empty response.');
 
       await this.finish(task, finalText);
     } catch (err) {
-      await this.fail(task, friendlyAiError(err));
+      await this.fail(task, err);
     }
+    return 'DONE';
+  }
+
+  /** Budget gate + provider call (with short in-call retries) + per-task cost accounting. */
+  private async callModel(task: TaskRow, limits: AiLimits, messages: AIMessage[], tools?: AIToolDefinition[]) {
+    await this.assertBudget(task.tenantId, limits);
+    const spent = await this.prisma.aiTask.findFirst({ where: { id: task.id }, select: { costUsd: true } });
+    if (Number(spent?.costUsd ?? 0) >= limits.maxTaskCostUsd) {
+      throw new LimitReachedError(
+        `This task reached its cost limit ($${limits.maxTaskCostUsd.toFixed(2)}). Raise "max cost per task" or split the work, then resume it.`,
+      );
+    }
+    const res = await this.completeWithRetry(task.id, () =>
+      this.aiProvider.complete(task.tenantId, AgentType.ACTION, messages, { tools, taskId: task.id }),
+    );
+    await this.prisma.aiTask.update({
+      where: { id: task.id },
+      data: {
+        inputTokens: { increment: res.inputTokens ?? 0 },
+        outputTokens: { increment: res.outputTokens ?? 0 },
+        costUsd: { increment: new Prisma.Decimal(res.estimatedCostUsd ?? 0) },
+      },
+    });
+    return res;
+  }
+
+  private async assertBudget(tenantId: string, limits: AiLimits) {
+    const check = await this.limits.checkBudget(tenantId, limits);
+    if (!check.ok) throw new LimitReachedError(check.reason);
   }
 
   /** Tools the model is offered: everything the policy doesn't flatly deny. */
@@ -420,14 +442,14 @@ export class TaskExecutorService implements OnApplicationBootstrap {
       try {
         return await call();
       } catch (err) {
-        const delay = AI_RETRY_DELAYS_MS[attempt];
-        if (delay === undefined || !TRANSIENT_AI_ERROR.test((err as Error)?.message ?? '') || (await this.stopped(taskId))) throw err;
+        const delay = AI_CALL_RETRY_DELAYS_MS[attempt];
+        if (delay === undefined || !TRANSIENT_ERROR.test((err as Error)?.message ?? '') || (await this.stopped(taskId))) throw err;
         const t = await this.prisma.aiTask.findFirst({ where: { id: taskId }, select: { tenantId: true } });
         if (t) {
           await this.tasks.addStep(t.tenantId, taskId, {
             kind: 'NOTE',
             status: 'FAILED',
-            message: `AI provider busy — retrying in ${delay / 1000}s (attempt ${attempt + 2} of ${AI_RETRY_DELAYS_MS.length + 1}).`,
+            message: `AI provider busy — retrying in ${delay / 1000}s (call attempt ${attempt + 2} of ${AI_CALL_RETRY_DELAYS_MS.length + 1}).`,
           });
         }
         await new Promise((r) => setTimeout(r, delay));
@@ -435,14 +457,16 @@ export class TaskExecutorService implements OnApplicationBootstrap {
     }
   }
 
+  /** Heartbeat + stop check in one query: false while the task is still ours and RUNNING. */
   private async stopped(taskId: string): Promise<boolean> {
-    const t = await this.prisma.aiTask.findFirst({ where: { id: taskId }, select: { status: true } });
-    return !t || t.status !== 'RUNNING';
+    const res = await this.prisma.aiTask.updateMany({ where: { id: taskId, status: 'RUNNING' }, data: { heartbeatAt: new Date() } });
+    return res.count !== 1;
   }
 
-  private async onStopped(task: TaskRow) {
+  private async onStopped(task: TaskRow): Promise<RunOutcome> {
     const t = await this.prisma.aiTask.findFirst({ where: { id: task.id }, select: { status: true } });
     await this.tasks.addStep(task.tenantId, task.id, { kind: 'CONTROL', message: `Execution stopped (task is now ${t?.status ?? 'deleted'}).` });
+    return 'DONE';
   }
 
   /** Builds the authoritative outcome list from recorded steps. */
@@ -470,7 +494,7 @@ export class TaskExecutorService implements OnApplicationBootstrap {
     // Don't overwrite an owner's pause/cancel that landed during the final call.
     const updated = await this.prisma.aiTask.updateMany({
       where: { id: task.id, status: 'RUNNING' },
-      data: { status, result, progress: status === 'COMPLETED' ? 100 : 95, completedAt: status === 'COMPLETED' ? new Date() : null },
+      data: { status, result, progress: status === 'COMPLETED' ? 100 : 95, completedAt: status === 'COMPLETED' ? new Date() : null, heartbeatAt: null },
     });
     if (updated.count !== 1) return this.onStopped(task);
 
@@ -492,6 +516,7 @@ export class TaskExecutorService implements OnApplicationBootstrap {
       },
     });
     if (status === 'COMPLETED') await this.bumpStats(task.employeeId!);
+    if (task.scheduleId) await this.schedules.recordOutcome(tenantId, task.scheduleId, status);
 
     if (task.threadId) {
       await this.tasks.postThreadMessage(tenantId, task.threadId, {
@@ -505,15 +530,72 @@ export class TaskExecutorService implements OnApplicationBootstrap {
     if (task.parentTaskId) await this.tasks.refreshGroup(tenantId, task.parentTaskId);
   }
 
-  private async fail(task: TaskRow, message: string) {
+  /**
+   * Ends an attempt that threw. Transient errors are retried later with
+   * backoff; limit errors block the task (budget limits resume on their own
+   * when the period resets); anything else fails it and tells the owner.
+   */
+  private async fail(task: TaskRow, err: unknown) {
     const { tenantId } = task;
+    const message = friendlyAiError(err);
+    const current = await this.prisma.aiTask.findFirst({ where: { id: task.id }, select: { attempts: true, maxAttempts: true } });
+    const decision = decideOnFailure(err, current?.attempts ?? task.attempts, current?.maxAttempts ?? task.maxAttempts);
+
+    if (decision.action === 'RETRY') {
+      const at = new Date(Date.now() + decision.delayMs);
+      const moved = await this.prisma.aiTask.updateMany({
+        where: { id: task.id, status: 'RUNNING' },
+        data: { status: 'QUEUED', error: message.slice(0, 2000), nextRunAt: at, heartbeatAt: null },
+      });
+      if (moved.count !== 1) return;
+      await this.tasks.addStep(tenantId, task.id, {
+        kind: 'NOTE',
+        status: 'FAILED',
+        message: `${message} Retrying automatically at ${at.toISOString()} (attempt ${(current?.attempts ?? 0) + 1} of ${current?.maxAttempts}).`,
+      });
+      await this.tasks.enqueue(tenantId, task.id, decision.delayMs);
+      this.logger.warn(`Task ${task.id} will retry in ${Math.round(decision.delayMs / 1000)}s: ${message}`);
+      return;
+    }
+
+    if (decision.action === 'BLOCK') {
+      const resumeAt = /daily/i.test(message)
+        ? new Date(startOfUtcDay().getTime() + 86400e3)
+        : /monthly/i.test(message)
+          ? (() => {
+              const m = startOfUtcMonth();
+              return new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth() + 1, 1));
+            })()
+          : null;
+      const moved = await this.prisma.aiTask.updateMany({
+        where: { id: task.id, status: 'RUNNING' },
+        data: { status: 'BLOCKED', error: message.slice(0, 2000), nextRunAt: resumeAt, heartbeatAt: null },
+      });
+      if (moved.count !== 1) return;
+      await this.tasks.addStep(tenantId, task.id, {
+        kind: 'ERROR',
+        status: 'BLOCKED',
+        message: resumeAt ? `${message} It will resume automatically at ${resumeAt.toISOString()}.` : message,
+      });
+      await this.audit.record(tenantId, task.createdByUserId ?? undefined, 'ai_task.limit_reached', 'AiTask', task.id, { reason: message });
+      await this.tasks.notifyOwners(tenantId, {
+        type: 'ai_workforce.limit_reached',
+        title: `AI limit reached: ${task.title}`,
+        body: message,
+        metadata: { taskId: task.id, employeeId: task.employeeId },
+      });
+      if (task.parentTaskId) await this.tasks.refreshGroup(tenantId, task.parentTaskId);
+      return;
+    }
+
     this.logger.warn(`Task ${task.id} failed: ${message}`);
-    await this.prisma.aiTask.updateMany({
+    const moved = await this.prisma.aiTask.updateMany({
       where: { id: task.id, status: 'RUNNING' },
-      data: { status: 'FAILED', error: message.slice(0, 2000), completedAt: new Date() },
+      data: { status: 'FAILED', error: message.slice(0, 2000), completedAt: new Date(), heartbeatAt: null },
     });
+    if (moved.count !== 1) return;
     await this.tasks.addStep(tenantId, task.id, { kind: 'ERROR', status: 'FAILED', message });
-    await this.audit.record(tenantId, task.createdByUserId ?? undefined, 'ai_task.failed', 'AiTask', task.id, { error: message });
+    await this.audit.record(tenantId, task.createdByUserId ?? undefined, 'ai_task.failed', 'AiTask', task.id, { error: message, attempts: current?.attempts });
     if (task.employeeId) {
       await this.prisma.aiEmployeeActivity.create({
         data: { tenantId, employeeId: task.employeeId, action: `Failed: ${task.title}`.slice(0, 250), category: 'OPERATIONS', details: message.slice(0, 400), status: 'FAILED' },
@@ -527,7 +609,15 @@ export class TaskExecutorService implements OnApplicationBootstrap {
         metadata: { taskIds: [task.id], kind: 'task_failed' },
         focusTaskIds: [task.id],
       });
+    } else {
+      await this.tasks.notifyOwners(tenantId, {
+        type: 'ai_workforce.task_failed',
+        title: `${task.employee?.name ?? 'AI employee'} could not finish: ${task.title}`,
+        body: message,
+        metadata: { taskId: task.id, employeeId: task.employeeId, scheduleId: task.scheduleId },
+      });
     }
+    if (task.scheduleId) await this.schedules.recordOutcome(tenantId, task.scheduleId, 'FAILED');
     if (task.parentTaskId) await this.tasks.refreshGroup(tenantId, task.parentTaskId);
   }
 
