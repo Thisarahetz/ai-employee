@@ -1,6 +1,6 @@
 {
   "name": "ai-employee-integration-sdk",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": false,
   "description": "Official TypeScript/Node.js SDK to connect external business systems (salons, clinics, hotels, e-commerce, CRM, ERP, etc.) to the AI Employee platform via the Integration API Contract.",
   "license": "MIT",
@@ -29,6 +29,28 @@
   ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "express-adapter": [
+        "dist/express-adapter.d.ts"
+      ],
+      "nestjs-adapter": [
+        "dist/nestjs-adapter.d.ts"
+      ],
+      "validation": [
+        "dist/validation.d.ts"
+      ],
+      "idempotency": [
+        "dist/idempotency.d.ts"
+      ],
+      "registry": [
+        "dist/registry.d.ts"
+      ],
+      "events": [
+        "dist/events.d.ts"
+      ]
+    }
+  },
   "files": [
     "dist",
     "README.md",
@@ -61,6 +83,10 @@
     "./registry": {
       "types": "./dist/registry.d.ts",
       "default": "./dist/registry.js"
+    },
+    "./events": {
+      "types": "./dist/events.d.ts",
+      "default": "./dist/events.js"
     }
   },
   "scripts": {
@@ -97,5 +123,8 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "typescript": "^5.6.3"
+  },
+  "bin": {
+    "ai-employee-integration-sdk": "dist/cli.js"
   }
 }

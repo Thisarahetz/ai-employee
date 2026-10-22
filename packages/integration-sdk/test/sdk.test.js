@@ -352,3 +352,81 @@ describe('ai-employee-integration-sdk', () => {
     });
   });
 });
+
+describe('zero-config auth, events and CLI', () => {
+  const { sendEvent, signWebhookBody } = require('../dist/events.js');
+
+  test('falls back to AI_EMPLOYEE_API_KEY and refuses wrong or missing keys', async () => {
+    process.env.AI_EMPLOYEE_API_KEY = 'aie_test_key_123456';
+    try {
+      assert.equal(await checkAuth(undefined, { headers: { 'x-api-key': 'aie_test_key_123456' } }), true);
+      assert.equal(await checkAuth(undefined, { headers: { 'x-api-key': 'wrong' } }), false);
+      assert.equal(await checkAuth({}, { headers: {} }), false);
+    } finally {
+      delete process.env.AI_EMPLOYEE_API_KEY;
+    }
+  });
+
+  test('with no auth configured, production fails closed', async () => {
+    const prev = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+      assert.equal(await checkAuth(undefined, { headers: {} }), false);
+    } finally {
+      process.env.NODE_ENV = prev;
+    }
+  });
+
+  test('sendEvent signs the exact body AI Employee verifies, and explains failures', async () => {
+    const secret = 'webhook-secret-abcdef0123456789';
+    let seen;
+    const server = http.createServer((req, res) => {
+      let raw = '';
+      req.on('data', (c) => (raw += c));
+      req.on('end', () => {
+        seen = { raw, ts: req.headers['x-timestamp'], sig: req.headers['x-signature'] };
+        res.writeHead(seen.sig === signWebhookBody(secret, seen.ts, raw) ? 202 : 401);
+        res.end('{}');
+      });
+    });
+    await new Promise((r) => server.listen(0, r));
+    const url = `http://127.0.0.1:${server.address().port}/webhooks/abc`;
+    try {
+      const good = await sendEvent('booking.created', { bookingId: 'b1' }, { webhookUrl: url, webhookSecret: secret });
+      assert.equal(good.ok, true);
+      assert.deepEqual(JSON.parse(seen.raw), { bookingId: 'b1', event: 'booking.created' });
+
+      const wrong = await sendEvent('booking.created', {}, { webhookUrl: url, webhookSecret: 'another-secret-0000000000', retries: 0 });
+      assert.equal(wrong.ok, false);
+      assert.match(wrong.error, /rejected the signature/);
+
+      const badName = await sendEvent('Booking Created', {}, { webhookUrl: url, webhookSecret: secret });
+      assert.match(badName.error, /must look like/);
+    } finally {
+      server.close();
+    }
+  });
+
+  test('init detects Express, writes starter code and a key, never overwrites', () => {
+    const { mkdtempSync, writeFileSync, readFileSync, existsSync } = require('node:fs');
+    const { join } = require('node:path');
+    const { tmpdir } = require('node:os');
+    const { spawnSync } = require('node:child_process');
+    const dir = mkdtempSync(join(tmpdir(), 'aie-init-'));
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({ name: 'shop-api', dependencies: { express: '^4.19.0' } }));
+    const run = () => spawnSync(process.execPath, [join(__dirname, '../dist/cli.js'), 'init', '--no-install'], { cwd: dir, encoding: 'utf8' });
+
+    const first = run();
+    assert.equal(first.status, 0, first.stderr);
+    assert.ok(existsSync(join(dir, 'ai-employee.js')));
+    assert.match(readFileSync(join(dir, 'ai-employee.js'), 'utf8'), /createExpressRouter/);
+    const env = readFileSync(join(dir, '.env'), 'utf8');
+    assert.match(env, /^AI_EMPLOYEE_API_KEY=aie_[A-Za-z0-9_-]{32}$/m);
+    assert.match(first.stdout, /app\.use\('\/ai', aiEmployeeRouter\)/);
+
+    writeFileSync(join(dir, 'ai-employee.js'), '// my edits');
+    run();
+    assert.equal(readFileSync(join(dir, 'ai-employee.js'), 'utf8'), '// my edits', 'existing code is kept');
+    assert.equal(readFileSync(join(dir, '.env'), 'utf8'), env, 'key is not regenerated');
+  });
+});

@@ -35,6 +35,51 @@ This SDK implements the 3 standard endpoints required by the AI Employee platfor
 
 ---
 
+## Fastest way: one command
+
+Run this inside your backend project (NestJS, Next.js, Express or any Node.js server):
+
+```bash
+npx ai-employee-integration-sdk init
+```
+
+It installs the SDK, writes a starter file in your framework's style, creates a strong
+`AI_EMPLOYEE_API_KEY` in `.env`, and prints the exact steps. Then:
+
+1. Mount it (the one line `init` prints; Next.js needs nothing).
+2. In AI Employee: **Integrations → Connect a business system → Other system**, paste your
+   Base URL and the API key, and click **Connect and test**.
+3. Paste the webhook URL and secret AI Employee shows into `.env`
+   (`AI_EMPLOYEE_WEBHOOK_URL`, `AI_EMPLOYEE_WEBHOOK_SECRET`).
+4. Check everything works:
+
+```bash
+npx ai-employee-integration-sdk verify --url http://localhost:3000
+```
+
+`verify` checks that the endpoints answer with your key, refuse requests without it, and that
+a signed test event reaches AI Employee.
+
+### Reporting events
+
+```ts
+import { sendEvent } from 'ai-employee-integration-sdk/events';
+
+// After your database transaction commits:
+await sendEvent('booking.cancelled', { bookingId, customerName, reason });
+```
+
+Events are signed with your webhook secret, retried on network errors, and never throw.
+AI Employee automation rules react to them (e.g. "when booking.cancelled, offer a new time").
+
+### Security defaults
+
+The API key is read from `AI_EMPLOYEE_API_KEY` automatically. If no key (or other auth) is
+configured, the `/ai` endpoints are open only while developing; with `NODE_ENV=production`
+every request is refused.
+
+---
+
 ## Installation
 
 ```bash

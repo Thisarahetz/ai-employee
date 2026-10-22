@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import { validateActionData } from './validation';
 import type {
   ActionDefinition,
@@ -161,6 +162,20 @@ export async function executeRegisteredAction(
   }
 }
 
+const warned = new Set<string>();
+function warnOnce(message: string) {
+  if (warned.has(message)) return;
+  warned.add(message);
+  console.warn(message);
+}
+
+/** Constant-time string comparison, so response timing doesn't leak the key. */
+function safeEqual(a: string, b: string): boolean {
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  return ab.length === bb.length && timingSafeEqual(ab, bb);
+}
+
 /**
  * Evaluates configured authentication options against an incoming request or headers.
  */
@@ -168,7 +183,21 @@ export async function checkAuth(
   options?: IntegrationAuthOptions,
   reqOrHeaders?: any,
 ): Promise<boolean> {
-  if (!options) return true;
+  // Zero-config: fall back to AI_EMPLOYEE_API_KEY from the environment.
+  const opts: IntegrationAuthOptions = { ...(options ?? {}) };
+  if (!opts.apiKey && !opts.bearerToken && !opts.verifyAuth && process.env.AI_EMPLOYEE_API_KEY) {
+    opts.apiKey = process.env.AI_EMPLOYEE_API_KEY;
+  }
+  if (!opts.apiKey && !opts.bearerToken && !opts.verifyAuth) {
+    // No auth configured: allowed while developing, refused in production (fail closed).
+    if (process.env.NODE_ENV === 'production') {
+      warnOnce('ai-employee-integration-sdk: no API key configured (set AI_EMPLOYEE_API_KEY). Refusing all /ai requests in production.');
+      return false;
+    }
+    warnOnce('ai-employee-integration-sdk: no API key configured (set AI_EMPLOYEE_API_KEY). /ai endpoints are open — development only.');
+    return true;
+  }
+  options = opts;
 
   // Custom verifier hook
   if (typeof options.verifyAuth === 'function') {
@@ -187,7 +216,7 @@ export async function checkAuth(
   if (options.apiKey) {
     const headerName = options.apiKeyHeader || 'x-api-key';
     const providedKey = getHeader(headerName);
-    if (providedKey !== options.apiKey) {
+    if (!providedKey || !safeEqual(providedKey, options.apiKey)) {
       return false;
     }
   }
@@ -196,7 +225,7 @@ export async function checkAuth(
   if (options.bearerToken) {
     const authHeader = getHeader('authorization') || getHeader('Authorization');
     const expected = `Bearer ${options.bearerToken}`;
-    if (!authHeader || authHeader.trim() !== expected) {
+    if (!authHeader || !safeEqual(authHeader.trim(), expected)) {
       return false;
     }
   }

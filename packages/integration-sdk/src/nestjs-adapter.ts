@@ -57,11 +57,10 @@ export class AiActionsController {
   }
 
   private async assertAuthorized(req: any): Promise<void> {
-    if (this.options) {
-      const isAuthorized = await checkAuth(this.options, req);
-      if (!isAuthorized) {
-        throw new UnauthorizedException('Unauthorized integration request');
-      }
+    // Always checked: with no options, checkAuth falls back to AI_EMPLOYEE_API_KEY.
+    const isAuthorized = await checkAuth(this.options, req);
+    if (!isAuthorized) {
+      throw new UnauthorizedException('Unauthorized integration request');
     }
   }
 
@@ -167,3 +166,7 @@ export class AiActionsModule {
     };
   }
 }
+
+// Re-exported so one import is enough in app code.
+export { registerAction, registerKnowledge } from './registry';
+export { sendEvent } from './events';

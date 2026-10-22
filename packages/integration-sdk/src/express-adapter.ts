@@ -146,3 +146,7 @@ export function createExpressRouter(options: ExpressAdapterOptions = {}): Router
 
   return router;
 }
+
+// Re-exported so one import is enough in app code.
+export { registerAction, registerKnowledge } from './registry';
+export { sendEvent } from './events';
