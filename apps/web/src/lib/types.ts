@@ -634,13 +634,16 @@ export interface EmployeeTask {
   isEnabled: boolean;
 }
 
+/** Computed by the API from real task history. */
 export interface EmployeeStats {
-  conversations: number;
-  ordersAssisted: number;
   tasksCompleted: number;
-  leadsGenerated?: number;
-  escalations?: number;
-  successRate: number;
+  tasksFailed: number;
+  tasksActive: number;
+  /** null until the employee has finished at least one task. */
+  successRate: number | null;
+  pendingApprovals: number;
+  costUsd30d: number;
+  lastActiveAt: string | null;
 }
 
 export interface AiEmployee {
@@ -720,7 +723,13 @@ export interface AiEmployeeActivity {
 }
 
 export interface BusinessTemplateInfo {
+  /** Template key, e.g. "SALON_SPA". */
   id: string;
+  /** Database id used by the apply endpoint. */
+  templateId?: string;
+  owner?: "platform" | "business";
+  scheduleCount?: number;
+  ruleCount?: number;
   name: string;
   category: string;
   icon: string;
@@ -825,10 +834,10 @@ export interface AdminBusinessTemplate {
 export interface AdminBusinessType {
   id: string;
   name: string;
-  category: string;
-  description: string;
-  recommendedChannels: string[];
+  /** Categories of the platform templates for this type. */
+  categories: string[];
   defaultTemplates: string[];
+  templateNames: string[];
   activeCount: number;
 }
 
@@ -893,29 +902,35 @@ export interface AdminHealthStatus {
     };
     redis: {
       status: string;
-      host: string;
-      port: number;
+      latencyMs: number;
+      queue: Record<string, number> | null;
     };
     aiProviders: {
-      openai: { configured: boolean; status: string; defaultModel: string };
-      anthropic: { configured: boolean; status: string; defaultModel: string };
-      gemini: { configured: boolean; status: string; defaultModel: string };
+      openai: { configured: boolean; status: string; isPlatformDefault: boolean; defaultModel: string | null };
+      anthropic: { configured: boolean; status: string; isPlatformDefault: boolean; defaultModel: string | null };
+      gemini: { configured: boolean; status: string; isPlatformDefault: boolean; defaultModel: string | null };
     };
     channels: {
       activeChannels: number;
-      whatsappWebhookReady: boolean;
+      whatsappWebhookSigned: boolean;
+      wahaWebhookSigned: boolean;
     };
   };
 }
 
+interface EnvSetting<T> {
+  value: T;
+  env: string;
+}
+
+/** Effective platform configuration (from environment variables; read-only). */
 export interface AdminPlatformSettings {
-  defaultPlan: string;
-  trialDays: number;
-  defaultFastModel: string;
-  defaultReasoningModel: string;
-  alertWebhookUrl: string;
-  maintenanceMode: boolean;
-  systemNotice: string;
+  source: "environment";
+  ai: { defaultProvider: EnvSetting<string>; defaultModel: EnvSetting<string>; platformKeysAllowed: EnvSetting<boolean> };
+  defaultTenantLimits: Record<string, EnvSetting<number | null>>;
+  security: Record<string, EnvSetting<string | number | boolean>>;
+  workers: Record<string, EnvSetting<number | boolean>>;
+  perTenantOverrides: string;
 }
 
 

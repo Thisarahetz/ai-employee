@@ -1,5 +1,6 @@
 "use client";
 
+import { useAiUsage } from "@/lib/hooks/use-ai-workforce";
 import React from "react";
 import Link from "next/link";
 import {
@@ -52,6 +53,7 @@ export default function DashboardPage() {
   const pendingApprovalsQuery = useAiEmployeeApprovals("PENDING");
   const activitiesQuery = useAiEmployeeActivities({ limit: 6 });
   const totalConversationsQuery = useConversations("ALL", 1, activeLocationId);
+  const usageQuery = useAiUsage();
   const toggleStatus = useToggleEmployeeStatus();
 
   const employees = employeesQuery.data || [];
@@ -61,23 +63,16 @@ export default function DashboardPage() {
   const recentActivities = activitiesQuery.data || [];
 
   // Aggregated performance metrics
-  const totalConversations =
-    totalConversationsQuery.data?.total ??
-    employees.reduce((acc, e) => acc + (e.stats?.conversations || 0), 0);
-  const totalOrdersAssisted = employees.reduce(
-    (acc, e) => acc + (e.stats?.ordersAssisted || 0),
-    0
-  );
-  const totalTasksCompleted = employees.reduce(
-    (acc, e) => acc + (e.stats?.tasksCompleted || 0),
-    0
-  );
-  const avgSuccessRate = employees.length
-    ? Math.round(
-        employees.reduce((acc, e) => acc + (e.stats?.successRate || 95), 0) /
-          employees.length
-      )
-    : 98;
+  // Every figure below comes from recorded data — nothing estimated.
+  const totalConversations = totalConversationsQuery.data?.total ?? 0;
+  const totalTasksCompleted = employees.reduce((acc, e) => acc + (e.stats?.tasksCompleted || 0), 0);
+  const totalTasksFailed = employees.reduce((acc, e) => acc + (e.stats?.tasksFailed || 0), 0);
+  const totalTasksActive = employees.reduce((acc, e) => acc + (e.stats?.tasksActive || 0), 0);
+  const successRate =
+    totalTasksCompleted + totalTasksFailed > 0
+      ? Math.round((totalTasksCompleted / (totalTasksCompleted + totalTasksFailed)) * 100)
+      : null;
+  const usage = usageQuery.data;
 
   // Personalized Greeting
   const currentHour = new Date().getHours();
@@ -248,7 +243,7 @@ export default function DashboardPage() {
         <div className="rounded-2xl border border-line bg-white p-5 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold uppercase tracking-wider text-ink-muted">
-              Assisted Sales
+              AI spend this month
             </span>
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
               <TrendingUp className="h-4 w-4" />
@@ -256,33 +251,27 @@ export default function DashboardPage() {
           </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-2xl font-black text-ink-primary">
-              {totalOrdersAssisted > 0
-                ? `$${(totalOrdersAssisted * 42).toLocaleString()}`
-                : "$0"}
+              {usage ? `$${usage.spentThisMonthUsd.toFixed(2)}` : "—"}
             </span>
           </div>
           <p className="text-[10px] text-ink-muted mt-1">
-            Generated with AI assistance
+            {usage?.limits.monthlyBudgetUsd != null ? `of $${usage.limits.monthlyBudgetUsd.toFixed(2)} monthly budget` : "No monthly budget set"}
           </p>
         </div>
 
         <div className="rounded-2xl border border-line bg-white p-5 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold uppercase tracking-wider text-ink-muted">
-              Orders Assisted
+              Tasks completed
             </span>
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
               <ShoppingBag className="h-4 w-4" />
             </div>
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-black text-ink-primary">
-              {totalOrdersAssisted}
-            </span>
+            <span className="text-2xl font-black text-ink-primary">{totalTasksCompleted}</span>
           </div>
-          <p className="text-[10px] text-ink-muted mt-1">
-            Orders guided to completion
-          </p>
+          <p className="text-[10px] text-ink-muted mt-1">{totalTasksActive} in progress</p>
         </div>
 
         <div className="rounded-2xl border border-line bg-white p-5 shadow-xs">
@@ -307,7 +296,7 @@ export default function DashboardPage() {
         <div className="rounded-2xl border border-line bg-white p-5 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold uppercase tracking-wider text-ink-muted">
-              Accuracy Rate
+              Task success rate
             </span>
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
               <ShieldCheck className="h-4 w-4" />
@@ -315,11 +304,11 @@ export default function DashboardPage() {
           </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-2xl font-black text-emerald-600">
-              {avgSuccessRate}%
+              {successRate === null ? "—" : `${successRate}%`}
             </span>
           </div>
           <p className="text-[10px] text-ink-muted mt-1">
-            {totalTasksCompleted} tasks completed
+            {successRate === null ? "No finished tasks yet" : `${totalTasksFailed} failed`}
           </p>
         </div>
       </div>
@@ -424,7 +413,7 @@ export default function DashboardPage() {
 
                   <div className="mt-4 flex items-center justify-between pt-2 border-t border-line/60">
                     <span className="text-[10px] text-ink-muted">
-                      {emp.stats?.conversations || 0} chats handled
+                      {emp.stats?.tasksCompleted || 0} tasks done
                     </span>
                     <Link
                       href={`/ai-employees/${emp.id}`}

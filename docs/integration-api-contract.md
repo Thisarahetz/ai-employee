@@ -254,6 +254,59 @@ Whichever type is used, the secret itself is stored once, AES-encrypted, in
 `.env.example`) and is never returned by any AI Employee API — the "public" shape of a
 credential (see `packages/types/src/entities.ts`) omits the payload entirely.
 
+## Webhooks — pushing business events to AI Employee
+
+Your system tells AI Employee what happened (a booking was cancelled, an order was
+refunded) by POSTing events. Automation rules turn those events into work for AI
+employees, e.g. "when `appointment.cancelled`, have the receptionist offer a new slot".
+
+**Endpoint**: `POST /webhooks/{integrationId}` (returns `202 Accepted`).
+
+**Secret**: each integration has its own secret, shown once when the integration is
+created (`webhookSecret` in the create response) and re-issued by
+`POST /integrations/{id}/webhook-secret`. Rotating it invalidates the old one at once.
+
+**Signing** (required):
+
+```
+X-Timestamp: <unix seconds>
+X-Signature: hex( HMAC-SHA256( secret, "<X-Timestamp>.<raw request body>" ) )
+```
+
+Sign the exact bytes you send. Requests more than 5 minutes from the server's clock are
+rejected, so a captured request can't be replayed later.
+
+**Body**:
+
+```json
+{
+  "event": "appointment.cancelled",
+  "appointmentId": "apt_123",
+  "customerId": "cus_456",
+  "customerName": "Nadeesha Perera",
+  "service": "Haircut & Blowdry",
+  "startsAt": "2026-10-24T04:30:00Z",
+  "staffName": "Kasun",
+  "reason": "sick"
+}
+```
+
+- `event` must look like `noun.verb` (lowercase, 2–4 dot-separated parts). Platform-internal
+  names are reserved and rejected: `message.*`, `conversation.*`, `human_handoff.*`,
+  `action.*`, `integration.*`, `saga.*`, `invariant.*`, `ai_*`, `system.*`, `platform.*`.
+- The tenant is always the integration's owner. A `tenantId` field in the body is ignored.
+- Every other field is available to automation rules as `{{field}}` placeholders and
+  conditions. The built-in industry templates use these fields:
+
+| Event | Fields used |
+|---|---|
+| `appointment.created` / `appointment.completed` / `appointment.cancelled` | `appointmentId`, `customerId`, `customerName`, `service`, `startsAt`, `staffName`, `reason` |
+| `lead.created` | `customerId`, `name`, `email`, `phone`, `interest` |
+| any `order.*` / `booking.*` / `payment.*` you define | whatever you send |
+
+Event data is passed to the AI as untrusted information (never as instructions), so free
+text from customers can't take control of an AI employee.
+
 ## How to make your existing system AI-Employee-compatible
 
 1. **Implement `GET /ai/actions`** returning the actions you want AI Employee's Action

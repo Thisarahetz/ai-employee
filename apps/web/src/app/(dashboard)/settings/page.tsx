@@ -19,6 +19,7 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { useBusinesses, useUpdateBusiness } from "@/lib/hooks/use-businesses";
 import { apiClient } from "@/lib/api-client";
+import { getErrorMessage } from "@/lib/utils";
 
 export default function SettingsPage() {
   const { user, activeTenant } = useAuth();
@@ -28,7 +29,7 @@ export default function SettingsPage() {
   const primaryBusiness = businessesQuery.data?.[0];
 
   const [businessName, setBusinessName] = useState("");
-  const [currency, setCurrency] = useState("USD ($)");
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [timezone, setTimezone] = useState("UTC");
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -46,6 +47,7 @@ export default function SettingsPage() {
     if (!businessName.trim()) return;
 
     setIsSaving(true);
+    setSaveError(null);
     try {
       // 1. Update Tenant Name
       try {
@@ -66,7 +68,7 @@ export default function SettingsPage() {
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2500);
     } catch (err) {
-      console.error("Failed to update profile:", err);
+      setSaveError(getErrorMessage(err, "Could not save your settings."));
     } finally {
       setIsSaving(false);
     }
@@ -107,25 +109,6 @@ export default function SettingsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-ink-primary">
-                Display Currency
-              </label>
-              <select
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value)}
-                className="w-full rounded-xl border border-line bg-white px-3.5 py-2 text-xs text-ink-primary focus:border-brand-500 focus:outline-none"
-              >
-                <option value="USD ($)">USD ($)</option>
-                <option value="LKR (Rs.)">LKR (Rs.)</option>
-                <option value="GBP (£)">GBP (£)</option>
-                <option value="EUR (€)">EUR (€)</option>
-                <option value="AUD ($)">AUD ($)</option>
-                <option value="INR (₹)">INR (₹)</option>
-                <option value="AED (د.إ)">AED (د.إ)</option>
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-ink-primary">
                 Timezone
               </label>
               <select
@@ -160,6 +143,7 @@ export default function SettingsPage() {
                 </>
               )}
             </button>
+            {saveError && <p className="mt-2 text-xs font-semibold text-status-critical">{saveError}</p>}
           </div>
         </form>
       </div>
@@ -222,17 +206,17 @@ export default function SettingsPage() {
         {showAdvanced && (
           <div className="p-6 pt-0 border-t border-line/60 bg-surface-page/30 grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Link
-              href="/workflows"
+              href="/automations"
               className="rounded-xl border border-line bg-white p-4 hover:border-brand-500 hover:shadow-xs transition-all"
             >
               <div className="flex items-center gap-2 mb-1.5">
                 <Workflow className="h-4 w-4 text-purple-600" />
                 <h4 className="text-xs font-bold text-ink-primary">
-                  Workflow Builder
+                  Automations
                 </h4>
               </div>
               <p className="text-[11px] text-ink-secondary">
-                Inspect and customize visual node automations and triggers.
+                Let AI employees react to business events automatically.
               </p>
             </Link>
 
@@ -247,7 +231,7 @@ export default function SettingsPage() {
                 </h4>
               </div>
               <p className="text-[11px] text-ink-secondary">
-                Configure OpenAI, Anthropic, or local Ollama LLM credentials.
+                Choose OpenAI, Anthropic or Gemini models and add your own API keys.
               </p>
             </Link>
 

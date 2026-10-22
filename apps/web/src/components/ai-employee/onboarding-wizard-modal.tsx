@@ -236,7 +236,6 @@ export function OnboardingWizardModal({
   const handleDeploy = async () => {
     await applyTemplate.mutateAsync({
       businessType: selectedType,
-      businessSize: selectedSize,
       selectedKeys: selectedEmployeeKeys,
     });
     if (onSuccess) onSuccess();

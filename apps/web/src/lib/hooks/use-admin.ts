@@ -179,17 +179,6 @@ export function useAdminSettings() {
   });
 }
 
-export function useUpdateAdminSettings() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (patch: Partial<AdminPlatformSettings>) =>
-      (await apiClient.patch<AdminPlatformSettings>("/admin/settings", patch)).data,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin", "settings"] });
-      queryClient.invalidateQueries({ queryKey: ["admin", "audit-log"] });
-    },
-  });
-}
 
 export function useAdminAuditLog(params: { targetType?: string; targetId?: string; page?: number; pageSize?: number } = {}) {
   return useQuery({
@@ -245,25 +234,3 @@ export function useUpdateUser() {
 }
 
 /** Wipe all tenant data and non-admin users. SUPER_ADMIN only. */
-export function useCleanDatabase() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async () =>
-      (
-        await apiClient.delete<{
-          success: boolean;
-          message: string;
-          removed: {
-            tenants: number;
-            nonAdminUsers: number;
-            conversations: number;
-            messages: number;
-          };
-        }>("/admin/database")
-      ).data,
-    onSuccess: () => {
-      // Invalidate every admin cache key so all pages refresh cleanly.
-      queryClient.invalidateQueries({ queryKey: ["admin"] });
-    },
-  });
-}

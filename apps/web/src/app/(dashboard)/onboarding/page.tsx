@@ -34,164 +34,28 @@ import { useAuth } from "@/lib/auth-context";
 import { useAiEmployeeTemplates, useApplyTemplate } from "@/lib/hooks/use-ai-employees";
 import { useBusinesses, useUpdateBusiness } from "@/lib/hooks/use-businesses";
 import { apiClient } from "@/lib/api-client";
+import { getErrorMessage } from "@/lib/utils";
 
-const BUSINESS_TYPE_OPTIONS = [
-  {
-    id: "PHONE_SHOP",
-    name: "Phone & Mobile Shop",
-    category: "Retail",
-    icon: Smartphone,
-    color: "bg-blue-50 text-blue-600 border-blue-200",
-    desc: "Smartphones, repairs, accessories & device warranty inquiries",
-  },
-  {
-    id: "SALON_SPA",
-    name: "Salon & Spa",
-    category: "Services",
-    icon: Scissors,
-    color: "bg-pink-50 text-pink-600 border-pink-200",
-    desc: "Styling, beauty packages, appointments & customer reminders",
-  },
-  {
-    id: "RESTAURANT_CAFE",
-    name: "Restaurant & Café",
-    category: "Hospitality",
-    icon: Utensils,
-    color: "bg-amber-50 text-amber-600 border-amber-200",
-    desc: "Table reservations, menus, takeout orders & specials",
-  },
-  {
-    id: "GROCERY_SUPERMARKET",
-    name: "Grocery & Supermarket",
-    category: "Retail",
-    icon: ShoppingBag,
-    color: "bg-emerald-50 text-emerald-600 border-emerald-200",
-    desc: "Everyday items, inventory tracking & delivery ordering",
-  },
-  {
-    id: "CLINIC_MEDICAL",
-    name: "Clinic & Medical Center",
-    category: "Healthcare",
-    icon: Stethoscope,
-    color: "bg-cyan-50 text-cyan-600 border-cyan-200",
-    desc: "Doctor appointments, clinic timings & patient triage",
-  },
-  {
-    id: "PHARMACY_STORE",
-    name: "Pharmacy & Chemist",
-    category: "Healthcare",
-    icon: Pill,
-    color: "bg-teal-50 text-teal-600 border-teal-200",
-    desc: "Prescription intake, health essentials & refill notices",
-  },
-  {
-    id: "CLOTHING_BOUTIQUE",
-    name: "Clothing & Fashion Boutique",
-    category: "Retail",
-    icon: Shirt,
-    color: "bg-rose-50 text-rose-600 border-rose-200",
-    desc: "Apparel styling, sizing assistance & seasonal collections",
-  },
-  {
-    id: "BAKERY_CAFE",
-    name: "Bakery & Pastry Shop",
-    category: "Food & Beverage",
-    icon: Cake,
-    color: "bg-amber-50 text-amber-700 border-amber-300",
-    desc: "Custom cakes, fresh batches, pre-orders & catering",
-  },
-  {
-    id: "VEHICLE_SERVICE",
-    name: "Vehicle Service & Garage",
-    category: "Services",
-    icon: Wrench,
-    color: "bg-orange-50 text-orange-600 border-orange-200",
-    desc: "Auto repair bookings, periodic maintenance & service quotes",
-  },
-  {
-    id: "HARDWARE_SHOP",
-    name: "Hardware & Construction",
-    category: "Trade",
-    icon: Hammer,
-    color: "bg-slate-50 text-slate-700 border-slate-300",
-    desc: "Tools, building supplies & contractor bulk quotations",
-  },
-  {
-    id: "HOTEL_HOSPITALITY",
-    name: "Hotel & Hospitality",
-    category: "Hospitality",
-    icon: Hotel,
-    color: "bg-purple-50 text-purple-600 border-purple-200",
-    desc: "Room reservations, check-in instructions & guest concierge",
-  },
-  {
-    id: "GYM_FITNESS",
-    name: "Gym & Fitness Club",
-    category: "Fitness",
-    icon: Dumbbell,
-    color: "bg-red-50 text-red-600 border-red-200",
-    desc: "Membership signups, trainer sessions & class schedules",
-  },
-  {
-    id: "REAL_ESTATE",
-    name: "Real Estate Agency",
-    category: "Property",
-    icon: Home,
-    color: "bg-blue-50 text-blue-700 border-blue-300",
-    desc: "Property listings, client viewing schedules & buyer qualification",
-  },
-  {
-    id: "WHOLESALE_DISTRIBUTION",
-    name: "Wholesale & Distribution",
-    category: "B2B",
-    icon: Truck,
-    color: "bg-sky-50 text-sky-700 border-sky-300",
-    desc: "B2B tier pricing, volume bulk quotes & dispatch tracking",
-  },
-  {
-    id: "ECOMMERCE_RETAIL",
-    name: "Online E-Commerce Store",
-    category: "Retail",
-    icon: Globe,
-    color: "bg-indigo-50 text-indigo-600 border-indigo-200",
-    desc: "Online shopping assistant, order tracking & return policies",
-  },
-  {
-    id: "GENERAL_RETAIL",
-    name: "General Retail & Mart",
-    category: "Retail",
-    icon: Store,
-    color: "bg-emerald-50 text-emerald-700 border-emerald-300",
-    desc: "Retail store, product finder, price lookup & customer assistance",
-  },
-];
-
-const BUSINESS_SIZES = [
-  {
-    id: "SMALL",
-    name: "Small Business / Shop",
-    desc: "1–5 team members · 1 primary location · Fast, simple setup",
-    icon: Store,
-  },
-  {
-    id: "MEDIUM",
-    name: "Medium Business",
-    desc: "6–25 team members · 1–3 locations · Growing operations",
-    icon: Building,
-  },
-  {
-    id: "LARGE",
-    name: "Large Company",
-    desc: "26–100 team members · Dedicated departments & managers",
-    icon: Building,
-  },
-  {
-    id: "ENTERPRISE",
-    name: "Multi-Branch Enterprise",
-    desc: "100+ team members · Multiple branches or franchise network",
-    icon: Factory,
-  },
-];
+/** Icon + colour per industry template key (presentation only; the list itself comes from the API). */
+const TYPE_STYLE: Record<string, { icon: React.ComponentType<{ className?: string }>; color: string }> = {
+  PHONE_SHOP: { icon: Smartphone, color: "bg-blue-50 text-blue-600 border-blue-200" },
+  SALON_SPA: { icon: Scissors, color: "bg-pink-50 text-pink-600 border-pink-200" },
+  RESTAURANT_CAFE: { icon: Utensils, color: "bg-amber-50 text-amber-600 border-amber-200" },
+  GROCERY_SUPERMARKET: { icon: ShoppingBag, color: "bg-emerald-50 text-emerald-600 border-emerald-200" },
+  CLINIC_MEDICAL: { icon: Stethoscope, color: "bg-cyan-50 text-cyan-600 border-cyan-200" },
+  PHARMACY_STORE: { icon: Pill, color: "bg-teal-50 text-teal-600 border-teal-200" },
+  CLOTHING_BOUTIQUE: { icon: Shirt, color: "bg-rose-50 text-rose-600 border-rose-200" },
+  BAKERY_CAFE: { icon: Cake, color: "bg-amber-50 text-amber-700 border-amber-300" },
+  VEHICLE_SERVICE: { icon: Wrench, color: "bg-orange-50 text-orange-600 border-orange-200" },
+  HARDWARE_SHOP: { icon: Hammer, color: "bg-slate-50 text-slate-700 border-slate-300" },
+  HOTEL_HOSPITALITY: { icon: Hotel, color: "bg-purple-50 text-purple-600 border-purple-200" },
+  GYM_FITNESS: { icon: Dumbbell, color: "bg-red-50 text-red-600 border-red-200" },
+  REAL_ESTATE: { icon: Home, color: "bg-blue-50 text-blue-700 border-blue-300" },
+  WHOLESALE_DISTRIBUTION: { icon: Truck, color: "bg-sky-50 text-sky-700 border-sky-300" },
+  ECOMMERCE_RETAIL: { icon: Globe, color: "bg-indigo-50 text-indigo-600 border-indigo-200" },
+  GENERAL_RETAIL: { icon: Store, color: "bg-emerald-50 text-emerald-700 border-emerald-300" },
+};
+const DEFAULT_STYLE = { icon: Store, color: "bg-slate-50 text-slate-700 border-slate-200" };
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -203,13 +67,18 @@ export default function OnboardingPage() {
 
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [businessName, setBusinessName] = useState("");
-  const [businessType, setBusinessType] = useState("PHONE_SHOP");
+  const [businessType, setBusinessType] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [country, setCountry] = useState("United States");
-  const [currency, setCurrency] = useState("USD ($)");
-  const [businessSize, setBusinessSize] = useState<
-    "SMALL" | "MEDIUM" | "LARGE" | "ENTERPRISE"
-  >("SMALL");
+  const [timezone, setTimezone] = useState(() => {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    } catch {
+      return "UTC";
+    }
+  });
+  const [profile, setProfile] = useState({ description: "", services: "", hours: "", brandVoice: "" });
+  const [enableAutomations, setEnableAutomations] = useState(false);
+  const [launchError, setLaunchError] = useState<string | null>(null);
   const [selectedEmployeeKeys, setSelectedEmployeeKeys] = useState<string[]>([]);
   const [isLaunching, setIsLaunching] = useState(false);
 
@@ -224,6 +93,10 @@ export default function OnboardingPage() {
       }
     }
   }, [businessesQuery.data, businessName]);
+
+  useEffect(() => {
+    if (!businessType && templatesQuery.data?.length) setBusinessType(templatesQuery.data[0]!.id);
+  }, [businessType, templatesQuery.data]);
 
   const currentTemplate =
     templatesQuery.data?.find((t) => t.id === businessType) ||
@@ -272,24 +145,32 @@ export default function OnboardingPage() {
         }
       }
 
-      // 3. Deploy Selected AI Employees from chosen Business Template
+      // 3. Business profile + timezone — what every AI employee works from
+      await apiClient.put("/business-setup/profile", { ...profile, timezone });
+
+      // 4. Install the chosen template (employees, schedules, automation rules)
       await applyTemplate.mutateAsync({
-        businessType,
-        businessSize,
+        businessType: currentTemplate?.id ?? businessType,
         selectedKeys: selectedEmployeeKeys,
+        enableAutomations,
       });
 
-      // 4. Redirect straight to Dashboard
       router.replace("/dashboard");
     } catch (err) {
-      console.error("Failed to complete onboarding:", err);
-      router.replace("/dashboard");
+      setLaunchError(getErrorMessage(err, "Setup could not be completed. Please try again."));
     } finally {
       setIsLaunching(false);
     }
   };
 
-  const filteredTypes = BUSINESS_TYPE_OPTIONS.filter((opt) => {
+  const typeOptions = (templatesQuery.data ?? []).map((t) => ({
+    id: t.id,
+    name: t.name,
+    category: t.category,
+    desc: t.description,
+    ...(TYPE_STYLE[t.id] ?? DEFAULT_STYLE),
+  }));
+  const filteredTypes = typeOptions.filter((opt) => {
     if (!searchTerm.trim()) return true;
     const q = searchTerm.toLowerCase();
     return (
@@ -350,54 +231,23 @@ export default function OnboardingPage() {
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Acme Phone Shop or GlowDesk Salon"
+                  placeholder="Your business name"
                   value={businessName}
                   onChange={(e) => setBusinessName(e.target.value)}
                   className="w-full rounded-xl border border-line px-3.5 py-2.5 text-xs text-ink-primary focus:border-brand-500 focus:outline-none"
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-ink-primary">
-                    Country
-                  </label>
-                  <select
-                    value={country}
-                    onChange={(e) => setCountry(e.target.value)}
-                    className="w-full rounded-xl border border-line bg-white px-3.5 py-2.5 text-xs text-ink-primary focus:border-brand-500 focus:outline-none"
-                  >
-                    <option value="United States">United States</option>
-                    <option value="Sri Lanka">Sri Lanka</option>
-                    <option value="United Kingdom">United Kingdom</option>
-                    <option value="Australia">Australia</option>
-                    <option value="Canada">Canada</option>
-                    <option value="India">India</option>
-                    <option value="United Arab Emirates">United Arab Emirates</option>
-                    <option value="Singapore">Singapore</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-ink-primary">
-                    Currency
-                  </label>
-                  <select
-                    value={currency}
-                    onChange={(e) => setCurrency(e.target.value)}
-                    className="w-full rounded-xl border border-line bg-white px-3.5 py-2.5 text-xs text-ink-primary focus:border-brand-500 focus:outline-none"
-                  >
-                    <option value="USD ($)">USD ($)</option>
-                    <option value="LKR (Rs.)">LKR (Rs.)</option>
-                    <option value="GBP (£)">GBP (£)</option>
-                    <option value="EUR (€)">EUR (€)</option>
-                    <option value="AUD ($)">AUD ($)</option>
-                    <option value="CAD ($)">CAD ($)</option>
-                    <option value="INR (₹)">INR (₹)</option>
-                    <option value="AED (د.إ)">AED (د.إ)</option>
-                  </select>
-                </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-ink-primary">Timezone</label>
+                <input
+                  type="text"
+                  value={timezone}
+                  onChange={(e) => setTimezone(e.target.value)}
+                  placeholder="e.g. Asia/Colombo"
+                  className="w-full rounded-xl border border-line px-3.5 py-2.5 text-xs text-ink-primary focus:border-brand-500 focus:outline-none"
+                />
+                <p className="text-[11px] text-ink-muted">Schedules run in this timezone.</p>
               </div>
 
               {/* Business Type Search & Selector */}
@@ -468,59 +318,52 @@ export default function OnboardingPage() {
         {step === 2 && (
           <div className="mt-8 space-y-6 animate-in fade-in duration-200">
             <div>
-              <h2 className="text-xl font-bold text-ink-primary">
-                How big is your business?
-              </h2>
+              <h2 className="text-xl font-bold text-ink-primary">About your business</h2>
               <p className="text-xs text-ink-secondary mt-1">
-                Helps configure how many AI employees you need and sets up multi-branch scoping.
+                Your AI employees use this in every task. You can change it any time under Business profile.
               </p>
             </div>
-
-            <div className="space-y-3">
-              {BUSINESS_SIZES.map((size) => {
-                const Icon = size.icon;
-                const isSelected = businessSize === size.id;
-                return (
-                  <button
-                    key={size.id}
-                    type="button"
-                    onClick={() =>
-                      setBusinessSize(
-                        size.id as "SMALL" | "MEDIUM" | "LARGE" | "ENTERPRISE"
-                      )
-                    }
-                    className={`flex w-full items-center justify-between rounded-2xl border p-5 text-left transition-all ${
-                      isSelected
-                        ? "border-brand-600 bg-white ring-2 ring-brand-500/20 shadow-md"
-                        : "border-line bg-white hover:border-slate-300 hover:bg-surface-page"
-                    }`}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div
-                        className={`flex h-12 w-12 items-center justify-center rounded-xl border ${
-                          isSelected
-                            ? "bg-brand-600 text-white border-brand-600"
-                            : "bg-surface-page text-ink-secondary border-line"
-                        }`}
-                      >
-                        <Icon className="h-6 w-6" />
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-bold text-ink-primary">
-                          {size.name}
-                        </h4>
-                        <p className="text-xs text-ink-secondary mt-0.5">
-                          {size.desc}
-                        </p>
-                      </div>
-                    </div>
-
-                    {isSelected && (
-                      <CheckCircle2 className="h-5 w-5 text-brand-600 shrink-0" />
-                    )}
-                  </button>
-                );
-              })}
+            <div className="space-y-4 rounded-2xl border border-line bg-white p-6 shadow-xs">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-ink-primary">What does your business do?</label>
+                <textarea
+                  rows={3}
+                  value={profile.description}
+                  onChange={(e) => setProfile((p) => ({ ...p, description: e.target.value }))}
+                  placeholder="Who you serve, where you are, what makes you different"
+                  className="w-full rounded-xl border border-line px-3.5 py-2.5 text-xs text-ink-primary focus:border-brand-500 focus:outline-none"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-ink-primary">Main services or products</label>
+                <textarea
+                  rows={3}
+                  value={profile.services}
+                  onChange={(e) => setProfile((p) => ({ ...p, services: e.target.value }))}
+                  placeholder="One per line, with prices if you like"
+                  className="w-full rounded-xl border border-line px-3.5 py-2.5 text-xs text-ink-primary focus:border-brand-500 focus:outline-none"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-ink-primary">Opening hours</label>
+                <textarea
+                  rows={2}
+                  value={profile.hours}
+                  onChange={(e) => setProfile((p) => ({ ...p, hours: e.target.value }))}
+                  placeholder="e.g. Mon–Sat 9:00–19:00, closed Sunday"
+                  className="w-full rounded-xl border border-line px-3.5 py-2.5 text-xs text-ink-primary focus:border-brand-500 focus:outline-none"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-ink-primary">How should you sound to customers?</label>
+                <textarea
+                  rows={2}
+                  value={profile.brandVoice}
+                  onChange={(e) => setProfile((p) => ({ ...p, brandVoice: e.target.value }))}
+                  placeholder="e.g. Warm, short, friendly; use first names"
+                  className="w-full rounded-xl border border-line px-3.5 py-2.5 text-xs text-ink-primary focus:border-brand-500 focus:outline-none"
+                />
+              </div>
             </div>
           </div>
         )}
@@ -595,44 +438,39 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* STEP 4: ONE-CLICK LAUNCH READY */}
+        {/* STEP 4: REVIEW & LAUNCH */}
         {step === 4 && (
-          <div className="mt-8 space-y-6 text-center animate-in zoom-in-95 duration-200">
-            <div className="flex flex-col items-center justify-center p-8 rounded-3xl border border-line bg-white shadow-lg space-y-4">
+          <div className="mt-8 space-y-6 animate-in zoom-in-95 duration-200">
+            <div className="flex flex-col items-center p-8 rounded-3xl border border-line bg-white shadow-lg space-y-4 text-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700 shadow-inner">
                 <ShieldCheck className="h-9 w-9" />
               </div>
-
               <div>
-                <h2 className="text-2xl font-black text-ink-primary">
-                  Your AI Team is Ready!
-                </h2>
+                <h2 className="text-2xl font-black text-ink-primary">Ready to set up {businessName || "your business"}</h2>
                 <p className="text-xs text-ink-secondary mt-1.5 max-w-md mx-auto">
-                  <strong className="text-ink-primary">{selectedEmployeeKeys.length} AI Employees</strong> have been configured for{" "}
-                  <strong className="text-ink-primary">{businessName || "your business"}</strong> with sensible safety rules.
+                  From the <strong className="text-ink-primary">{currentTemplate?.name}</strong> template:{" "}
+                  <strong className="text-ink-primary">{selectedEmployeeKeys.length} AI employee(s)</strong>,{" "}
+                  {currentTemplate?.scheduleCount ?? 0} recurring task(s) and {currentTemplate?.ruleCount ?? 0} automation rule(s).
+                  Sensitive actions always wait for your approval.
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg text-left pt-2">
-                <div className="rounded-xl bg-slate-50 p-3 border border-line">
-                  <span className="text-[10px] uppercase font-bold text-ink-muted block">
-                    Customer Service
-                  </span>
-                  <span className="text-xs font-bold text-ink-primary">
-                    Answers questions &amp; recommends products 24/7
-                  </span>
-                </div>
-                <div className="rounded-xl bg-slate-50 p-3 border border-line">
-                  <span className="text-[10px] uppercase font-bold text-ink-muted block">
-                    Owner Safety
-                  </span>
-                  <span className="text-xs font-bold text-ink-primary">
-                    Sensitive actions wait for your approval
-                  </span>
-                </div>
-              </div>
+              <label className="flex max-w-md cursor-pointer items-start gap-3 rounded-xl border border-line bg-slate-50 p-3 text-left">
+                <input
+                  type="checkbox"
+                  checked={enableAutomations}
+                  onChange={(e) => setEnableAutomations(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-line text-brand-600"
+                />
+                <span className="text-xs text-ink-secondary">
+                  <strong className="text-ink-primary block">Start recurring work and automations now</strong>
+                  Leave off to review them first under Schedules &amp; Limits and Automations. They use AI credit when they run.
+                </span>
+              </label>
 
-              <div className="pt-4 w-full max-w-sm">
+              {launchError && <p className="text-xs font-semibold text-status-critical">{launchError}</p>}
+
+              <div className="pt-2 w-full max-w-sm">
                 <button
                   type="button"
                   onClick={handleFinishAndLaunch}
@@ -640,7 +478,7 @@ export default function OnboardingPage() {
                   className="w-full flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-6 py-3.5 text-xs font-bold text-white shadow-md hover:bg-brand-700 transition-colors disabled:opacity-50"
                 >
                   <Bot className="h-4 w-4" />
-                  {isLaunching ? "Deploying Your AI Staff..." : "Go to My Business Dashboard →"}
+                  {isLaunching ? "Setting up your AI team…" : "Set up my AI team →"}
                 </button>
               </div>
             </div>

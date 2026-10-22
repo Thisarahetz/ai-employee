@@ -1,5 +1,6 @@
 "use client";
 
+import { AiCostSection } from "@/components/platform/ai-cost-section";
 import Link from "next/link";
 import { Activity, BarChart3, Bot, Building2, DollarSign, MessageSquare, RefreshCw, Zap } from "lucide-react";
 
@@ -192,6 +193,7 @@ export default function AdminUsagePage() {
           </div>
         </>
       )}
+      <AiCostSection />
     </div>
   );
 }

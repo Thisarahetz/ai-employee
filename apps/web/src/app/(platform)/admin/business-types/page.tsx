@@ -65,28 +65,16 @@ export default function AdminBusinessTypesPage() {
                     </div>
                     <div>
                       <h3 className="font-semibold text-sm text-ink-primary">{type.name}</h3>
-                      <span className="text-[11px] font-medium text-ink-muted">{type.category}</span>
+                      <span className="text-[11px] font-medium text-ink-muted">{type.categories.join(" · ") || "No templates yet"}</span>
                     </div>
                   </div>
                   <Badge color="green">{type.activeCount} Active</Badge>
                 </div>
 
-                <p className="mt-3 text-xs text-ink-secondary">{type.description}</p>
 
                 <div className="mt-4 space-y-2 text-xs">
                   <div>
-                    <span className="font-semibold text-[11px] text-ink-primary">Recommended Channels:</span>
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {type.recommendedChannels.map((ch, idx) => (
-                        <span key={idx} className="rounded bg-brand-50 px-2 py-0.5 text-[10px] font-medium text-brand-700">
-                          {ch}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <span className="font-semibold text-[11px] text-ink-primary">Default Blueprints:</span>
+                    <span className="font-semibold text-[11px] text-ink-primary">Industry templates:</span>
                     <div className="mt-1 flex flex-wrap gap-1">
                       {type.defaultTemplates.map((tmpl, idx) => (
                         <Link
@@ -94,7 +82,7 @@ export default function AdminBusinessTypesPage() {
                           href="/admin/ai-templates"
                           className="rounded bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-800 hover:underline"
                         >
-                          {tmpl}
+                          {type.templateNames[idx] ?? tmpl}
                         </Link>
                       ))}
                     </div>

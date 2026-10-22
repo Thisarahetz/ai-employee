@@ -258,19 +258,19 @@ export default function AiEmployeeDetailPage() {
         <div className="flex items-center gap-4 rounded-xl bg-surface-page p-3 border border-line/60">
           <div className="text-center px-2">
             <span className="text-[10px] uppercase font-bold text-ink-muted block">
-              Conversations
+              Tasks done
             </span>
             <span className="text-base font-bold text-ink-primary">
-              {employee.stats?.conversations ?? 0}
+              {employee.stats?.tasksCompleted ?? 0}
             </span>
           </div>
           <div className="h-8 w-px bg-line" />
           <div className="text-center px-2">
             <span className="text-[10px] uppercase font-bold text-ink-muted block">
-              Orders Assisted
+              Awaiting approval
             </span>
-            <span className="text-base font-bold text-emerald-600">
-              {employee.stats?.ordersAssisted ?? 0}
+            <span className="text-base font-bold text-amber-600">
+              {employee.stats?.pendingApprovals ?? 0}
             </span>
           </div>
           <div className="h-8 w-px bg-line" />
@@ -279,7 +279,7 @@ export default function AiEmployeeDetailPage() {
               Success Rate
             </span>
             <span className="text-base font-bold text-brand-600">
-              {employee.stats?.successRate ?? 95}%
+              {employee.stats?.successRate == null ? "—" : `${employee.stats.successRate}%`}
             </span>
           </div>
         </div>
@@ -714,18 +714,18 @@ export default function AiEmployeeDetailPage() {
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <div className="rounded-xl border border-line bg-white p-4 shadow-xs text-center">
               <span className="text-[10px] uppercase font-bold text-ink-muted block">
-                Conversations Handled
+                In progress
               </span>
               <span className="text-2xl font-bold text-ink-primary">
-                {employee.stats?.conversations ?? 0}
+                {employee.stats?.tasksActive ?? 0}
               </span>
             </div>
             <div className="rounded-xl border border-line bg-white p-4 shadow-xs text-center">
               <span className="text-[10px] uppercase font-bold text-ink-muted block">
-                Orders Assisted
+                AI cost (30 days)
               </span>
               <span className="text-2xl font-bold text-emerald-600">
-                {employee.stats?.ordersAssisted ?? 0}
+                ${(employee.stats?.costUsd30d ?? 0).toFixed(2)}
               </span>
             </div>
             <div className="rounded-xl border border-line bg-white p-4 shadow-xs text-center">
@@ -741,7 +741,7 @@ export default function AiEmployeeDetailPage() {
                 Success Rate
               </span>
               <span className="text-2xl font-bold text-emerald-600">
-                {employee.stats?.successRate ?? 95}%
+                {employee.stats?.successRate == null ? "—" : `${employee.stats.successRate}%`}
               </span>
             </div>
           </div>

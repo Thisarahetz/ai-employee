@@ -358,6 +358,12 @@ describe('platform monitoring', () => {
     assert.equal(health.database, 'up');
     assert.ok('tasks' in health);
 
+    // There is deliberately no "wipe the whole database" endpoint any more.
+    assert.equal((await api('/admin/database', adminToken, { method: 'DELETE' })).status, 404);
+    assert.equal((await api('/admin/settings', adminToken, { method: 'PATCH', body: '{}' })).status, 404);
+    const settings = await (await api('/admin/settings', adminToken)).json();
+    assert.equal(settings.source, 'environment');
+
     const set = await api(`/admin/tenants/${f.tenantId}/ai-limits`, adminToken, { method: 'PUT', body: JSON.stringify({ aiEnabled: false }) });
     assert.equal(set.status, 200);
     assert.equal((await set.json()).limits.aiEnabled, false);

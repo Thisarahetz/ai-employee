@@ -69,6 +69,17 @@ AI employees run tasks in the background, 24/7, from a durable Redis (BullMQ) qu
 - **Reliability** — automatic retries with backoff (honouring provider retry hints),
   heartbeats with crash recovery, and a reconciler for lost queue jobs.
 
+- **Any industry** — editable industry templates (roles, recurring work, automation rules);
+  businesses copy and customise them, platform admins manage the catalog. A business profile
+  (what you do, services, hours, policies, brand voice, goals) is given to every AI employee.
+- **Automations** — "when this event happens (and these conditions match), give this AI
+  employee a task / notify me", with cooldowns, hourly caps, dry runs and a run log.
+  Connected systems push events through signed webhooks (see
+  `docs/integration-api-contract.md#webhooks`). Events caused by AI work never re-trigger
+  rules unless explicitly allowed.
+- **Your own AI keys** — each business can add encrypted OpenAI/Anthropic/Gemini keys.
+- **Platform admin** — cross-tenant AI cost, system health and per-business AI switches.
+
 Scale out by running extra API processes with `AI_WORKFORCE_WORKER=false` and dedicated
 worker processes; execution is claimed atomically in Postgres.
 

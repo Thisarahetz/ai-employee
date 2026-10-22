@@ -118,41 +118,82 @@ export function useDeleteAiEmployee() {
   });
 }
 
+interface SetupTemplate {
+  id: string;
+  key: string;
+  name: string;
+  category: string;
+  icon: string;
+  description: string;
+  owner: "platform" | "business";
+  scheduleCount: number;
+  ruleCount: number;
+  employees: BusinessTemplateInfo["employees"];
+}
+
+/** Industry templates available to this business (platform + its own), keyed by template key. */
 export function useAiEmployeeTemplates() {
   return useQuery({
-    queryKey: ["ai-employees", "templates"],
-    queryFn: async () => {
-      const res = await apiClient.get<BusinessTemplateInfo[]>("/ai-employees/templates");
-      return res.data;
+    queryKey: ["business-setup", "templates"],
+    queryFn: async (): Promise<BusinessTemplateInfo[]> => {
+      const res = await apiClient.get<SetupTemplate[]>("/business-setup/templates");
+      return res.data.map((t) => ({
+        id: t.key,
+        templateId: t.id,
+        name: t.name,
+        category: t.category,
+        icon: t.icon,
+        description: t.description,
+        owner: t.owner,
+        employeeCount: t.employees.length,
+        employees: t.employees,
+        scheduleCount: t.scheduleCount,
+        ruleCount: t.ruleCount,
+      }));
     },
   });
 }
 
+export interface ApplyTemplateResult {
+  template: string;
+  employees: { key: string; id: string; name: string; created: boolean }[];
+  schedulesCreated: number;
+  rulesCreated: number;
+  automationsEnabled: boolean;
+  problems: string[];
+}
+
+/** Installs a template: AI employees, recurring schedules and automation rules. */
 export function useApplyTemplate() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({
       businessType,
-      businessSize,
       selectedKeys,
+      enableAutomations,
     }: {
+      /** Template key, e.g. "SALON_SPA". */
       businessType: string;
-      businessSize?: "SMALL" | "MEDIUM" | "LARGE" | "ENTERPRISE";
       selectedKeys?: string[];
+      enableAutomations?: boolean;
     }) => {
-      const res = await apiClient.post<{
-        templateName: string;
-        installedCount: number;
-        employees: AiEmployee[];
-      }>("/ai-employees/templates/apply", {
-        businessType,
-        businessSize,
-        selectedKeys,
+      const list =
+        qc.getQueryData<BusinessTemplateInfo[]>(["business-setup", "templates"]) ??
+        (await qc.fetchQuery({
+          queryKey: ["business-setup", "templates"],
+          queryFn: async () => (await apiClient.get<SetupTemplate[]>("/business-setup/templates")).data.map((t) => ({ id: t.key, templateId: t.id })),
+        }) as BusinessTemplateInfo[]);
+      const tmpl = list.find((t) => t.id === businessType);
+      if (!tmpl?.templateId) throw new Error("That industry template is not available.");
+      const res = await apiClient.post<ApplyTemplateResult>(`/business-setup/templates/${tmpl.templateId}/apply`, {
+        employeeKeys: selectedKeys,
+        enableAutomations: Boolean(enableAutomations),
       });
       return res.data;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["ai-employees"] });
+      qc.invalidateQueries({ queryKey: ["ai-workforce"] });
     },
   });
 }

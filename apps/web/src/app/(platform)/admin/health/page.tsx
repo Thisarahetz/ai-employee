@@ -1,5 +1,6 @@
 "use client";
 
+import { WorkforceHealth } from "@/components/platform/workforce-health";
 import { useState } from "react";
 import {
   Activity,
@@ -167,21 +168,23 @@ export default function AdminHealthPage() {
                   <p className="text-xs text-ink-muted">Cache & Queue Cluster</p>
                 </div>
               </div>
-              <Badge color="green">CONNECTED</Badge>
+              <Badge color={health.services.redis.status === "healthy" ? "green" : "red"}>{health.services.redis.status === "healthy" ? "CONNECTED" : "UNREACHABLE"}</Badge>
             </div>
 
             <div className="space-y-2 border-t border-line pt-3 text-xs">
               <div className="flex justify-between">
-                <span className="text-ink-secondary">Host</span>
-                <span className="font-mono text-ink-primary">{health.services.redis.host}</span>
+                <span className="text-ink-secondary">Round trip</span>
+                <span className="font-mono text-ink-primary">{health.services.redis.latencyMs} ms</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-ink-secondary">Port</span>
-                <span className="font-mono text-ink-primary">{health.services.redis.port}</span>
+                <span className="text-ink-secondary">Jobs waiting / delayed</span>
+                <span className="font-mono text-ink-primary">
+                  {health.services.redis.queue ? `${(health.services.redis.queue.waiting ?? 0) + (health.services.redis.queue.prioritized ?? 0)} / ${health.services.redis.queue.delayed ?? 0}` : "—"}
+                </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-ink-secondary">Worker Readiness</span>
-                <span className="font-semibold text-emerald-600">Ready</span>
+                <span className="text-ink-secondary">Jobs running</span>
+                <span className="font-semibold text-ink-primary">{health.services.redis.queue?.active ?? "—"}</span>
               </div>
             </div>
           </Card>
@@ -205,8 +208,8 @@ export default function AdminHealthPage() {
 
             <div className="space-y-2 border-t border-line pt-3 text-xs">
               <div className="flex justify-between">
-                <span className="text-ink-secondary">Default Fast Model</span>
-                <span className="font-mono text-ink-primary">{health.services.aiProviders.openai.defaultModel}</span>
+                <span className="text-ink-secondary">Platform default model</span>
+                <span className="font-mono text-ink-primary">{health.services.aiProviders.openai.defaultModel ?? "Not the platform default"}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-ink-secondary">API Key</span>
@@ -238,7 +241,7 @@ export default function AdminHealthPage() {
               <div className="flex justify-between">
                 <span className="text-ink-secondary">Default Model</span>
                 <span className="font-mono text-ink-primary">
-                  {health.services.aiProviders.anthropic.defaultModel}
+                  {health.services.aiProviders.anthropic.defaultModel ?? "Not the platform default"}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -280,6 +283,7 @@ export default function AdminHealthPage() {
           </Card>
         </div>
       )}
+      <WorkforceHealth />
     </div>
   );
 }

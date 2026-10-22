@@ -6,6 +6,7 @@ import { getErrorMessage } from "@/lib/utils";
 import { ErrorState } from "@/components/ui/error-state";
 import { EmptyState } from "@/components/ui/empty-state";
 import { AgentConfigCard } from "@/components/ai-configuration/agent-card";
+import { ProviderKeysCard } from "@/components/ai-configuration/provider-keys-card";
 
 export default function AiConfigurationPage() {
   const agentsQuery = useAiAgents();
@@ -16,6 +17,8 @@ export default function AiConfigurationPage() {
         <h1 className="text-xl font-semibold text-ink-primary">AI Configuration</h1>
         <p className="text-sm text-ink-secondary">Provider, model, and business instructions per agent.</p>
       </div>
+
+      <ProviderKeysCard />
 
       {agentsQuery.isLoading ? (
         <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-2 lg:grid-cols-4">

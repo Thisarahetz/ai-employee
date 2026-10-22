@@ -1,3 +1,7 @@
+import { TaskQueueService } from '../ai-workforce/task-queue.service';
+import { platformDefaultLimits } from '../ai-workforce/usage-limits.service';
+import { platformDefaultModel } from '../ai-provider/ai-provider.service';
+import { platformKeysAllowed } from '../ai-provider/provider-keys.service';
 import { BusinessType } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
@@ -43,6 +47,7 @@ export class AdminService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly authService: AuthService,
+    private readonly queue: TaskQueueService,
   ) {}
 
   /**
@@ -744,9 +749,19 @@ export class AdminService {
           by: ['category'],
           _count: { id: true },
         }),
-        this.prisma.tenant.findMany({
-          take: 6,
-          orderBy: { createdAt: 'desc' },
+        // Busiest tenants by AI cost over the last 30 days (not simply the newest).
+        this.prisma.aiUsageLog
+          .groupBy({
+            by: ['tenantId'],
+            where: { createdAt: { gte: new Date(Date.now() - 30 * 86400e3) } },
+            _sum: { estimatedCostUsd: true },
+            orderBy: { _sum: { estimatedCostUsd: 'desc' } },
+            take: 6,
+          })
+          .then((rows) =>
+            this.prisma.tenant
+              .findMany({
+          where: { id: { in: rows.map((r) => r.tenantId) } },
           select: {
             id: true,
             name: true,
@@ -755,7 +770,13 @@ export class AdminService {
             status: true,
             _count: { select: { conversations: true, messages: true, aiEmployees: true } },
           },
-        }),
+              })
+              .then((ts) =>
+                rows
+                  .map((r) => ({ ...ts.find((t) => t.id === r.tenantId)!, costUsd30d: Number(r._sum.estimatedCostUsd ?? 0) }))
+                  .filter((t) => t.id),
+              ),
+          ),
       ]);
 
     return {
@@ -783,6 +804,7 @@ export class AdminService {
         conversationsCount: t._count.conversations,
         messagesCount: t._count.messages,
         aiEmployeesCount: t._count.aiEmployees,
+        costUsd30d: t.costUsd30d,
       })),
     };
   }
@@ -804,31 +826,29 @@ export class AdminService {
     const memory = process.memoryUsage();
     const uptimeSeconds = Math.floor(process.uptime());
 
-    const redisConfigured = Boolean(process.env.REDIS_HOST);
-    const redisStatus = redisConfigured ? 'healthy' : 'unconfigured';
+    // Actually reach Redis through the task queue instead of trusting an env var.
+    const redisStart = Date.now();
+    const queueCounts = await this.queue.counts().catch(() => null);
+    const redisStatus: 'healthy' | 'unhealthy' = queueCounts ? 'healthy' : 'unhealthy';
+    const redisLatencyMs = Date.now() - redisStart;
 
+    const model = platformDefaultModel();
+    const provider = (name: string, env: string) => ({
+      configured: Boolean(process.env[env]?.trim()),
+      status: process.env[env]?.trim() ? 'active' : 'not_configured',
+      isPlatformDefault: model.provider === name,
+      defaultModel: model.provider === name ? model.model : null,
+    });
     const aiProviders = {
-      openai: {
-        configured: Boolean(process.env.OPENAI_API_KEY),
-        status: process.env.OPENAI_API_KEY ? 'active' : 'not_configured',
-        defaultModel: 'gpt-4o-mini',
-      },
-      anthropic: {
-        configured: Boolean(process.env.ANTHROPIC_API_KEY),
-        status: process.env.ANTHROPIC_API_KEY ? 'active' : 'not_configured',
-        defaultModel: 'claude-3-5-sonnet',
-      },
-      gemini: {
-        configured: Boolean(process.env.GEMINI_API_KEY),
-        status: process.env.GEMINI_API_KEY ? 'active' : 'not_configured',
-        defaultModel: 'gemini-1.5-flash',
-      },
+      openai: provider('OPENAI', 'OPENAI_API_KEY'),
+      anthropic: provider('ANTHROPIC', 'ANTHROPIC_API_KEY'),
+      gemini: provider('GEMINI', 'GEMINI_API_KEY'),
     };
 
     const activeChannels = await this.prisma.channel.count({ where: { status: 'ACTIVE' } });
 
     return {
-      status: dbStatus === 'healthy' ? 'healthy' : 'degraded',
+      status: dbStatus === 'healthy' && redisStatus === 'healthy' ? 'healthy' : 'degraded',
       timestamp: new Date().toISOString(),
       diagnosticDurationMs: Date.now() - startTime,
       services: {
@@ -846,88 +866,56 @@ export class AdminService {
         },
         redis: {
           status: redisStatus,
-          host: process.env.REDIS_HOST || 'localhost',
-          port: +(process.env.REDIS_PORT ?? 6379),
+          latencyMs: redisLatencyMs,
+          queue: queueCounts,
         },
         aiProviders,
         channels: {
           activeChannels,
-          whatsappWebhookReady: true,
+          whatsappWebhookSigned: Boolean(process.env.WHATSAPP_APP_SECRET),
+          wahaWebhookSigned: Boolean(process.env.WAHA_WEBHOOK_HMAC_KEY),
         },
       },
     };
   }
 
-  private platformSettings = {
-    defaultPlan: 'free',
-    trialDays: 14,
-    defaultFastModel: 'gpt-4o-mini',
-    defaultReasoningModel: 'claude-3-5-sonnet',
-    alertWebhookUrl: '',
-    maintenanceMode: false,
-    systemNotice: 'System fully operational across all clusters.',
-  };
-
-  getPlatformSettings() {
-    return this.platformSettings;
-  }
-
-  async updatePlatformSettings(dto: Partial<typeof this.platformSettings>, actor: AdminActor) {
-    const before = { ...this.platformSettings };
-    this.platformSettings = { ...this.platformSettings, ...dto };
-
-    await this.recordAudit(actor, 'platform.update_settings', 'platform', 'GLOBAL', {
-      before,
-      after: this.platformSettings,
-    });
-
-    return this.platformSettings;
-  }
-
   /**
-   * Nuclear "clean database" — wipes all tenant-scoped data and all
-   * non-platform-admin user identities.  Safe to call from the API because it
-   * uses Prisma cascades (not `prisma db push --force-reset`), so the schema
-   * stays intact and super-admin accounts keep working after the reset.
-   *
-   * Execution order:
-   *   1. Write the audit log entry FIRST (survives even if the delete fails).
-   *   2. Delete all Tenant rows — cascades wipe every child record in the DB
-   *      (businesses, conversations, messages, customers, integrations, etc.).
-   *   3. Delete non-platform-admin User rows (global identities with no tenant).
-   *   4. Return a counts summary.
+   * The platform's effective configuration. These values come from environment
+   * variables (so they are versioned with the deployment and identical on every
+   * instance); this view is read-only and shows where each one is set.
    */
-  async cleanDatabase(actor: AdminActor) {
-    // Snapshot counts before we delete anything — used in the response summary.
-    const [tenantCount, userCount, conversationCount, messageCount] = await Promise.all([
-      this.prisma.tenant.count(),
-      this.prisma.user.count({ where: { platformRole: 'NONE' } }),
-      this.prisma.conversation.count(),
-      this.prisma.message.count(),
-    ]);
-
-    // Audit BEFORE delete so we always have a record, even on partial failure.
-    await this.recordAudit(actor, 'platform.clean_database', 'platform', 'GLOBAL', {
-      snapshot: { tenantCount, userCount, conversationCount, messageCount },
-      warning: 'All tenant-scoped data and non-admin user identities were wiped.',
-    });
-
-    // Cascade-delete every tenant (wipes all child rows automatically).
-    await this.prisma.tenant.deleteMany({});
-
-    // Remove global User identities that have no platform role.
-    // Super-admins (platformRole = SUPER_ADMIN) are preserved so /admin stays accessible.
-    await this.prisma.user.deleteMany({ where: { platformRole: 'NONE' } });
-
+  getPlatformSettings() {
+    const model = platformDefaultModel();
+    const limits = platformDefaultLimits();
     return {
-      success: true,
-      message: 'Database cleaned. All tenant data and non-admin user identities have been removed.',
-      removed: {
-        tenants: tenantCount,
-        nonAdminUsers: userCount,
-        conversations: conversationCount,
-        messages: messageCount,
+      source: 'environment',
+      ai: {
+        defaultProvider: { value: model.provider, env: 'AI_DEFAULT_PROVIDER' },
+        defaultModel: { value: model.model, env: 'AI_DEFAULT_MODEL' },
+        platformKeysAllowed: { value: platformKeysAllowed(), env: 'AI_ALLOW_PLATFORM_KEYS' },
       },
+      defaultTenantLimits: {
+        dailyBudgetUsd: { value: limits.dailyBudgetUsd, env: 'AI_DEFAULT_DAILY_BUDGET_USD' },
+        monthlyBudgetUsd: { value: limits.monthlyBudgetUsd, env: 'AI_DEFAULT_MONTHLY_BUDGET_USD' },
+        maxTaskCostUsd: { value: limits.maxTaskCostUsd, env: 'AI_DEFAULT_MAX_TASK_COST_USD' },
+        maxTaskSteps: { value: limits.maxTaskSteps, env: 'AI_DEFAULT_MAX_TASK_STEPS' },
+        maxConcurrentTasks: { value: limits.maxConcurrentTasks, env: 'AI_DEFAULT_MAX_CONCURRENT_TASKS' },
+        maxTasksPerDay: { value: limits.maxTasksPerDay, env: 'AI_DEFAULT_MAX_TASKS_PER_DAY' },
+        maxSchedules: { value: limits.maxSchedules, env: 'AI_DEFAULT_MAX_SCHEDULES' },
+      },
+      security: {
+        rateLimitPerMinute: { value: Number(process.env.RATE_LIMIT_PER_MINUTE) || 120, env: 'RATE_LIMIT_PER_MINUTE' },
+        corsOrigins: { value: process.env.CORS_ORIGINS || '(any origin)', env: 'CORS_ORIGINS' },
+        integrationPrivateNetwork: {
+          value: process.env.INTEGRATION_ALLOW_PRIVATE_NETWORK ? process.env.INTEGRATION_ALLOW_PRIVATE_NETWORK === 'true' : process.env.NODE_ENV !== 'production',
+          env: 'INTEGRATION_ALLOW_PRIVATE_NETWORK',
+        },
+      },
+      workers: {
+        runsWorker: { value: process.env.AI_WORKFORCE_WORKER !== 'false', env: 'AI_WORKFORCE_WORKER' },
+        concurrency: { value: Number(process.env.AI_WORKFORCE_WORKER_CONCURRENCY) || 5, env: 'AI_WORKFORCE_WORKER_CONCURRENCY' },
+      },
+      perTenantOverrides: 'Per-business AI limits can be changed from the AI usage page (audited).',
     };
   }
 

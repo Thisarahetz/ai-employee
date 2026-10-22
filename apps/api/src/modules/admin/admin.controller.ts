@@ -119,15 +119,6 @@ export class AdminController {
     return this.adminService.getPlatformSettings();
   }
 
-  @Patch('settings')
-  updateSettings(
-    @Body() dto: any,
-    @CurrentTenant() ctx: TenantContext,
-    @Ip() ip: string,
-  ) {
-    return this.adminService.updatePlatformSettings(dto, this.actor(ctx, ip));
-  }
-
   @Get('audit-log')
   listAuditLog(
     @Query('targetType') targetType?: string,
@@ -141,17 +132,6 @@ export class AdminController {
       page: page ? Number(page) : undefined,
       pageSize: pageSize ? Number(pageSize) : undefined,
     });
-  }
-
-  /**
-   * Wipe all tenant data and non-admin user identities from the database.
-   * Schema is preserved; SUPER_ADMIN accounts remain intact.
-   * Guarded by PlatformAdminGuard (class-level) — only SUPER_ADMIN may call this.
-   */
-  @Delete('database')
-  @HttpCode(HttpStatus.OK)
-  cleanDatabase(@CurrentTenant() ctx: TenantContext, @Ip() ip: string) {
-    return this.adminService.cleanDatabase(this.actor(ctx, ip));
   }
 
   private actor(ctx: TenantContext, ip: string): AdminActor {
