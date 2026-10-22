@@ -268,3 +268,46 @@ export function useAdminSetTenantAi() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "ai-usage"] }),
   });
 }
+
+// ── Getting started guide ─────────────────────────────────────────────────
+
+export interface GettingStartedStep {
+  key: string;
+  title: string;
+  why: string;
+  href: string;
+  action: string;
+  done: boolean;
+  optional: boolean;
+  detail: string | null;
+}
+
+export interface GettingStarted {
+  steps: GettingStartedStep[];
+  completed: number;
+  total: number;
+  requiredCompleted: number;
+  requiredTotal: number;
+  isComplete: boolean;
+  next: GettingStartedStep | null;
+  dismissed: boolean;
+}
+
+/** Polls gently so steps tick themselves off as the owner works. */
+export function useGettingStarted() {
+  return useQuery({
+    queryKey: ["business-setup", "getting-started"],
+    queryFn: async () => (await apiClient.get<GettingStarted>("/business-setup/getting-started")).data,
+    refetchInterval: 20000,
+    refetchOnWindowFocus: true,
+    retry: false,
+  });
+}
+
+export function useSetGettingStartedDismissed() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (dismissed: boolean) => (await apiClient.put<GettingStarted>("/business-setup/getting-started", { dismissed })).data,
+    onSuccess: (data) => qc.setQueryData(["business-setup", "getting-started"], data),
+  });
+}

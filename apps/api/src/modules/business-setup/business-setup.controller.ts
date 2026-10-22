@@ -47,6 +47,19 @@ export class BusinessSetupController {
     return this.setup.apply(t.tenantId, t.userId, id, body ?? {});
   }
 
+  /** Step-by-step setup guide for a new business, worked out from real data. */
+  @Get('getting-started')
+  @RequirePermissions('ai_employees:read')
+  gettingStarted(@CurrentTenant() t: TenantContext) {
+    return this.setup.gettingStarted(t.tenantId);
+  }
+
+  @Put('getting-started')
+  @RequirePermissions('businesses:write')
+  setGettingStarted(@CurrentTenant() t: TenantContext, @Body() body: { dismissed?: boolean }) {
+    return this.setup.setGettingStartedDismissed(t.tenantId, t.userId, body?.dismissed !== false);
+  }
+
   @Get('profile')
   @RequirePermissions('businesses:read')
   getProfile(@CurrentTenant() t: TenantContext, @Query('businessId') businessId?: string) {

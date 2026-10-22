@@ -1,7 +1,8 @@
 "use client";
 
 import { useAiUsage } from "@/lib/hooks/use-ai-workforce";
-import React from "react";
+import { GettingStartedCard } from "@/components/getting-started/getting-started";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Bot,
@@ -54,6 +55,11 @@ export default function DashboardPage() {
   const activitiesQuery = useAiEmployeeActivities({ limit: 6 });
   const totalConversationsQuery = useConversations("ALL", 1, activeLocationId);
   const usageQuery = useAiUsage();
+  // ?welcome=1 is added when the setup wizard finishes.
+  const [welcome, setWelcome] = useState(false);
+  useEffect(() => {
+    setWelcome(new URLSearchParams(window.location.search).has("welcome"));
+  }, []);
   const toggleStatus = useToggleEmployeeStatus();
 
   const employees = employeesQuery.data || [];
@@ -87,6 +93,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6 pb-12">
+      <GettingStartedCard welcome={welcome} />
       {/* 1. Header & Welcome Bar */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-line bg-white p-6 shadow-xs">
         <div>

@@ -20,6 +20,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useBusinesses, useUpdateBusiness } from "@/lib/hooks/use-businesses";
 import { apiClient } from "@/lib/api-client";
 import { getErrorMessage } from "@/lib/utils";
+import { useGettingStarted, useSetGettingStartedDismissed } from "@/lib/hooks/use-business-setup";
 
 export default function SettingsPage() {
   const { user, activeTenant } = useAuth();
@@ -76,6 +77,7 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6 pb-12">
+      <GuideToggle />
       <div>
         <h1 className="text-xl font-bold text-ink-primary">Business Settings</h1>
         <p className="text-xs text-ink-secondary mt-1">
@@ -252,6 +254,23 @@ export default function SettingsPage() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Lets an owner bring back the getting-started guide after hiding it. */
+function GuideToggle() {
+  const guide = useGettingStarted();
+  const toggle = useSetGettingStartedDismissed();
+  if (!guide.data?.dismissed) return null;
+  return (
+    <div className="flex items-center justify-between rounded-xl border border-line bg-white p-4 text-xs">
+      <span className="text-ink-secondary">
+        Setup guide hidden · {guide.data.requiredCompleted} of {guide.data.requiredTotal} essential steps done
+      </span>
+      <button type="button" onClick={() => toggle.mutate(false)} className="font-semibold text-brand-600 hover:underline">
+        Show the getting started guide again
+      </button>
     </div>
   );
 }

@@ -155,7 +155,7 @@ export default function OnboardingPage() {
         enableAutomations,
       });
 
-      router.replace("/dashboard");
+      router.replace("/dashboard?welcome=1");
     } catch (err) {
       setLaunchError(getErrorMessage(err, "Setup could not be completed. Please try again."));
     } finally {

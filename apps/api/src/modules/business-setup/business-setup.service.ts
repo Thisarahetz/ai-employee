@@ -300,6 +300,150 @@ export class BusinessSetupService implements OnApplicationBootstrap {
     return this.getProfile(tenantId, b.id);
   }
 
+  // ── Getting started guide ───────────────────────────────────────────────
+
+  /**
+   * The steps a new business must complete to run with its AI team. Each
+   * step's `done` is worked out from real data (never a box the owner ticks),
+   * so the guide always shows where the business really is.
+   */
+  async gettingStarted(tenantId: string) {
+    const b = await this.business(tenantId);
+    const profile = (b.profile ?? {}) as BusinessProfile;
+    const settings = (b.settings ?? {}) as Record<string, unknown>;
+    const [employees, readyDocs, docs, channels, conversations, members, limits, schedules, rules, commands, tasks] = await Promise.all([
+      this.prisma.aiEmployee.count({ where: { tenantId } }),
+      this.prisma.document.count({ where: { tenantId, status: 'READY' } }),
+      this.prisma.document.count({ where: { tenantId } }),
+      this.prisma.channel.count({ where: { tenantId, status: 'ACTIVE' } }),
+      this.prisma.conversation.count({ where: { tenantId } }),
+      this.prisma.tenantMembership.count({ where: { tenantId, status: 'ACTIVE' } }),
+      this.prisma.tenantAiSettings.count({ where: { tenantId } }),
+      this.prisma.aiTaskSchedule.count({ where: { tenantId, enabled: true } }),
+      this.prisma.aiAutomationRule.count({ where: { tenantId, enabled: true } }),
+      this.prisma.ownerCommandMessage.count({ where: { tenantId, role: 'OWNER' } }),
+      this.prisma.aiTask.count({ where: { tenantId, createdByUserId: { not: null } } }),
+    ]);
+
+    const steps = [
+      {
+        key: 'team',
+        title: 'Set up your AI team',
+        why: 'Pick your industry so the right AI employees, recurring work and automations are created for you.',
+        href: '/onboarding',
+        action: 'Open the setup wizard',
+        done: employees > 0,
+        detail: employees ? `${employees} AI employee(s)` : null,
+      },
+      {
+        key: 'profile',
+        title: 'Describe your business',
+        why: 'Every AI employee reads this before each task: what you do, your services, hours and how you talk to customers.',
+        href: '/business-setup',
+        action: 'Fill in the business profile',
+        done: Boolean(profile.description?.trim() && (profile.services?.trim() || profile.hours?.trim())),
+        detail: null,
+      },
+      {
+        key: 'knowledge',
+        title: 'Add your prices and policies',
+        why: 'Customers get answers only from this information, so use your real prices, rules and opening hours.',
+        href: '/knowledge-base',
+        action: 'Add business information',
+        done: readyDocs > 0,
+        detail: docs && !readyDocs ? 'Documents are still being processed' : readyDocs ? `${readyDocs} document(s) ready` : null,
+      },
+      {
+        key: 'channel',
+        title: 'Connect WhatsApp or website chat',
+        why: 'This is how customers reach your AI employees.',
+        href: '/channels',
+        action: 'Connect a channel',
+        done: channels > 0,
+        detail: null,
+      },
+      {
+        key: 'test',
+        title: 'Send a test message',
+        why: 'Message your business like a customer would and check the answer is right before customers do.',
+        href: '/channels',
+        action: 'Test your channel',
+        done: conversations > 0,
+        detail: null,
+      },
+      {
+        key: 'limits',
+        title: 'Set your AI budget',
+        why: 'Choose how much AI work may cost per day and month. Work pauses safely when the limit is reached.',
+        href: '/automation',
+        action: 'Review AI limits',
+        done: limits > 0,
+        detail: null,
+      },
+      {
+        key: 'schedule',
+        title: 'Switch on recurring work',
+        why: 'Run a schedule once to see the result, then turn it on so your AI team works every day without being asked.',
+        href: '/automation',
+        action: 'Turn on a schedule',
+        done: schedules > 0,
+        detail: schedules ? `${schedules} running` : null,
+      },
+      {
+        key: 'command',
+        title: 'Give your AI team its first task',
+        why: 'Ask in plain words, for example "Give me a summary of what the team did today", and learn how reports and approvals come back.',
+        href: '/command-center',
+        action: 'Open the Command Center',
+        done: commands > 0 || tasks > 0,
+        detail: null,
+      },
+      {
+        key: 'staff',
+        title: 'Invite your staff',
+        why: 'Give each person the right role so they can reply to customers or take over chats.',
+        href: '/team',
+        action: 'Invite a team member',
+        done: members > 1,
+        optional: true,
+        detail: null,
+      },
+      {
+        key: 'automation',
+        title: 'Turn on an automation',
+        why: 'Let AI employees react to events, such as offering a new time when an appointment is cancelled.',
+        href: '/automations',
+        action: 'Review automations',
+        done: rules > 0,
+        optional: true,
+        detail: null,
+      },
+    ].map((st) => ({ optional: false, ...st }));
+
+    const required = steps.filter((st) => !st.optional);
+    const doneRequired = required.filter((st) => st.done).length;
+    return {
+      steps,
+      completed: steps.filter((st) => st.done).length,
+      total: steps.length,
+      requiredCompleted: doneRequired,
+      requiredTotal: required.length,
+      isComplete: doneRequired === required.length,
+      next: steps.find((st) => !st.done && !st.optional) ?? steps.find((st) => !st.done) ?? null,
+      dismissed: typeof settings.gettingStartedDismissedAt === 'string',
+    };
+  }
+
+  async setGettingStartedDismissed(tenantId: string, userId: string, dismissed: boolean) {
+    const b = await this.business(tenantId);
+    const settings = { ...((b.settings ?? {}) as Record<string, unknown>) };
+    if (dismissed) settings.gettingStartedDismissedAt = new Date().toISOString();
+    else delete settings.gettingStartedDismissedAt;
+    await this.prisma.business.update({ where: { id: b.id }, data: { settings: settings as Prisma.InputJsonValue } });
+    await this.audit.record(tenantId, userId, dismissed ? 'getting_started.dismissed' : 'getting_started.reopened', 'Business', b.id, {});
+    return this.gettingStarted(tenantId);
+  }
+
   // ── Platform admin ──────────────────────────────────────────────────────
 
   async adminList() {
