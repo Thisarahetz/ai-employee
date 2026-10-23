@@ -11,6 +11,7 @@ import { ActionAgentService } from './action-agent.service';
 import { ResponseService } from '../conversation/response.service';
 import { ConversationSummaryService } from '../conversation/conversation-summary.service';
 import { HumanHandoffService } from '../human-handoff/human-handoff.service';
+import { customerMessage, LanguageTag, resolveReplyLanguage } from '../../common/language/language';
 
 const LOW_CONFIDENCE_THRESHOLD = 0.5;
 
@@ -32,12 +33,18 @@ export class AgentOrchestratorService {
   @OnEvent(EVENT_TYPES.MESSAGE_RECEIVED)
   async handleMessage(payload: MessageReceivedPayload): Promise<void> {
     const { tenantId, conversationId, content } = payload;
+    let language: LanguageTag = 'en';
 
     try {
       const conversation = await this.prisma.conversation.findFirst({
         where: { id: conversationId, tenantId },
-        select: { currentAgent: true },
+        select: {
+          currentAgent: true,
+          language: true,
+          tenant: { select: { defaultLanguage: true, matchCustomerLanguage: true } },
+        },
       });
+      language = resolveReplyLanguage(conversation?.language, conversation?.tenant);
 
       const route = await this.routerAgentService.route(
         tenantId,
@@ -55,7 +62,7 @@ export class AgentOrchestratorService {
         await this.responseService.sendResponse({
           tenantId,
           conversationId,
-          content: "I've connected you with our team. A representative will assist you shortly.",
+          content: customerMessage('handoff_connected', language),
           agentType: AgentType.HUMAN,
         });
         return;
@@ -63,19 +70,20 @@ export class AgentOrchestratorService {
 
       let replyContent: string;
       let agentType: AgentType;
+      const turn = { language, searchQuery: route.searchQuery };
 
       switch (route.agent) {
         case 'knowledge_agent':
-          replyContent = await this.knowledgeAgentService.respond(tenantId, conversationId, content);
+          replyContent = await this.knowledgeAgentService.respond(tenantId, conversationId, content, turn);
           agentType = AgentType.KNOWLEDGE;
           break;
         case 'action_agent':
-          replyContent = await this.actionAgentService.respond(tenantId, conversationId, content);
+          replyContent = await this.actionAgentService.respond(tenantId, conversationId, content, turn);
           agentType = AgentType.ACTION;
           break;
         case 'support_agent':
         default:
-          replyContent = await this.supportAgentService.respond(tenantId, conversationId, content);
+          replyContent = await this.supportAgentService.respond(tenantId, conversationId, content, turn);
           agentType = AgentType.SUPPORT;
           break;
       }
@@ -101,8 +109,7 @@ export class AgentOrchestratorService {
         await this.responseService.sendResponse({
           tenantId,
           conversationId,
-          content:
-            "I'm sorry, I encountered an issue processing your request. A team member has been notified and will assist you shortly.",
+          content: customerMessage('pipeline_error', language),
           agentType: AgentType.HUMAN,
         });
       } catch (handoffErr) {

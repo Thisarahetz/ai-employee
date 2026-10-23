@@ -5,6 +5,8 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { MessageService } from '../message/message.service';
 import { RagService } from '../rag/rag.service';
 import { TimeContextService } from './time-context.service';
+import { AgentTurn, DEFAULT_TURN } from './agent-turn';
+import { replyLanguageInstruction } from '../../common/language/language';
 
 const DEFAULT_KNOWLEDGE_PROMPT =
   "You are a factual knowledge assistant for the business.";
@@ -30,10 +32,23 @@ export class KnowledgeAgentService {
     private readonly timeContextService: TimeContextService,
   ) {}
 
-  async respond(tenantId: string, conversationId: string, latestMessage: string): Promise<string> {
+  async respond(
+    tenantId: string,
+    conversationId: string,
+    latestMessage: string,
+    turn: AgentTurn = DEFAULT_TURN,
+  ): Promise<string> {
+    // The business's documents are usually English. For a Sinhala/Singlish
+    // question, also search with an English version so the right facts are found.
+    const searchQueries = [latestMessage];
+    if (turn.language !== 'en') {
+      const english = turn.searchQuery ?? (await this.translateForSearch(tenantId, conversationId, latestMessage));
+      if (english && english.toLowerCase() !== latestMessage.toLowerCase()) searchQueries.push(english);
+    }
+
     // RTK Token Reduction: Query top 3 most relevant chunks instead of 5, saving 40-50% context tokens.
     const [chunks, history, aiAgent, timeContext] = await Promise.all([
-      this.ragService.searchTenant(tenantId, latestMessage, 3),
+      this.ragService.searchTenantMulti(tenantId, searchQueries, 3),
       this.messageService.getRecentHistory(tenantId, conversationId, 4, latestMessage),
       this.prisma.aiAgent.findUnique({
         where: { tenantId_type: { tenantId, type: AgentType.KNOWLEDGE } },
@@ -47,7 +62,7 @@ export class KnowledgeAgentService {
 
     const persona = aiAgent?.systemPrompt?.trim() || DEFAULT_KNOWLEDGE_PROMPT;
     // Static prompt prefix: persona + guardrails (100% cacheable across requests)
-    const staticSystemPrompt = `${persona}\n\n${KNOWLEDGE_GUARDRAIL}`;
+    const staticSystemPrompt = `${persona}\n\n${KNOWLEDGE_GUARDRAIL}\n\n${replyLanguageInstruction(turn.language)}`;
 
     const temporalContext = [
       'TEMPORAL CONTEXT:',
@@ -81,5 +96,34 @@ export class KnowledgeAgentService {
     );
 
     return result.content;
+  }
+
+  /**
+   * Short English rendering of a Sinhala/Singlish question, used only for the
+   * knowledge-base search. Best effort: a failure just means we search with
+   * the original text alone.
+   */
+  private async translateForSearch(tenantId: string, conversationId: string, text: string): Promise<string | null> {
+    try {
+      const res = await this.aiProviderService.complete(
+        tenantId,
+        AgentType.ROUTER,
+        [
+          {
+            role: 'system',
+            content:
+              'Translate the customer message (Sinhala or Singlish) into a short English search query. Output only the English text, nothing else.',
+            cacheControl: true,
+          },
+          { role: 'user', content: text.slice(0, 1000) },
+        ],
+        { conversationId },
+      );
+      const out = res.content.trim().replace(/^["']|["']$/g, '');
+      return out ? out.slice(0, 300) : null;
+    } catch (err) {
+      this.logger.warn(`Search translation failed for tenant=${tenantId}: ${(err as Error).message}`);
+      return null;
+    }
   }
 }

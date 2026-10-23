@@ -4,6 +4,8 @@ import { AiProviderService } from '../ai-provider/ai-provider.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MessageService } from '../message/message.service';
 import { TimeContextService } from './time-context.service';
+import { AgentTurn, DEFAULT_TURN } from './agent-turn';
+import { replyLanguageInstruction } from '../../common/language/language';
 
 const DEFAULT_SUPPORT_PROMPT =
   'You are a professional customer support agent for the business.';
@@ -24,7 +26,12 @@ export class SupportAgentService {
     private readonly timeContextService: TimeContextService,
   ) {}
 
-  async respond(tenantId: string, conversationId: string, latestMessage: string): Promise<string> {
+  async respond(
+    tenantId: string,
+    conversationId: string,
+    latestMessage: string,
+    turn: AgentTurn = DEFAULT_TURN,
+  ): Promise<string> {
     const [history, aiAgent, timeContext] = await Promise.all([
       this.messageService.getRecentHistory(tenantId, conversationId, 6, latestMessage),
       this.prisma.aiAgent.findUnique({
@@ -35,7 +42,8 @@ export class SupportAgentService {
 
     const persona = aiAgent?.systemPrompt?.trim() || DEFAULT_SUPPORT_PROMPT;
     // Static prompt prefix: persona + guardrails (100% cacheable across all requests)
-    const staticSystemPrompt = `${persona}\n\n${CAVEMAN_SUPPORT_GUARDRAIL}`;
+    // Static prompt prefix: persona + guardrails + reply language (cacheable per language)
+    const staticSystemPrompt = `${persona}\n\n${CAVEMAN_SUPPORT_GUARDRAIL}\n\n${replyLanguageInstruction(turn.language)}`;
     const dynamicTimeTurn = `[Context: Current Date & Time in timezone ${timeContext.timezone}: ${timeContext.formatted}]`;
 
     const result = await this.aiProviderService.complete(

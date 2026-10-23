@@ -24,13 +24,18 @@ enum TenantStatus {
 }
 
 model Tenant {
-  id        String       @id @default(cuid())
-  name      String
-  slug      String       @unique
-  status    TenantStatus @default(TRIAL)
-  plan      String       @default("free")
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  id                    String       @id @default(cuid())
+  name                  String
+  slug                  String       @unique
+  status                TenantStatus @default(TRIAL)
+  plan                  String       @default("free")
+  /// Language for customer replies when the customer's language is unknown,
+  /// and for every reply when matchCustomerLanguage is false: "en" | "si".
+  defaultLanguage       String       @default("en")
+  /// Reply in the language the customer writes in (English, Sinhala, Singlish).
+  matchCustomerLanguage Boolean      @default(true)
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
 
   businesses            Business[]
   memberships           TenantMembership[]
@@ -260,6 +265,9 @@ model Conversation {
   channel        Channel            @relation(fields: [channelId], references: [id])
   status         ConversationStatus @default(OPEN)
   currentAgent   AgentType?
+  /// Language the customer writes in, detected from their messages:
+  /// "en" | "si" (Sinhala script) | "si-Latn" (Singlish). Null until known.
+  language       String?
   assignedUserId String?
   assignedUser   User?              @relation("AssignedAgent", fields: [assignedUserId], references: [id])
   lastMessageAt  DateTime?
@@ -275,6 +283,7 @@ model Conversation {
   @@index([tenantId])
   @@index([tenantId, status])
   @@index([tenantId, customerId])
+  @@index([tenantId, language])
   @@map("conversations")
 }
 

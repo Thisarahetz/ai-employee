@@ -35,7 +35,22 @@ export const WIDGET_JS = `(function () {
     try { localStorage.setItem(storeKey, sessionId); } catch (e) {}
   }
 
-  var cfg = { title: 'Chat with us', accentColor: '#2a78d6', greeting: 'Hi! How can we help?' };
+  var cfg = { title: 'Chat with us', accentColor: '#2a78d6', greeting: 'Hi! How can we help?', language: 'en' };
+  // Widget labels in English and Sinhala. Picked from data-language, the host
+  // page's <html lang>, the business default, then the visitor's browser.
+  var LABELS = {
+    en: { open: 'Open chat', placeholder: 'Type a message...', send: 'Send' },
+    si: { open: 'චැට් එක විවෘත කරන්න', placeholder: 'පණිවිඩයක් ලියන්න...', send: 'යවන්න' }
+  };
+  function pickLanguage() {
+    var attr = (script.getAttribute('data-language') || '').toLowerCase();
+    if (attr === 'si' || attr === 'en') return attr;
+    var pageLang = (document.documentElement.getAttribute('lang') || '').toLowerCase();
+    if (pageLang.indexOf('si') === 0) return 'si';
+    if (cfg.language === 'si') return 'si';
+    var nav = (navigator.language || '').toLowerCase();
+    return nav.indexOf('si') === 0 ? 'si' : 'en';
+  }
   var seen = {};
   var isOpen = false;
   var pollTimer = null;
@@ -46,7 +61,7 @@ export const WIDGET_JS = `(function () {
   var style = document.createElement('style');
   style.textContent =
     '.aiemp-btn{position:fixed;bottom:20px;right:20px;width:56px;height:56px;border-radius:50%;border:none;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.2);color:#fff;font-size:24px;z-index:2147483000}' +
-    '.aiemp-panel{position:fixed;bottom:88px;right:20px;width:340px;max-width:calc(100vw - 40px);height:460px;max-height:calc(100vh - 120px);background:#fff;border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.25);display:none;flex-direction:column;overflow:hidden;z-index:2147483000;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}' +
+    '.aiemp-panel{position:fixed;bottom:88px;right:20px;width:340px;max-width:calc(100vw - 40px);height:460px;max-height:calc(100vh - 120px);background:#fff;border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.25);display:none;flex-direction:column;overflow:hidden;z-index:2147483000;font-family:system-ui,-apple-system,Segoe UI,Roboto,\"Noto Sans Sinhala\",\"Iskoola Pota\",\"Nirmala UI\",sans-serif}' +
     '.aiemp-panel.aiemp-open{display:flex}' +
     '.aiemp-head{padding:14px 16px;color:#fff;font-weight:600;font-size:15px}' +
     '.aiemp-body{flex:1;overflow-y:auto;padding:12px;background:#f7f7f5}' +
@@ -107,6 +122,12 @@ export const WIDGET_JS = `(function () {
   }
 
   function applyCfg() {
+    var lang = pickLanguage();
+    var labels = LABELS[lang];
+    panel.setAttribute('lang', lang);
+    btn.setAttribute('aria-label', labels.open);
+    input.setAttribute('placeholder', labels.placeholder);
+    form.querySelector('button').textContent = labels.send;
     btn.style.background = cfg.accentColor;
     head.style.background = cfg.accentColor;
     head.textContent = cfg.title;
@@ -237,6 +258,7 @@ export const WIDGET_JS = `(function () {
         cfg.title = data.title || cfg.title;
         cfg.accentColor = data.accentColor || cfg.accentColor;
         cfg.greeting = data.greeting || cfg.greeting;
+        cfg.language = data.language || cfg.language;
       }
       applyCfg();
       if (cfg.greeting) addMsg(cfg.greeting, false);

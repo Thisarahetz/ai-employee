@@ -431,6 +431,7 @@ export class TaskExecutorService {
         '- If something you need is not possible with your tools, say so plainly and suggest what the owner could connect or provide.',
         '- If data is missing or a tool fails, explain the gap rather than inventing numbers.',
         '- Final answer: a concise report in markdown with sections: **Summary**, **Findings**, **Actions taken**, **Needs your attention**, **Recommended next steps**. Omit empty sections.',
+        '- Write the report in the language the owner used for this task: Sinhala script (සිංහල) if they wrote in Sinhala, Sinhala in English letters if they wrote Singlish, otherwise English. Section headings may then be in Sinhala too.',
       ].join('\n'),
       businessProfileText(business?.profile),
       `CAPABILITIES NOT AVAILABLE:\n${capabilityGaps(toolset).map((g) => `- ${g}`).join('\n')}`,

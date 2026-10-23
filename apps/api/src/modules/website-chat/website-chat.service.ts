@@ -4,7 +4,7 @@ import { ConversationService } from '../conversation/conversation.service';
 import { PostWebsiteChatMessageDto } from './dto/post-website-chat-message.dto';
 
 const DEFAULT_ACCENT = '#2a78d6';
-const DEFAULT_GREETING = 'Hi! How can we help?';
+const DEFAULT_GREETING = { en: 'Hi! How can we help?', si: 'ආයුබෝවන්! අපි ඔබට උදව් කරන්නේ කොහොමද?' } as const;
 
 /**
  * Backs the public (unauthenticated) website-chat widget endpoints. Tenant is
@@ -30,6 +30,11 @@ export class WebsiteChatService {
   async getConfig(channelId: string) {
     const channel = await this.resolveChannel(channelId);
     const config = (channel.config ?? {}) as Record<string, unknown>;
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: channel.tenantId },
+      select: { defaultLanguage: true },
+    });
+    const language = tenant?.defaultLanguage === 'si' ? 'si' : 'en';
     return {
       channelId: channel.id,
       // `active` lets an embedding site show a "chat is live / paused" status
@@ -40,7 +45,9 @@ export class WebsiteChatService {
       accentColor:
         typeof config.accentColor === 'string' && config.accentColor ? config.accentColor : DEFAULT_ACCENT,
       greeting:
-        typeof config.greeting === 'string' && config.greeting ? config.greeting : DEFAULT_GREETING,
+        typeof config.greeting === 'string' && config.greeting ? config.greeting : DEFAULT_GREETING[language],
+      /** Business default language; the widget's own labels follow it (or the visitor's browser). */
+      language,
     };
   }
 

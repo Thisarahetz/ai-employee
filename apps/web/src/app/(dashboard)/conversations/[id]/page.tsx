@@ -21,6 +21,8 @@ import { FullPageSpinner } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { MessageBubble } from "@/components/conversations/message-bubble";
 import type { Message } from "@/lib/types";
+import { useI18n } from "@/lib/i18n";
+import { LanguageBadge } from "@/components/conversations/language-badge";
 
 export default function ConversationDetailPage() {
   const params = useParams<{ id: string }>();
@@ -34,6 +36,7 @@ export default function ConversationDetailPage() {
   const takeControl = useTakeControl(conversationId);
   const returnToAi = useReturnToAi(conversationId);
   const sendMessage = useSendMessage(conversationId);
+  const { t } = useI18n();
 
   // Messages are re-sorted client-side by createdAt ascending, since the
   // exact ordering returned by GET /conversations/:id/messages?page= isn't
@@ -64,7 +67,7 @@ export default function ConversationDetailPage() {
   if (conversationQuery.isError || !conversationQuery.data) {
     return (
       <ErrorState
-        message={getErrorMessage(conversationQuery.error, "Unable to load this conversation.")}
+        message={getErrorMessage(conversationQuery.error, t("Unable to load this conversation."))}
         onRetry={() => conversationQuery.refetch()}
       />
     );
@@ -84,14 +87,15 @@ export default function ConversationDetailPage() {
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
           <Link href="/conversations" className="text-xs font-medium text-brand-600 hover:underline">
-            &larr; All conversations
+            &larr; {t("All conversations")}
           </Link>
           <h1 className="mt-1 truncate text-lg font-semibold text-ink-primary">
-            {conversation.customer?.name || conversation.customer?.email || conversation.customer?.phone || "Conversation"}
+            {conversation.customer?.name || conversation.customer?.email || conversation.customer?.phone || t("Conversation")}
           </h1>
           <div className="mt-1 flex items-center gap-2">
             <StatusBadge {...style} />
-            {conversation.channel?.type && <span className="text-xs text-ink-muted">via {conversation.channel.type}</span>}
+            {conversation.channel?.type && <span className="text-xs text-ink-muted">{t("via {channel}", { channel: conversation.channel.type })}</span>}
+            <LanguageBadge language={conversation.language} />
           </div>
         </div>
 
@@ -103,11 +107,11 @@ export default function ConversationDetailPage() {
                 isLoading={returnToAi.isPending}
                 onClick={() => returnToAi.mutate()}
               >
-                Return to AI
+                {t("Return to AI")}
               </Button>
             ) : (
               <Button isLoading={takeControl.isPending} onClick={() => takeControl.mutate()}>
-                Take control
+                {t("Take control")}
               </Button>
             )}
           </div>
@@ -116,7 +120,7 @@ export default function ConversationDetailPage() {
 
       {(takeControl.isError || returnToAi.isError || sendMessage.isError) && (
         <p className="rounded-md bg-status-critical/10 px-3 py-2 text-sm text-status-critical">
-          {getErrorMessage(takeControl.error ?? returnToAi.error ?? sendMessage.error, "Could not update the conversation.")}
+          {getErrorMessage(takeControl.error ?? returnToAi.error ?? sendMessage.error, t("Could not update the conversation."))}
         </p>
       )}
 
@@ -130,7 +134,7 @@ export default function ConversationDetailPage() {
                 isLoading={messagesQuery.isFetching}
                 onClick={() => setLoadedPages((p) => p + 1)}
               >
-                Load older messages
+                {t("Load older messages")}
               </Button>
             </div>
           )}
@@ -143,7 +147,7 @@ export default function ConversationDetailPage() {
             </div>
           ) : messagesQuery.isError ? (
             <ErrorState
-              message={getErrorMessage(messagesQuery.error, "Unable to load messages.")}
+              message={getErrorMessage(messagesQuery.error, t("Unable to load messages."))}
               onRetry={() => messagesQuery.refetch()}
             />
           ) : !sortedMessages.length ? (
@@ -163,8 +167,8 @@ export default function ConversationDetailPage() {
                 onChange={(e) => setInputText(e.target.value)}
                 placeholder={
                   isHumanHandling
-                    ? "Type a reply as a human agent..."
-                    : "Type a message (will take control from AI)..."
+                    ? t("Type a reply as a human agent...")
+                    : t("Type a message (will take control from AI)...")
                 }
                 className="flex-1 rounded-md border border-line bg-white px-3 py-2 text-sm text-ink-primary placeholder:text-ink-muted focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
               />
@@ -173,12 +177,19 @@ export default function ConversationDetailPage() {
                 isLoading={sendMessage.isPending}
                 disabled={!inputText.trim()}
               >
-                Send
+                {t("Send")}
               </Button>
             </form>
             {isHumanHandling && (
               <p className="mt-1.5 text-[11px] text-ink-muted">
-                ⚡ You are in human control. Messages will be sent directly to the customer.
+                ⚡ {t("You are in human control. Messages will be sent directly to the customer.")}
+              </p>
+            )}
+            {(conversation.language === "si" || conversation.language === "si-Latn") && (
+              <p className="mt-1.5 text-[11px] font-medium text-brand-700">
+                {conversation.language === "si"
+                  ? t("This customer writes in Sinhala. Reply in Sinhala (සිංහල).")
+                  : t("This customer writes in Singlish (Sinhala in English letters). Reply the same way.")}
               </p>
             )}
           </div>

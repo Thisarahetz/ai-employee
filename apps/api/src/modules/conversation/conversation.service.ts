@@ -5,6 +5,7 @@ import { EventService } from '../../events/event.service';
 import { EVENT_TYPES, MessageReceivedPayload } from '../../events/event-types.const';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MessageService } from '../message/message.service';
+import { nextConversationLanguage } from '../../common/language/language';
 import { ListConversationsQueryDto } from './dto/list-conversations-query.dto';
 
 export interface IngestInboundMessageParams {
@@ -57,6 +58,7 @@ export class ConversationService {
       customerId: query.customerId,
       channelId: query.channelId,
       businessId: businessIdCondition,
+      language: query.language,
     };
 
     const [data, total] = await Promise.all([
@@ -164,9 +166,14 @@ export class ConversationService {
       contentType,
     });
 
+    // Remember the language the customer writes in, so the AI replies in it
+    // and staff can see/filter it on the dashboard.
+    const language =
+      contentType === MessageContentType.TEXT ? nextConversationLanguage(conversation.language, content) : conversation.language;
+
     await this.prisma.conversation.update({
       where: { id: conversation.id },
-      data: { lastMessageAt: message.createdAt },
+      data: { lastMessageAt: message.createdAt, language },
     });
 
     const payload: MessageReceivedPayload = {

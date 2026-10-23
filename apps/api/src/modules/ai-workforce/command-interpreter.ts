@@ -268,6 +268,8 @@ export function routeByTopic(
 export function extractPriority(text: string): TaskPriority {
   const t = text.toLowerCase();
   if (/\b(urgent|urgently|asap|immediately|right away|critical|top priority|emergency)\b/.test(t)) return 'URGENT';
+  if (/(හදිසි|වහාම|දැන්ම\s*කරන්න)|\b(hadisi|wahama|danma\s*karanna)\b/iu.test(t)) return 'URGENT';
+  if (/(ඉක්මනින්|වැදගත්)|\b(ikmanata|ikmanin|wadagath)\b/iu.test(t)) return 'HIGH';
   if (/\b(high[- ]priority|important|soon as possible|priority)\b/.test(t)) return 'HIGH';
   if (/\b(low[- ]priority|whenever|no rush|when you have time|not urgent)\b/.test(t)) return 'LOW';
   return 'MEDIUM';
@@ -446,6 +448,14 @@ function parseControls(text: string, ctx: InterpreterContext, scope: string[]): 
   return ops;
 }
 
+// Owner questions in Sinhala (සිංහල) and Singlish.
+const SI_DAILY_SUMMARY =
+  /(අද|මේ\s*සතියේ|මෙ\s*සතියේ).*(සාරාංශ|කළ\s*වැඩ|කරපු\s*වැඩ|ඉවර\s*කළ|ඉවර\s*කරපු|summary)|සාරාංශ.*(අද|සතිය)|\b(ada|me\s*sathiye)\b.*\b(summary|karapu\s*wada|kala\s*wada|iwara\s*karapu)\b/iu;
+const SI_TEAM_STATUS =
+  /(කණ්ඩායමේ|ටීම්\s*එකේ|team\s*එකේ)\s*(තත්ත්වය|තත්වය|ප්‍රගතිය|status)|\bteam\s*eke\s*(status|thaththwaya|pragathiya)\b/iu;
+const SI_STATUS_QUERY =
+  /(මොනවද|මොකක්ද|මොනවා)\s*(දැන්\s*)?(කරන්නේ|කරන්නෙ|කරමින්)|දැනට\s*(කරන|තියෙන|යන)\s*වැඩ|\b(monawada|mokakda|mokadda)\s*(dan\s*)?(karanne|karanna)\b|\b(danata|dan)\s*(karana|thiyena)\s*wada\b/iu;
+
 export function parseCommand(rawText: string, ctx: InterpreterContext): ParsedCommand {
   const text = rawText.trim();
   const t = text.toLowerCase();
@@ -479,6 +489,16 @@ export function parseCommand(rawText: string, ctx: InterpreterContext): ParsedCo
     /\bwhat (?:did|has|have) (?:you|the team|everyone|we)\b.*\b(do|done|complete|completed|accomplish|finish)/.test(t)
   ) {
     return { ...base, intent: 'DAILY_SUMMARY', period: /\bweek\b/.test(t) ? 'week' : 'today' };
+  }
+
+  // 2b–4b. The same three questions in Sinhala / Singlish.
+  if (SI_DAILY_SUMMARY.test(text)) {
+    return { ...base, intent: 'DAILY_SUMMARY', period: /(සතිය|සතියේ|sathiye|sathiya)/iu.test(text) ? 'week' : 'today' };
+  }
+  if (SI_TEAM_STATUS.test(text)) return { ...base, intent: 'TEAM_STATUS' };
+  if (SI_STATUS_QUERY.test(text)) {
+    const mentioned = base.employeeIds.length ? base.employeeIds : matchEmployees(text, ctx.employees).map((e) => e.id);
+    return { ...base, intent: 'STATUS_QUERY', employeeIds: mentioned, explicitEmployees: mentioned.length > 0 };
   }
 
   // 3. Team status report.

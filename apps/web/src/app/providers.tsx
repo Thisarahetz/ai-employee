@@ -5,6 +5,7 @@ import { useState, type ReactNode } from "react";
 
 import { AuthProvider } from "@/lib/auth-context";
 import { LocationProvider } from "@/lib/location-context";
+import { I18nProvider } from "@/lib/i18n";
 
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
@@ -22,9 +23,11 @@ export function Providers({ children }: { children: ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <I18nProvider>
       <AuthProvider>
         <LocationProvider>{children}</LocationProvider>
       </AuthProvider>
+      </I18nProvider>
     </QueryClientProvider>
   );
 }

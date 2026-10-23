@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { isLanguageTag, LANGUAGE_LABELS } from '../../common/language/language';
 import { OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EVENT_TYPES, HumanHandoffRequestedPayload } from '../../events/event-types.const';
@@ -89,14 +90,22 @@ export class NotificationService {
       return;
     }
 
+    // Tell staff up front when the customer needs someone who speaks Sinhala.
+    const conversation = await this.prisma.conversation.findFirst({
+      where: { id: payload.conversationId, tenantId: payload.tenantId },
+      select: { language: true },
+    });
+    const lang = isLanguageTag(conversation?.language) ? conversation!.language : null;
+    const languageNote = lang && lang !== 'en' ? ` The customer writes in ${LANGUAGE_LABELS[lang]}.` : '';
+
     await this.prisma.notification.createMany({
       data: recipients.map((member) => ({
         tenantId: payload.tenantId,
         userId: member.userId,
         type: EVENT_TYPES.HUMAN_HANDOFF_REQUESTED,
         title: 'Human handoff requested',
-        body: `Conversation ${payload.conversationId} needs human attention.`,
-        metadata: { conversationId: payload.conversationId, handoffId: payload.handoffId },
+        body: `Conversation ${payload.conversationId} needs human attention.${languageNote}`,
+        metadata: { conversationId: payload.conversationId, handoffId: payload.handoffId, language: lang },
       })),
     });
   }

@@ -9,15 +9,17 @@ export function useConversations(
   status: ConversationStatus | "ALL" = "ALL",
   page = 1,
   businessId?: string | null,
+  language?: string | null,
 ) {
   return useQuery({
-    queryKey: ["conversations", status, page, businessId ?? null],
+    queryKey: ["conversations", status, page, businessId ?? null, language ?? null],
     queryFn: async () => {
       const { data } = await apiClient.get<PaginatedResponse<Conversation>>("/conversations", {
         params: {
           status: status === "ALL" ? undefined : status,
           page,
           businessId: businessId || undefined,
+          language: language || undefined,
         },
       });
       return data;

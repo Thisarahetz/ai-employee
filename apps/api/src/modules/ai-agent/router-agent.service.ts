@@ -11,6 +11,8 @@ export interface RouteResult {
   intent: string;
   agent: RoutedAgent;
   confidence: number;
+  /** English translation of a Sinhala/Singlish question, for knowledge-base search. */
+  searchQuery?: string;
 }
 
 const ROUTER_SYSTEM_PROMPT = `You are an intent classification router for a customer support and booking system.
@@ -33,8 +35,11 @@ Recent conversation turns are provided before the latest message — use them on
 
 CONTINUITY RULE: If the latest message only makes sense as a continuation of what the assistant was just doing — a bare confirmation ("yes", "ok", "sure", "go ahead"), or just a piece of data the assistant asked for (a name, phone number, email address, date, or time) — classify it with the intent of that in-progress task. An in-progress booking stays "action". When a specific "previous agent" is given below, prefer routing such continuation messages back to that same agent unless the customer has clearly changed the subject.
 
+LANGUAGES: Customers write in English, Sinhala (සිංහල script) or Singlish (Sinhala typed in English letters, e.g. "heta booking ekak danna puluwanda"). Classify by meaning, whatever the language. Examples: "මිල කීයද?" / "gana kiyada?" = knowledge; "හෙට වෙලාවක් වෙන් කරන්න පුළුවන්ද?" / "heta appointment ekak ona" = action; "කෙනෙක් එක්ක කතා කරන්න ඕන" / "manussayek ekka katha karanna ona" = human_handoff; "ඔව්" / "hari" / "ow" are confirmations.
+
 Respond with ONLY a JSON object, no prose, no markdown fences, in exactly this shape:
-{"intent": "<support|knowledge|action|booking|customer_lookup|human_handoff>", "agent": "<support_agent|knowledge_agent|action_agent|human_handoff>", "confidence": <number between 0 and 1>}`;
+{"intent": "<support|knowledge|action|booking|customer_lookup|human_handoff>", "agent": "<support_agent|knowledge_agent|action_agent|human_handoff>", "confidence": <number between 0 and 1>}
+When the latest message is NOT in English and the agent is "knowledge_agent", add "search_query": a short English translation of the customer's question (used to search the business's English documents).`;
 
 /** How an in-flight AgentType maps into the router's own agent vocabulary. */
 const PREVIOUS_AGENT_LABEL: Partial<Record<AgentType, string>> = {
@@ -115,14 +120,19 @@ export class RouterAgentService {
         .replace(/^```(json)?/i, '')
         .replace(/```$/, '')
         .trim();
-      const parsed = JSON.parse(cleaned) as Partial<RouteResult>;
+      const parsed = JSON.parse(cleaned) as Partial<RouteResult> & { search_query?: unknown };
       const agent = this.normalizeAgent(parsed.agent, parsed.intent);
       const confidence = typeof parsed.confidence === 'number' ? parsed.confidence : 0.85;
+      const searchQuery =
+        typeof parsed.search_query === 'string' && parsed.search_query.trim()
+          ? parsed.search_query.trim().slice(0, 300)
+          : undefined;
 
       return {
         intent: typeof parsed.intent === 'string' ? parsed.intent : 'support',
         agent,
         confidence,
+        ...(searchQuery ? { searchQuery } : {}),
       };
     } catch (err) {
       this.logger.warn(`Router JSON parse failed, falling back to support_agent: ${(err as Error).message}`);

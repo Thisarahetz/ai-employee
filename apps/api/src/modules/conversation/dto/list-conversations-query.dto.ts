@@ -21,6 +21,11 @@ export class ListConversationsQueryDto {
   @IsString()
   businessId?: string;
 
+  /** "en" | "si" (Sinhala) | "si-Latn" (Singlish). */
+  @IsOptional()
+  @IsIn(['en', 'si', 'si-Latn'])
+  language?: 'en' | 'si' | 'si-Latn';
+
   @IsOptional()
   @Type(() => Number)
   @IsInt()

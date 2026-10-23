@@ -114,6 +114,45 @@ export class RagService {
   }
 
   /**
+   * searchTenant() for several phrasings of one question (e.g. the customer's
+   * Sinhala text and its English translation). Returns the closest distinct
+   * chunks across all of them.
+   */
+  async searchTenantMulti(
+    tenantId: string,
+    queries: string[],
+    topK = 3,
+  ): Promise<{ content: string; documentId: string }[]> {
+    const distinct = [...new Set(queries.map((q) => q.trim()).filter(Boolean))];
+    if (distinct.length <= 1) return this.searchTenant(tenantId, distinct[0] ?? '', topK);
+
+    const perQuery = await Promise.all(
+      distinct.map(async (query) => {
+        const { embedding } = await this.aiProviderService.embed(tenantId, query);
+        const vectorLiteral = this.toVectorLiteral(embedding);
+        return this.prisma.$queryRaw<{ id: string; content: string; documentId: string; distance: number }[]>`
+          SELECT id, content, "documentId", (embedding <=> ${vectorLiteral}::vector) AS distance FROM document_chunks
+          WHERE "tenantId" = ${tenantId}
+          ORDER BY embedding <=> ${vectorLiteral}::vector
+          LIMIT ${topK}
+        `;
+      }),
+    );
+
+    const best = new Map<string, { content: string; documentId: string; distance: number }>();
+    for (const row of perQuery.flat()) {
+      const prev = best.get(row.id);
+      if (!prev || Number(row.distance) < prev.distance) {
+        best.set(row.id, { content: row.content, documentId: row.documentId, distance: Number(row.distance) });
+      }
+    }
+    return [...best.values()]
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, topK)
+      .map(({ content, documentId }) => ({ content, documentId }));
+  }
+
+  /**
    * Simple whitespace/sentence-based splitter, approximating ~500 tokens per
    * chunk by character count. No tokenizer dependency needed for a scaffold.
    */

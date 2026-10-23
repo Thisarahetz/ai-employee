@@ -1,5 +1,8 @@
+"use client";
+
 import type { Message } from "@/lib/types";
 import { cn, formatDateTime } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 
 const SENDER_LABEL: Record<Message["sender"], string> = {
   CUSTOMER: "Customer",
@@ -31,6 +34,7 @@ function renderFormattedContent(text: string) {
 }
 
 export function MessageBubble({ message }: { message: Message }) {
+  const { t } = useI18n();
   if (message.sender === "SYSTEM") {
     return (
       <div className="flex justify-center py-1">
@@ -55,7 +59,7 @@ export function MessageBubble({ message }: { message: Message }) {
         <div className="whitespace-pre-wrap break-words">{renderFormattedContent(message.content)}</div>
       </div>
       <span className="px-1 text-[11px] text-ink-muted">
-        {SENDER_LABEL[message.sender]} · {formatDateTime(message.createdAt)}
+        {t(SENDER_LABEL[message.sender])} · {formatDateTime(message.createdAt)}
       </span>
     </div>
   );

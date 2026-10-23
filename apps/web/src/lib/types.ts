@@ -120,6 +120,10 @@ export interface Tenant {
   slug: string;
   status: TenantStatus;
   plan: string;
+  /** Customer reply default: "en" | "si". */
+  defaultLanguage?: string;
+  /** Reply in the language each customer writes in. */
+  matchCustomerLanguage?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -391,6 +395,8 @@ export interface Conversation {
   channel?: Channel;
   status: ConversationStatus;
   currentAgent?: AgentType | null;
+  /** Language the customer writes in: "en" | "si" | "si-Latn" (Singlish). */
+  language?: string | null;
   assignedUserId?: string | null;
   assignedUser?: User | null;
   lastMessageAt?: string | null;

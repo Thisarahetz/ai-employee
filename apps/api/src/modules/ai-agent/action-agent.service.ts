@@ -12,6 +12,8 @@ import { TimeContextService } from './time-context.service';
 import { DynamicSagaService } from '../saga/dynamic-saga.service';
 import { PolicySynthesisService } from '../policy-synthesis/policy-synthesis.service';
 import { ToolOutputCompressorService } from './tool-output-compressor.service';
+import { AgentTurn, DEFAULT_TURN } from './agent-turn';
+import { claimsBooking, customerMessage, replyLanguageInstruction, wantsRollback } from '../../common/language/language';
 
 const DEFAULT_ACTION_PROMPT =
   'You are an action-taking assistant that handles bookings, lookups and updates for the business.';
@@ -41,8 +43,6 @@ const ACTION_GUARDRAIL = [
 /** Max model↔tool round trips before we force a plain-text reply. */
 const MAX_TOOL_STEPS = 4;
 
-const FALLBACK_REPLY =
-  "I've noted your request and a team member will follow up shortly to confirm the details.";
 
 interface ExecutedToolResult {
   name: string;
@@ -66,7 +66,13 @@ export class ActionAgentService {
     private readonly toolOutputCompressorService: ToolOutputCompressorService,
   ) {}
 
-  async respond(tenantId: string, conversationId: string, latestMessage: string): Promise<string> {
+  async respond(
+    tenantId: string,
+    conversationId: string,
+    latestMessage: string,
+    turn: AgentTurn = DEFAULT_TURN,
+  ): Promise<string> {
+    const FALLBACK_REPLY = customerMessage('action_fallback', turn.language);
     const [tools, history, aiAgent, timeContext, conversation, activeInvariants, activeSaga] = await Promise.all([
       this.aiToolsService.getToolsForTenant(tenantId),
       this.messageService.getRecentHistory(tenantId, conversationId, 10, latestMessage),
@@ -83,10 +89,9 @@ export class ActionAgentService {
     ]);
 
     // Check for explicit customer cancellation/rollback intent under TEO-PIPS
-    const userWantsRollback = /\b(undo|rollback|never mind|cancel that|cancel previous|cancel appointment)\b/i.test(latestMessage);
-    if (userWantsRollback && activeSaga.steps.length > 0) {
+    if (wantsRollback(latestMessage) && activeSaga.steps.length > 0) {
       await this.dynamicSagaService.compensateSaga(activeSaga.id, 'Customer requested cancellation/undo');
-      return "I've rolled back and cancelled the previous request for you. Let me know if there is anything else I can help with!";
+      return customerMessage('request_rolled_back', turn.language);
     }
 
     const persona = aiAgent?.systemPrompt?.trim() || DEFAULT_ACTION_PROMPT;
@@ -130,7 +135,7 @@ export class ActionAgentService {
       .join('\n');
 
     // 1. Static prompt prefix: persona + guardrails + invariants (100% cacheable across calls)
-    const staticSystemPrompt = [persona, ACTION_GUARDRAIL, invariantsContext]
+    const staticSystemPrompt = [persona, ACTION_GUARDRAIL, invariantsContext, replyLanguageInstruction(turn.language)]
       .filter(Boolean)
       .join('\n\n');
 
@@ -174,10 +179,6 @@ export class ActionAgentService {
       if (!res.toolCalls?.length) {
         // Model answered directly (a clarifying question, or the final reply).
         const reply = res.content || FALLBACK_REPLY;
-        const claimsBooking =
-          /successfully booked|appointment has been (successfully )?booked|appointment is booked|appointment has been confirmed|we look forward to seeing you/i.test(
-            reply,
-          );
         const hasBooked = transcript.some(
           (t) =>
             t.role === 'user' &&
@@ -185,15 +186,15 @@ export class ActionAgentService {
             t.content.includes('"success":true'),
         );
 
-        if (claimsBooking && !hasBooked) {
+        if (claimsBooking(reply) && !hasBooked) {
           this.logger.warn(
             `Model falsely claimed booking without successful create_appointment for tenant=${tenantId} conversation=${conversationId}`,
           );
           const hasPhone = Boolean(customer?.phone);
           if (!hasPhone) {
-            return 'To complete your booking, could you please provide your phone number?';
+            return customerMessage('ask_phone', turn.language);
           }
-          return 'What time would you prefer for your appointment?';
+          return customerMessage('ask_time', turn.language);
         }
 
         return reply;
@@ -227,7 +228,7 @@ export class ActionAgentService {
         {
           role: 'user',
           content:
-            'Reply to the customer now in direct, concise language based strictly on what the tool results above confirmed.',
+            'Reply to the customer now in direct, concise language based strictly on what the tool results above confirmed. Use the reply language set in your instructions.',
         },
       ],
       { conversationId },

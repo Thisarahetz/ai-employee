@@ -14,6 +14,8 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { Button } from "@/components/ui/button";
+import { LanguageBadge } from "@/components/conversations/language-badge";
+import { useI18n } from "@/lib/i18n";
 
 // The contract doesn't state the page size — assumed fixed at 20 for
 // pagination controls; adjust once the real default is confirmed.
@@ -27,11 +29,20 @@ const STATUS_OPTIONS: { value: ConversationStatus | "ALL"; label: string }[] = [
   { value: "CLOSED", label: "Closed" },
 ];
 
+const LANGUAGE_OPTIONS = [
+  { value: "", label: "All languages" },
+  { value: "si", label: "Sinhala" },
+  { value: "si-Latn", label: "Singlish" },
+  { value: "en", label: "English" },
+];
+
 export default function ConversationsPage() {
   const { activeLocationId } = useActiveLocation();
   const [status, setStatus] = useState<ConversationStatus | "ALL">("ALL");
   const [page, setPage] = useState(1);
-  const { data, isLoading, isError, error, refetch } = useConversations(status, page, activeLocationId);
+  const [language, setLanguage] = useState("");
+  const { t } = useI18n();
+  const { data, isLoading, isError, error, refetch } = useConversations(status, page, activeLocationId, language);
 
   // Reset to the first page whenever the branch filter changes.
   useEffect(() => setPage(1), [activeLocationId]);
@@ -44,12 +55,29 @@ export default function ConversationsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-ink-primary">Conversations</h1>
-          <p className="text-sm text-ink-secondary">Every customer conversation across all channels.</p>
+          <h1 className="text-xl font-semibold text-ink-primary">{t("Conversations")}</h1>
+          <p className="text-sm text-ink-secondary">{t("Every customer conversation across all channels.")}</p>
         </div>
+        <div className="flex gap-2">
+          <div className="w-44">
+            <Select
+              aria-label={t("Filter by language")}
+              value={language}
+              onChange={(e) => {
+                setLanguage(e.target.value);
+                setPage(1);
+              }}
+            >
+              {LANGUAGE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {t(option.label)}
+                </option>
+              ))}
+            </Select>
+          </div>
         <div className="w-56">
           <Select
-            aria-label="Filter by status"
+            aria-label={t("Filter by status")}
             value={status}
             onChange={(e) => {
               setStatus(e.target.value as ConversationStatus | "ALL");
@@ -58,10 +86,11 @@ export default function ConversationsPage() {
           >
             {STATUS_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
-                {option.label}
+                {t(option.label)}
               </option>
             ))}
           </Select>
+        </div>
         </div>
       </div>
 
@@ -74,7 +103,7 @@ export default function ConversationsPage() {
           </div>
         ) : isError ? (
           <div className="p-5">
-            <ErrorState message={getErrorMessage(error, "Unable to load conversations.")} onRetry={() => refetch()} />
+            <ErrorState message={getErrorMessage(error, t("Unable to load conversations."))} onRetry={() => refetch()} />
           </div>
         ) : !conversations.length ? (
           <div className="p-5">
@@ -85,11 +114,12 @@ export default function ConversationsPage() {
             <table className="w-full text-left text-sm">
               <thead className="border-b border-line text-xs uppercase tracking-wide text-ink-muted">
                 <tr>
-                  <th className="px-5 py-3 font-medium">Customer</th>
-                  <th className="px-5 py-3 font-medium">Location</th>
-                  <th className="px-5 py-3 font-medium">Channel</th>
-                  <th className="px-5 py-3 font-medium">Status</th>
-                  <th className="px-5 py-3 font-medium">Last message</th>
+                  <th className="px-5 py-3 font-medium">{t("Customer")}</th>
+                  <th className="px-5 py-3 font-medium">{t("Location")}</th>
+                  <th className="px-5 py-3 font-medium">{t("Channel")}</th>
+                  <th className="px-5 py-3 font-medium">{t("Status")}</th>
+                  <th className="px-5 py-3 font-medium">{t("Language")}</th>
+                  <th className="px-5 py-3 font-medium">{t("Last message")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
@@ -107,6 +137,9 @@ export default function ConversationsPage() {
                       <td className="px-5 py-3">
                         <StatusBadge {...style} />
                       </td>
+                      <td className="px-5 py-3">
+                        <LanguageBadge language={conversation.language} />
+                      </td>
                       <td className="px-5 py-3 text-ink-secondary">{formatDateTime(conversation.lastMessageAt)}</td>
                     </tr>
                   );
@@ -120,14 +153,14 @@ export default function ConversationsPage() {
       {!isLoading && !isError && conversations.length > 0 && (
         <div className="flex items-center justify-between">
           <p className="text-xs text-ink-muted">
-            Page {page} · {total.toLocaleString()} total
+            {t("Page {page} · {total} total", { page, total: total.toLocaleString() })}
           </p>
           <div className="flex gap-2">
             <Button variant="secondary" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
-              Previous
+              {t("Previous")}
             </Button>
             <Button variant="secondary" size="sm" disabled={!hasNextPage} onClick={() => setPage((p) => p + 1)}>
-              Next
+              {t("Next")}
             </Button>
           </div>
         </div>
