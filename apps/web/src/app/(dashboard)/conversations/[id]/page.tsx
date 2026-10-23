@@ -23,12 +23,21 @@ import { MessageBubble } from "@/components/conversations/message-bubble";
 import type { Message } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import { LanguageBadge } from "@/components/conversations/language-badge";
+import { SavedAnswerFormModal, type SavedAnswerDraft } from "@/components/saved-answers/saved-answer-form-modal";
+
+/** Good replies (AI or staff) can become saved answers; fixed system messages can't. */
+function canSaveAsAnswer(m: Message): boolean {
+  if (m.sender !== "AI" && m.sender !== "HUMAN_AGENT") return false;
+  const source = m.metadata?.replySource;
+  return source !== "handoff" && source !== "template" && source !== "saved_answer";
+}
 
 export default function ConversationDetailPage() {
   const params = useParams<{ id: string }>();
   const conversationId = params.id;
   const [loadedPages, setLoadedPages] = useState(1);
   const [inputText, setInputText] = useState("");
+  const [answerDraft, setAnswerDraft] = useState<SavedAnswerDraft | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const conversationQuery = useConversation(conversationId);
@@ -153,7 +162,26 @@ export default function ConversationDetailPage() {
           ) : !sortedMessages.length ? (
             <EmptyState title="No messages yet" />
           ) : (
-            sortedMessages.map((message) => <MessageBubble key={message.id} message={message} />)
+            sortedMessages.map((message, i) => {
+              const question = [...sortedMessages.slice(0, i)].reverse().find((m) => m.sender === "CUSTOMER");
+              return (
+                <MessageBubble
+                  key={message.id}
+                  message={message}
+                  onSaveAsAnswer={
+                    question && canSaveAsAnswer(message)
+                      ? () =>
+                          setAnswerDraft({
+                            questions: [question.content],
+                            [conversation?.language === "si" ? "answerSi" : conversation?.language === "si-Latn" ? "answerSiLatn" : "answerEn"]:
+                              message.content,
+                            sourceConversationId: conversationId,
+                          })
+                      : undefined
+                  }
+                />
+              );
+            })
           )}
           <div ref={messagesEndRef} />
         </CardContent>
@@ -163,6 +191,7 @@ export default function ConversationDetailPage() {
             <form onSubmit={handleSendMessage} className="flex gap-2">
               <input
                 type="text"
+                aria-label={t("Reply to customer")}
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 placeholder={
@@ -195,6 +224,8 @@ export default function ConversationDetailPage() {
           </div>
         )}
       </Card>
+
+      <SavedAnswerFormModal isOpen={!!answerDraft} onClose={() => setAnswerDraft(null)} draft={answerDraft} />
     </div>
   );
 }

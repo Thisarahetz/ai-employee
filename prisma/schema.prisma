@@ -34,6 +34,8 @@ model Tenant {
   defaultLanguage       String       @default("en")
   /// Reply in the language the customer writes in (English, Sinhala, Singlish).
   matchCustomerLanguage Boolean      @default(true)
+  /// How customer replies are produced. The plan can restrict this (PlanSettings).
+  replyMode             ReplyMode    @default(HYBRID)
   createdAt             DateTime     @default(now())
   updatedAt             DateTime     @updatedAt
 
@@ -70,6 +72,7 @@ model Tenant {
   ownerCommandThreads   OwnerCommandThread[]
   dynamicSagas          DynamicSaga[]
   synthesizedInvariants SynthesizedInvariant[]
+  savedAnswers          SavedAnswer[]
 
   @@map("tenants")
 }
@@ -1280,4 +1283,60 @@ model SynthesizedInvariant {
   @@index([tenantId])
   @@index([tenantId, status])
   @@map("synthesized_invariants")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Reply engine: answers that don't need an AI provider
+// ─────────────────────────────────────────────────────────────────────────
+
+/// AI: every reply is written by AI (original behaviour).
+/// HYBRID: saved answers and fixed replies first; AI only when nothing matches.
+/// NO_AI: never calls an AI provider; unmatched questions go to staff.
+enum ReplyMode {
+  AI
+  HYBRID
+  NO_AI
+}
+
+enum SavedAnswerStatus {
+  /// Used to answer customers.
+  ACTIVE
+  /// A question customers asked that nothing answered; waiting for the owner.
+  SUGGESTED
+  /// Kept but not used.
+  DISABLED
+}
+
+/// An owner-approved reply, matched against customer messages without AI.
+model SavedAnswer {
+  id                   String            @id @default(cuid())
+  tenantId             String
+  tenant               Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  status               SavedAnswerStatus @default(ACTIVE)
+  /// Ways customers ask this, in any language (English, Sinhala, Singlish).
+  questions            String[]
+  answerEn             String            @default("")
+  answerSi             String            @default("")
+  answerSiLatn         String            @default("")
+  /// SUGGESTED rows: how many times customers asked without getting an answer.
+  askedCount           Int               @default(0)
+  useCount             Int               @default(0)
+  lastUsedAt           DateTime?
+  sourceConversationId String?
+  createdByUserId      String?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  @@index([tenantId, status])
+  @@map("saved_answers")
+}
+
+/// Platform-admin settings per subscription plan (Tenant.plan).
+model PlanSettings {
+  planId            String      @id
+  /// Reply modes businesses on this plan may choose. Empty = all modes.
+  allowedReplyModes ReplyMode[]
+  updatedAt         DateTime    @updatedAt
+
+  @@map("plan_settings")
 }

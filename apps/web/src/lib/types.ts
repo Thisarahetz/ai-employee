@@ -881,6 +881,8 @@ export interface AdminPlan {
     support: string;
   };
   tenantCount: number;
+  /** Reply modes businesses on this plan may pick. */
+  allowedReplyModes: ReplyMode[];
 }
 
 export interface AdminUsageStats {
@@ -1071,4 +1073,66 @@ export interface AiUsageSnapshot {
   tasksCreatedToday: number;
   runningTasks: number;
   activeSchedules: number;
+}
+
+// ── Reply engine (saved answers, reply modes) ─────────────────────────────
+
+export type ReplyMode = "AI" | "HYBRID" | "NO_AI";
+export type SavedAnswerStatus = "ACTIVE" | "SUGGESTED" | "DISABLED";
+
+export interface SavedAnswer {
+  id: string;
+  status: SavedAnswerStatus;
+  questions: string[];
+  answerEn: string;
+  answerSi: string;
+  answerSiLatn: string;
+  askedCount: number;
+  useCount: number;
+  lastUsedAt: string | null;
+  sourceConversationId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SavedAnswerInput {
+  questions: string[];
+  answerEn: string;
+  answerSi: string;
+  answerSiLatn: string;
+  status?: SavedAnswerStatus;
+  sourceConversationId?: string;
+}
+
+export interface ReplySettings {
+  plan: string;
+  mode: ReplyMode;
+  effectiveMode: ReplyMode;
+  allowedModes: ReplyMode[];
+}
+
+export type SavedAnswerTestResult =
+  | { matched: false }
+  | {
+      matched: true;
+      wouldReply: boolean;
+      score: number;
+      savedAnswerId: string;
+      matchedQuestion: string;
+      reply: string;
+      replyLanguageMissing: boolean;
+    };
+
+export interface ReplyStats {
+  days: number;
+  totalReplies: number;
+  aiReplies: number;
+  savedAnswerReplies: number;
+  quickReplies: number;
+  handedToStaff: number;
+  answeredWithoutAi: number;
+  withoutAiPercent: number;
+  aiSpendUsd: number;
+  estimatedSavedUsd: number | null;
+  openSuggestions: number;
 }

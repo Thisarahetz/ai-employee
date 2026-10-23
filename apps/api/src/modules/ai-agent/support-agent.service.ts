@@ -44,7 +44,11 @@ export class SupportAgentService {
     // Static prompt prefix: persona + guardrails (100% cacheable across all requests)
     // Static prompt prefix: persona + guardrails + reply language (cacheable per language)
     const staticSystemPrompt = `${persona}\n\n${CAVEMAN_SUPPORT_GUARDRAIL}\n\n${replyLanguageInstruction(turn.language)}`;
-    const dynamicTimeTurn = `[Context: Current Date & Time in timezone ${timeContext.timezone}: ${timeContext.formatted}]`;
+    const approved = (turn.approvedAnswers ?? []).filter(Boolean);
+    const approvedBlock = approved.length
+      ? `\n[Approved answers from the business — use these facts if they fit the question:\n${approved.map((a) => `- ${a}`).join('\n')}]`
+      : '';
+    const dynamicTimeTurn = `[Context: Current Date & Time in timezone ${timeContext.timezone}: ${timeContext.formatted}]${approvedBlock}`;
 
     const result = await this.aiProviderService.complete(
       tenantId,

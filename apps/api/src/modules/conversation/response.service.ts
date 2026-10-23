@@ -12,6 +12,8 @@ export interface SendResponseParams {
   conversationId: string;
   content: string;
   agentType: AgentType;
+  /** Stored on the message, e.g. { replySource: 'saved_answer', savedAnswerId }. */
+  metadata?: Record<string, unknown>;
 }
 
 @Injectable()
@@ -27,7 +29,7 @@ export class ResponseService {
    * customer via the conversation's channel (WhatsApp/website chat/email/...).
    */
   async sendResponse(params: SendResponseParams) {
-    const { tenantId, conversationId, content, agentType } = params;
+    const { tenantId, conversationId, content, agentType, metadata } = params;
 
     const conversation = await this.prisma.conversation.findFirst({
       where: { id: conversationId, tenantId },
@@ -45,6 +47,7 @@ export class ResponseService {
       sender,
       agentType,
       content,
+      metadata,
     });
 
     await this.prisma.conversation.update({

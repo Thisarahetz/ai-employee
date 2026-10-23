@@ -173,7 +173,10 @@ export type CustomerMessageKey =
   | 'request_rolled_back'
   | 'action_fallback'
   | 'ask_phone'
-  | 'ask_time';
+  | 'ask_time'
+  | 'greeting'
+  | 'thanks'
+  | 'handoff_no_answer';
 
 const CUSTOMER_MESSAGES: Record<CustomerMessageKey, Record<LanguageTag, string>> = {
   handoff_connected: {
@@ -201,6 +204,21 @@ const CUSTOMER_MESSAGES: Record<CustomerMessageKey, Record<LanguageTag, string>>
     si: 'ඔබගේ booking එක සම්පූර්ණ කරන්න, කරුණාකර ඔබගේ දුරකථන අංකය ලබා දෙන්න.',
     'si-Latn': 'Booking eka complete karanna, karunakara oyage phone number eka denna puluwanda?',
   },
+  greeting: {
+    en: 'Hello! Welcome to {business}. How can I help you today?',
+    si: 'ආයුබෝවන්! {business} වෙත සාදරයෙන් පිළිගනිමු. අද ඔබට උදව් කරන්නේ කොහොමද?',
+    'si-Latn': 'Ayubowan! {business} ekata welcome. Ada oyata mokakda udaw karanna one?',
+  },
+  thanks: {
+    en: "You're welcome! Let us know if there's anything else we can help with.",
+    si: 'ඔබව සාදරයෙන් පිළිගනිමු! තවත් උදව්වක් අවශ්‍ය නම් කියන්න.',
+    'si-Latn': 'Welcome! Thawa monawa hari udawwak ona nam kiyanna.',
+  },
+  handoff_no_answer: {
+    en: 'Thank you for your message! A member of our team will reply to you shortly.',
+    si: 'ඔබගේ පණිවිඩයට ස්තූතියි! අපේ කණ්ඩායමේ කෙනෙක් ඉක්මනින්ම ඔබට පිළිතුරු දෙයි.',
+    'si-Latn': 'Oyage message ekata sthuthi! Ape team eke kenek ikmanata oyata reply karai.',
+  },
   ask_time: {
     en: 'What time would you prefer for your appointment?',
     si: 'ඔබගේ appointment එකට කැමති වේලාව කීයද?',
@@ -208,9 +226,14 @@ const CUSTOMER_MESSAGES: Record<CustomerMessageKey, Record<LanguageTag, string>>
   },
 };
 
-export function customerMessage(key: CustomerMessageKey, lang: LanguageTag | null | undefined): string {
+export function customerMessage(
+  key: CustomerMessageKey,
+  lang: LanguageTag | null | undefined,
+  vars: Record<string, string> = {},
+): string {
   const set = CUSTOMER_MESSAGES[key];
-  return set[lang && isLanguageTag(lang) ? lang : 'en'];
+  const text = set[lang && isLanguageTag(lang) ? lang : 'en'];
+  return text.replace(/\{(\w+)\}/g, (whole, name: string) => vars[name] ?? (name === 'business' ? 'us' : whole));
 }
 
 /**

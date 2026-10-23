@@ -7,6 +7,7 @@ import { useI18n } from "@/lib/i18n";
 import Link from "next/link";
 import {
   Bot,
+  MessageSquareReply,
   AlertTriangle,
   ArrowRight,
   Sparkles,
@@ -29,6 +30,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useActiveLocation } from "@/lib/location-context";
 import { useBusinesses } from "@/lib/hooks/use-businesses";
 import { useConversations } from "@/lib/hooks/use-conversations";
+import { useReplyStats } from "@/lib/hooks/use-saved-answers";
 import { useTeam } from "@/lib/hooks/use-team";
 import {
   useAiEmployees,
@@ -52,6 +54,7 @@ export default function DashboardPage() {
     businessesQuery.data?.[0];
 
   const employeesQuery = useAiEmployees();
+  const replyStats = useReplyStats(30);
   const statsQuery = useAiEmployeeStats();
   const pendingApprovalsQuery = useAiEmployeeApprovals("PENDING");
   const activitiesQuery = useAiEmployeeActivities({ limit: 6 });
@@ -284,7 +287,7 @@ export default function DashboardPage() {
       </div>
 
       {/* 3. Today's Business Performance Metrics */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
         <div className="rounded-2xl border border-line bg-white p-5 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold uppercase tracking-wider text-ink-muted">
@@ -303,6 +306,31 @@ export default function DashboardPage() {
             {usage?.limits.monthlyBudgetUsd != null ? `of $${usage.limits.monthlyBudgetUsd.toFixed(2)} monthly budget` : "No monthly budget set"}
           </p>
         </div>
+
+        <Link
+          href="/saved-answers"
+          className="rounded-2xl border border-line bg-white p-5 shadow-xs transition-colors hover:border-brand-200"
+          data-testid="without-ai-tile"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-ink-muted">{t("Answered without AI")}</span>
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+              <MessageSquareReply className="h-4 w-4" aria-hidden="true" />
+            </div>
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-black text-ink-primary">
+              {replyStats.data ? `${replyStats.data.withoutAiPercent}%` : "—"}
+            </span>
+          </div>
+          <p className="text-[10px] text-ink-muted mt-1">
+            {replyStats.data
+              ? replyStats.data.openSuggestions > 0
+                ? `${replyStats.data.openSuggestions} ${t("questions waiting for an answer")}`
+                : `${replyStats.data.answeredWithoutAi} ${t("free replies in 30 days")}`
+              : t("Saved answers & quick replies")}
+          </p>
+        </Link>
 
         <div className="rounded-2xl border border-line bg-white p-5 shadow-xs">
           <div className="flex items-center justify-between">

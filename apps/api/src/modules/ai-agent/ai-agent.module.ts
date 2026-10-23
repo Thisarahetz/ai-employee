@@ -20,6 +20,7 @@ import { ToolOutputCompressorService } from './tool-output-compressor.service';
 
 import { DynamicSagaModule } from '../saga/dynamic-saga.module';
 import { PolicySynthesisModule } from '../policy-synthesis/policy-synthesis.module';
+import { ReplyEngineModule } from '../reply-engine/reply-engine.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { PolicySynthesisModule } from '../policy-synthesis/policy-synthesis.modu
     MessageModule,
     DynamicSagaModule,
     PolicySynthesisModule,
+    ReplyEngineModule,
   ],
   controllers: [AiAgentController],
   providers: [

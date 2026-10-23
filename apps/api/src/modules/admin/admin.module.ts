@@ -1,3 +1,4 @@
+import { ReplyEngineModule } from '../reply-engine/reply-engine.module';
 import { Module } from '@nestjs/common';
 import { PlatformAdminGuard } from '../../common/guards/platform-admin.guard';
 import { AuthModule } from '../auth/auth.module';
@@ -8,7 +9,7 @@ import { AdminMonitoringController } from './admin-monitoring.controller';
 import { AdminMonitoringService } from './admin-monitoring.service';
 
 @Module({
-  imports: [AuthModule, AiWorkforceModule],
+  imports: [AuthModule, AiWorkforceModule, ReplyEngineModule],
   controllers: [AdminController, AdminMonitoringController],
   providers: [AdminService, AdminMonitoringService, PlatformAdminGuard],
 })

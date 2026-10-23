@@ -30,6 +30,8 @@ test.describe("Platform admin", () => {
   test("TC-ADM-02 tenants list shows the test businesses and search filters it", async ({ page }) => {
     await page.goto("/admin/tenants");
     await waitForSettled(page);
+    // Sign-up tests add businesses every run, so search rather than rely on page 1.
+    await page.getByPlaceholder(/Search business/).fill("E2E Test Salon");
     await expect(page.getByText("E2E Test Salon").first()).toBeVisible();
     await page.getByPlaceholder(/Search business/).fill("Admin Workspace");
     await expect(page.getByText("E2E Test Salon")).toHaveCount(0);
@@ -39,6 +41,7 @@ test.describe("Platform admin", () => {
   test("TC-ADM-03 opening a tenant shows its detail page", async ({ page }) => {
     await page.goto("/admin/tenants");
     await waitForSettled(page);
+    await page.getByPlaceholder(/Search business/).fill("E2E Test Salon");
     await page.getByText("E2E Test Salon").first().click();
     await expect(page).toHaveURL(/\/admin\/tenants\/[^/]+$/);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("E2E Test Salon");

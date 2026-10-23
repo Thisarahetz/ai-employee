@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { apiClient } from "@/lib/api-client";
 import type {
+  ReplyMode,
   AdminAiEmployee,
   AdminBusinessTemplate,
   AdminBusinessType,
@@ -151,6 +152,16 @@ export function useAdminPlans() {
   return useQuery({
     queryKey: ["admin", "plans"],
     queryFn: async () => (await apiClient.get<AdminPlan[]>("/admin/plans")).data,
+  });
+}
+
+/** PATCH /admin/plans/:id/reply-modes — which reply modes a plan allows. */
+export function useSetPlanReplyModes() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, allowedReplyModes }: { id: string; allowedReplyModes: ReplyMode[] }) =>
+      (await apiClient.patch(`/admin/plans/${id}/reply-modes`, { allowedReplyModes })).data,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin", "plans"] }),
   });
 }
 

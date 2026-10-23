@@ -22,6 +22,7 @@ import { apiClient } from "@/lib/api-client";
 import { getErrorMessage } from "@/lib/utils";
 import { useGettingStarted, useSetGettingStartedDismissed } from "@/lib/hooks/use-business-setup";
 import { LanguageSettingsCard } from "@/components/settings/language-settings-card";
+import { ReplyModeCard } from "@/components/settings/reply-mode-card";
 
 export default function SettingsPage() {
   const { user, activeTenant, updateActiveTenant } = useAuth();
@@ -153,6 +154,8 @@ export default function SettingsPage() {
           </div>
         </form>
       </div>
+
+      <ReplyModeCard />
 
       <LanguageSettingsCard />
 

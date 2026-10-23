@@ -124,6 +124,38 @@ export class RagService {
     topK = 3,
   ): Promise<{ content: string; documentId: string }[]> {
     const distinct = [...new Set(queries.map((q) => q.trim()).filter(Boolean))];
+    try {
+      return await this.vectorSearchMulti(tenantId, distinct, topK);
+    } catch (err) {
+      // The embedding provider is down or out of quota: keyword search still
+      // finds the business's facts, so the reply doesn't fail.
+      this.logger.warn(`Vector search failed for tenant=${tenantId}, using keyword search: ${(err as Error).message.slice(0, 200)}`);
+      return this.keywordSearch(tenantId, distinct, topK);
+    }
+  }
+
+  /** Full-text search over chunks; needs no AI provider. */
+  async keywordSearch(tenantId: string, queries: string[], topK = 3): Promise<{ content: string; documentId: string }[]> {
+    const terms = [
+      ...new Set(
+        queries
+          .join(' ')
+          .toLowerCase()
+          .split(/[^\p{L}\p{M}\p{N}]+/u)
+          .filter((w) => w.length >= 2),
+      ),
+    ].slice(0, 16);
+    if (!terms.length) return [];
+    const tsquery = terms.map((t) => `${t}:*`).join(' | ');
+    return this.prisma.$queryRaw<{ content: string; documentId: string }[]>`
+      SELECT content, "documentId" FROM document_chunks
+      WHERE "tenantId" = ${tenantId} AND to_tsvector('simple', content) @@ to_tsquery('simple', ${tsquery})
+      ORDER BY ts_rank(to_tsvector('simple', content), to_tsquery('simple', ${tsquery})) DESC
+      LIMIT ${topK}
+    `;
+  }
+
+  private async vectorSearchMulti(tenantId: string, distinct: string[], topK: number) {
     if (distinct.length <= 1) return this.searchTenant(tenantId, distinct[0] ?? '', topK);
 
     const perQuery = await Promise.all(

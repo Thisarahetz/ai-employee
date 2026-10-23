@@ -56,7 +56,7 @@ export class KnowledgeAgentService {
       this.timeContextService.getTimeContext(tenantId, conversationId),
     ]);
 
-    if (!chunks.length) {
+    if (!chunks.length && !turn.approvedAnswers?.length) {
       this.logger.warn(`No relevant knowledge for tenant=${tenantId}; answering without context.`);
     }
 
@@ -74,8 +74,13 @@ export class KnowledgeAgentService {
       .filter(Boolean)
       .join('\n');
 
-    const context = chunks.length
-      ? chunks.map((c, i) => `[${i + 1}] ${c.content}`).join('\n\n')
+    const approved = (turn.approvedAnswers ?? []).filter(Boolean);
+    const snippets = [
+      ...approved.map((a) => `(approved answer from the business) ${a}`),
+      ...chunks.map((c) => c.content),
+    ];
+    const context = snippets.length
+      ? snippets.map((text, i) => `[${i + 1}] ${text}`).join('\n\n')
       : '(no relevant context found)';
 
     const userTurnContent = [

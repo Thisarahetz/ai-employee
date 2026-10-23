@@ -933,6 +933,11 @@ export class AdminService {
     return actions;
   }
 
+  /** Audit entry for an admin change made outside this service (e.g. plan reply modes). */
+  recordAdminAction(actor: AdminActor, action: string, targetType: string, targetId: string, changes: Record<string, unknown>) {
+    return this.recordAudit(actor, action, targetType, targetId, changes);
+  }
+
   private recordAudit(
     actor: AdminActor,
     action: string,

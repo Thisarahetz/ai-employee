@@ -189,10 +189,25 @@ let seq = 0;
 /** A fully isolated business: tenant, owner membership, business, one AI employee. */
 export async function createTenant(
   prisma: any,
-  o: { name?: string; employee?: Record<string, unknown>; role?: 'OWNER' | 'ADMIN' | 'MANAGER' | 'EMPLOYEE' } = {},
+  o: {
+    name?: string;
+    employee?: Record<string, unknown>;
+    role?: 'OWNER' | 'ADMIN' | 'MANAGER' | 'EMPLOYEE';
+    /** Defaults to AI so tests written before reply modes keep their meaning. */
+    replyMode?: 'AI' | 'HYBRID' | 'NO_AI';
+    plan?: string;
+  } = {},
 ): Promise<TenantFixture> {
   const tag = `${process.pid}-${Date.now()}-${seq++}`;
-  const tenant = await prisma.tenant.create({ data: { name: o.name ?? `Test Business ${tag}`, slug: `t-${tag}`, status: 'ACTIVE' } });
+  const tenant = await prisma.tenant.create({
+    data: {
+      name: o.name ?? `Test Business ${tag}`,
+      slug: `t-${tag}`,
+      status: 'ACTIVE',
+      replyMode: o.replyMode ?? 'AI',
+      ...(o.plan ? { plan: o.plan } : {}),
+    },
+  });
   const owner = await prisma.user.create({
     data: { email: `owner-${tag}@example.test`, passwordHash: 'x', firstName: 'Test', lastName: 'Owner' },
   });

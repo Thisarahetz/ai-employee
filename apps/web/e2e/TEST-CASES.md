@@ -106,7 +106,26 @@ Checked with axe-core (WCAG 2 A/AA). Only "critical" problems fail a test; colou
 | TC-MOB-06 | Phone top bar | Fits on one line; "Log out" doesn't wrap | ✅ |
 | TC-MOB-04 | Admin console menu on a phone | A menu button opens navigation | ✅ (fixed 2026-10-23) |
 
-## 7. Fixes made on 2026-10-23
+## 7. Saved answers and reply modes — `saved-answers.spec.ts`
+
+How customer replies work without AI is described in `docs/reply-engine.md`.
+The customer side uses the public website-chat API, and the test API's AI key is
+fake, so any reply that needed AI would fail.
+
+| ID | Test case | Expected | Status |
+|---|---|---|---|
+| TC-SA-01 | Add a saved answer, then "Try a customer question" with misspelt Singlish ("kiyatada open krnne?") | Answer listed with "Not written" for missing Sinhala; the try box shows the Singlish answer | ✅ |
+| TC-SA-02 | Save with no answer text | "Write the answer in at least one language." | ✅ |
+| TC-SA-03 | Edit, turn off, turn on, delete (with confirm) | Each change shows in the right tab | ✅ |
+| TC-SA-04 | Customer asks "what r ur opening hours" on the website chat | Gets the saved answer instantly; conversation shows "AI (Saved answer)" | ✅ |
+| TC-SA-05 | No-AI mode: unknown question, then answer it from "Questions to answer" | Customer told a team member will reply; sidebar badge 1; "Asked 1×"; next customer gets the new answer | ✅ |
+| TC-SA-06 | "Save as answer" on a staff reply in a conversation | Form pre-filled with the customer question and staff reply; no button on system notices | ✅ |
+| TC-SA-07 | Dashboard "Answered without AI" tile | Shows a percentage | ✅ |
+| TC-SA-08 | Admin removes "AI only" from the Free plan | Owner's Settings shows "AI only" disabled, "Not included in your plan" | ✅ |
+
+API-level cases (19) are in `apps/api/test/integration/reply-engine.test.ts`; matcher cases (10 groups, ~70 phrasings) in `apps/api/test/answer-matcher.test.ts`.
+
+## 8. Fixes made on 2026-10-23
 
 | Problem | Fix |
 |---|---|

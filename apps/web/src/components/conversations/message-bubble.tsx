@@ -33,7 +33,14 @@ function renderFormattedContent(text: string) {
   });
 }
 
-export function MessageBubble({ message }: { message: Message }) {
+/** Where an automatic reply came from (set by the reply engine). */
+const SOURCE_LABEL: Record<string, string> = {
+  saved_answer: "Saved answer",
+  template: "Quick reply",
+  handoff: "Sent to team",
+};
+
+export function MessageBubble({ message, onSaveAsAnswer }: { message: Message; onSaveAsAnswer?: () => void }) {
   const { t } = useI18n();
   if (message.sender === "SYSTEM") {
     return (
@@ -58,8 +65,19 @@ export function MessageBubble({ message }: { message: Message }) {
       >
         <div className="whitespace-pre-wrap break-words">{renderFormattedContent(message.content)}</div>
       </div>
-      <span className="px-1 text-[11px] text-ink-muted">
-        {t(SENDER_LABEL[message.sender])} · {formatDateTime(message.createdAt)}
+      <span className="flex flex-wrap items-center gap-x-2 px-1 text-[11px] text-ink-muted">
+        <span>
+          {t(SENDER_LABEL[message.sender])}
+          {typeof message.metadata?.replySource === "string" && SOURCE_LABEL[message.metadata.replySource]
+            ? ` (${t(SOURCE_LABEL[message.metadata.replySource])})`
+            : ""}{" "}
+          · {formatDateTime(message.createdAt)}
+        </span>
+        {onSaveAsAnswer && (
+          <button type="button" onClick={onSaveAsAnswer} className="font-semibold text-brand-600 hover:underline">
+            {t("Save as answer")}
+          </button>
+        )}
       </span>
     </div>
   );

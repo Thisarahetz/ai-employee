@@ -6,6 +6,8 @@ export interface AgentTurn {
   language: LanguageTag;
   /** English version of a non-English question, for knowledge-base search. */
   searchQuery?: string;
+  /** Owner-approved saved answers close to this question: the facts to rely on first. */
+  approvedAnswers?: string[];
 }
 
 export const DEFAULT_TURN: AgentTurn = { language: 'en' };

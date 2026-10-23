@@ -161,6 +161,8 @@ export default function AdminAuditPage() {
                         <Button
                           variant="ghost"
                           size="sm"
+                          aria-label={isExpanded ? "Hide details" : "Show details"}
+                          aria-expanded={isExpanded}
                           onClick={() => setExpandedId(isExpanded ? null : entry.id)}
                         >
                           {isExpanded ? (

@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Ip, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Ip, NotFoundException, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { PlatformAdminGuard } from '../../common/guards/platform-admin.guard';
 import { CurrentTenant } from '../../common/tenant/current-tenant.decorator';
 import { TenantContext } from '../../common/tenant/tenant-context';
@@ -7,12 +7,16 @@ import { AdminListQueryDto } from './dto/admin-list-query.dto';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { AdminService, AdminActor } from './admin.service';
+import { ALL_REPLY_MODES, ReplyPolicyService } from '../reply-engine/reply-policy.service';
 
 /** Cross-tenant platform administration. Requires User.platformRole SUPER_ADMIN, not a tenant Role. */
 @UseGuards(PlatformAdminGuard)
 @Controller('admin')
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly replyPolicy: ReplyPolicyService,
+  ) {}
 
   @Get('stats')
   getStats() {
@@ -100,8 +104,27 @@ export class AdminController {
   }
 
   @Get('plans')
-  getPlans() {
-    return this.adminService.getPlatformPlans();
+  async getPlans() {
+    const [plans, replyModes] = await Promise.all([
+      this.adminService.getPlatformPlans(),
+      this.replyPolicy.listPlanSettings(),
+    ]);
+    return plans.map((p) => ({ ...p, allowedReplyModes: replyModes[p.id] ?? ALL_REPLY_MODES }));
+  }
+
+  /** Which reply modes (AI / Hybrid / No-AI) businesses on a plan may use. */
+  @Patch('plans/:id/reply-modes')
+  async setPlanReplyModes(
+    @Param('id') id: string,
+    @Body() body: { allowedReplyModes?: unknown },
+    @CurrentTenant() ctx: TenantContext,
+    @Ip() ip: string,
+  ) {
+    const plans = await this.adminService.getPlatformPlans();
+    if (!plans.some((p) => p.id === id)) throw new NotFoundException('Plan not found');
+    const allowedReplyModes = await this.replyPolicy.setPlanReplyModes(id, body?.allowedReplyModes);
+    await this.adminService.recordAdminAction(this.actor(ctx, ip), 'plan.reply_modes.update', 'Plan', id, { allowedReplyModes });
+    return { id, allowedReplyModes };
   }
 
   @Get('usage')

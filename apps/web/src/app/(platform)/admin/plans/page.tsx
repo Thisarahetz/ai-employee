@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Check, CreditCard, RefreshCw, Sparkles, Users } from "lucide-react";
 
-import { useAdminPlans } from "@/lib/hooks/use-admin";
+import { useAdminPlans, useSetPlanReplyModes } from "@/lib/hooks/use-admin";
+import type { ReplyMode } from "@/lib/types";
 import { getErrorMessage } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -130,6 +132,8 @@ export default function AdminPlansPage() {
                   </div>
                 </div>
 
+                <PlanReplyModes planId={plan.id} allowed={plan.allowedReplyModes ?? []} />
+
                 <div className="mt-5 border-t border-line pt-3">
                   <Link
                     href={`/admin/tenants?plan=${plan.id}`}
@@ -144,5 +148,62 @@ export default function AdminPlansPage() {
         </div>
       )}
     </div>
+  );
+}
+
+const MODE_OPTIONS: { mode: ReplyMode; label: string }[] = [
+  { mode: "HYBRID", label: "Hybrid" },
+  { mode: "NO_AI", label: "No AI" },
+  { mode: "AI", label: "AI only" },
+];
+
+/** Which customer-reply modes businesses on this plan may choose. */
+function PlanReplyModes({ planId, allowed }: { planId: string; allowed: ReplyMode[] }) {
+  const save = useSetPlanReplyModes();
+  const [error, setError] = useState<string | null>(null);
+  // Shown at once on click; put back if the save fails.
+  const [selected, setSelected] = useState<ReplyMode[]>(allowed);
+  const allowedKey = allowed.join(",");
+  useEffect(() => setSelected(allowedKey ? (allowedKey.split(",") as ReplyMode[]) : []), [allowedKey]);
+
+  async function toggle(mode: ReplyMode) {
+    const previous = selected;
+    const next = selected.includes(mode) ? selected.filter((m) => m !== mode) : [...selected, mode];
+    if (!next.length) {
+      setError("A plan needs at least one reply mode.");
+      return;
+    }
+    setError(null);
+    setSelected(next);
+    try {
+      await save.mutateAsync({ id: planId, allowedReplyModes: next });
+    } catch (err) {
+      setSelected(previous);
+      setError(getErrorMessage(err, "Could not save reply modes."));
+    }
+  }
+
+  return (
+    <fieldset className="mt-4 rounded-lg border border-line p-3">
+      <legend className="px-1 text-[11px] font-semibold uppercase tracking-wider text-ink-secondary">Customer reply modes</legend>
+      <div className="flex flex-wrap gap-3">
+        {MODE_OPTIONS.map((o) => (
+          <label key={o.mode} className="flex items-center gap-1.5 text-xs text-ink-primary">
+            <input
+              type="checkbox"
+              checked={selected.includes(o.mode)}
+              onChange={() => toggle(o.mode)}
+              className="h-4 w-4 rounded border-line text-brand-600 focus:ring-brand-500"
+            />
+            {o.label}
+          </label>
+        ))}
+      </div>
+      {error && (
+        <p role="alert" className="mt-2 text-xs text-status-critical">
+          {error}
+        </p>
+      )}
+    </fieldset>
   );
 }

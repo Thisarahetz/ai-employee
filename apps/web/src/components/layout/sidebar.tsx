@@ -17,10 +17,12 @@ import {
   Workflow,
   LayoutTemplate,
   Plug,
+  MessageSquareReply,
 } from "lucide-react";
 
 import { useAuth } from "@/lib/auth-context";
 import { useAiEmployeeApprovals } from "@/lib/hooks/use-ai-employees";
+import { useSavedAnswers } from "@/lib/hooks/use-saved-answers";
 import { useSoftwareRequired } from "@/components/integrations/software-required";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
@@ -36,6 +38,7 @@ const MAIN_NAV_ITEMS = [
   { href: "/integrations", label: "Integrations", icon: Plug },
   { href: "/conversations", label: "Conversations", icon: MessageSquare },
   { href: "/knowledge-base", label: "Business Info", icon: FileText },
+  { href: "/saved-answers", label: "Saved Answers", icon: MessageSquareReply },
 ];
 
 const BUSINESS_NAV_ITEMS = [
@@ -51,6 +54,7 @@ export function Sidebar() {
   const pendingApprovals = useAiEmployeeApprovals("PENDING");
   const pendingCount = pendingApprovals.data?.length || 0;
   const software = useSoftwareRequired();
+  const unanswered = useSavedAnswers("SUGGESTED").data?.length ?? 0;
 
   const isSuperAdmin = user?.platformRole === "SUPER_ADMIN";
   const { t } = useI18n();
@@ -104,6 +108,14 @@ export function Sidebar() {
                 {item.href === "/ai-employees" && pendingCount > 0 && (
                   <span className="flex h-4 w-4 items-center justify-center rounded-full bg-amber-700 text-[9px] font-bold text-white">
                     {pendingCount}
+                  </span>
+                )}
+                {item.href === "/saved-answers" && unanswered > 0 && (
+                  <span
+                    className="flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-700 px-1 text-[9px] font-bold text-white"
+                    title={t("Questions to answer")}
+                  >
+                    {unanswered}
                   </span>
                 )}
                 {item.href === "/integrations" && software.required && (

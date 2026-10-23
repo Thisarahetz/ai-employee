@@ -1,4 +1,7 @@
 import { expect, type Page, type ConsoleMessage } from "@playwright/test";
+import { PrismaClient } from "@prisma/client";
+import fs from "node:fs";
+import path from "node:path";
 
 export const API_URL = `http://localhost:${process.env.E2E_API_PORT ?? 3101}`;
 
@@ -55,4 +58,19 @@ export function watchForProblems(page: Page) {
 export async function waitForSettled(page: Page) {
   await page.waitForLoadState("networkidle").catch(() => undefined);
   await expect(page.locator(".animate-spin")).toHaveCount(0, { timeout: 15_000 }).catch(() => undefined);
+}
+
+/** The isolated test database (name must end in _test). Never the dev database. */
+export function testDatabaseUrl(): string {
+  if (process.env.TEST_DATABASE_URL) return process.env.TEST_DATABASE_URL;
+  const env = fs.readFileSync(path.resolve(__dirname, "../../../.env"), "utf8");
+  const base = (env.match(/^DATABASE_URL=(.*)$/m)?.[1] ?? "").replace(/["']/g, "").split("?")[0]!;
+  const url = `${base.slice(0, base.lastIndexOf("/"))}/ai_employee_test?schema=public`;
+  const db = url.split("?")[0]!.split("/").pop()!;
+  if (!db.endsWith("_test")) throw new Error(`Refusing to use "${db}": not a test database.`);
+  return url;
+}
+
+export function testDb(): PrismaClient {
+  return new PrismaClient({ datasources: { db: { url: testDatabaseUrl() } } });
 }
