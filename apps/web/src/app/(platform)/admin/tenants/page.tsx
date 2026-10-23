@@ -163,6 +163,7 @@ export default function AdminTenantsListPage() {
         <div className="flex items-center gap-3">
           <div className="w-44">
             <Select
+              aria-label="Filter by plan"
               value={planFilter}
               onChange={(e) => {
                 setPlanFilter(e.target.value);

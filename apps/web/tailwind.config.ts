@@ -23,6 +23,11 @@ const config: Config = {
           800: "#184f95",
           900: "#0d366b",
         },
+        // Used by the Team pages; it was never defined, so those classes did nothing.
+        accent: {
+          DEFAULT: "#1c5cab", // brand-700 (readable on white and on soft)
+          soft: "#e3eefc",
+        },
         status: {
           good: "#0ca30c",
           warning: "#fab219",
@@ -32,7 +37,7 @@ const config: Config = {
         ink: {
           primary: "#0b0b0b",
           secondary: "#52514e",
-          muted: "#898781",
+          muted: "#6e6c67", // darkened from #898781 to pass WCAG AA (4.5:1) on white and page backgrounds
         },
         surface: {
           DEFAULT: "#fcfcfb",

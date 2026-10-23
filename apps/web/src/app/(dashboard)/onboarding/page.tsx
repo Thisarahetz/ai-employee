@@ -40,8 +40,8 @@ import { getErrorMessage } from "@/lib/utils";
 const TYPE_STYLE: Record<string, { icon: React.ComponentType<{ className?: string }>; color: string }> = {
   PHONE_SHOP: { icon: Smartphone, color: "bg-blue-50 text-blue-600 border-blue-200" },
   SALON_SPA: { icon: Scissors, color: "bg-pink-50 text-pink-600 border-pink-200" },
-  RESTAURANT_CAFE: { icon: Utensils, color: "bg-amber-50 text-amber-600 border-amber-200" },
-  GROCERY_SUPERMARKET: { icon: ShoppingBag, color: "bg-emerald-50 text-emerald-600 border-emerald-200" },
+  RESTAURANT_CAFE: { icon: Utensils, color: "bg-amber-50 text-amber-700 border-amber-200" },
+  GROCERY_SUPERMARKET: { icon: ShoppingBag, color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
   CLINIC_MEDICAL: { icon: Stethoscope, color: "bg-cyan-50 text-cyan-600 border-cyan-200" },
   PHARMACY_STORE: { icon: Pill, color: "bg-teal-50 text-teal-600 border-teal-200" },
   CLOTHING_BOUTIQUE: { icon: Shirt, color: "bg-rose-50 text-rose-600 border-rose-200" },
@@ -59,7 +59,7 @@ const DEFAULT_STYLE = { icon: Store, color: "bg-slate-50 text-slate-700 border-s
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, updateActiveTenant } = useAuth();
   const businessesQuery = useBusinesses();
   const updateBusiness = useUpdateBusiness();
   const templatesQuery = useAiEmployeeTemplates();
@@ -131,6 +131,7 @@ export default function OnboardingPage() {
       if (businessName.trim()) {
         try {
           await apiClient.patch("/tenants", { name: businessName.trim() });
+          updateActiveTenant({ name: businessName.trim() });
         } catch {
           // Non-blocking fallback
         }

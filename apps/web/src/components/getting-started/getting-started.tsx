@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 function Progress({ data }: { data: GettingStarted }) {
   const pct = Math.round((data.requiredCompleted / Math.max(1, data.requiredTotal)) * 100);
   return (
-    <div className="h-2 w-full rounded-full bg-surface-page" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+    <div className="h-2 w-full rounded-full bg-surface-page" role="progressbar" aria-label="Setup progress" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
       <div className="h-2 rounded-full bg-brand-600 transition-all" style={{ width: `${pct}%` }} />
     </div>
   );
@@ -26,7 +26,7 @@ function StepRow({ step, isNext, onNavigate }: { step: GettingStartedStep; isNex
   return (
     <li className={cn("flex gap-3 rounded-lg p-3", isNext && "bg-brand-50 ring-1 ring-brand-200")}>
       {step.done ? (
-        <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-status-good" />
+        <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" />
       ) : (
         <Circle className="mt-0.5 h-5 w-5 shrink-0 text-ink-muted" />
       )}
@@ -120,9 +120,11 @@ export function SetupProgressButton() {
   const [open, setOpen] = useState(false);
   const data = q.data;
   if (!data || data.dismissed || data.isComplete || pathname === "/onboarding") return null;
+  // Chat pages have a message box along the bottom; sit above it, not on it.
+  const hasComposer = pathname === "/command-center" || /^\/conversations\/[^/]+$/.test(pathname ?? "");
 
   return (
-    <div className="fixed bottom-5 right-5 z-40 flex flex-col items-end">
+    <div className={cn("fixed right-5 z-40 flex flex-col items-end", hasComposer ? "bottom-28" : "bottom-5")}>
       {open && (
         <div className="mb-3 max-h-[70vh] w-96 max-w-[calc(100vw-2.5rem)] overflow-y-auto rounded-2xl border border-line bg-white p-4 shadow-xl">
           <div className="mb-3 flex items-center justify-between">

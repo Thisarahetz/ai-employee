@@ -129,7 +129,7 @@ export default function AdminAiTemplatesPage() {
               <div>
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
                       <Sparkles className="h-5 w-5" />
                     </div>
                     <div>
@@ -160,7 +160,7 @@ export default function AdminAiTemplatesPage() {
       {/* Inspect Template Modal */}
       {inspectTemplate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="relative max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl space-y-6">
+          <div role="dialog" aria-modal="true" aria-label="Template details" className="relative max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl space-y-6">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
@@ -175,10 +175,12 @@ export default function AdminAiTemplatesPage() {
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setInspectTemplate(null)}
+                aria-label="Close"
                 className="rounded-lg p-1 text-ink-muted hover:bg-surface-page hover:text-ink-primary"
               >
-                <X className="h-5 w-5" />
+                <X className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
 

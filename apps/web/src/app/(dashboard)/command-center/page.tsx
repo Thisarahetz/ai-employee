@@ -141,7 +141,7 @@ function CommandCenter() {
   const showEmpty = !threadId && !pendingText;
 
   return (
-    <div className="-m-6 flex h-[calc(100vh-4rem)] min-h-0">
+    <div className="-m-4 flex h-[calc(100%+2rem)] min-h-0 sm:-m-6 sm:h-[calc(100%+3rem)]">
       {/* Conversations */}
       <aside className="hidden w-64 shrink-0 flex-col border-r border-line bg-white lg:flex">
         <div className="p-3">

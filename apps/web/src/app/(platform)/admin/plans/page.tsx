@@ -94,37 +94,37 @@ export default function AdminPlansPage() {
                   {/* Feature Limits List */}
                   <div className="mt-4 space-y-2 text-xs">
                     <div className="flex items-center gap-2 text-ink-secondary">
-                      <Check className="h-4 w-4 text-emerald-600 shrink-0" />
+                      <Check className="h-4 w-4 text-emerald-700 shrink-0" />
                       <span>
                         Up to <strong>{plan.limits.maxBranches}</strong> branch location(s)
                       </span>
                     </div>
                     <div className="flex items-center gap-2 text-ink-secondary">
-                      <Check className="h-4 w-4 text-emerald-600 shrink-0" />
+                      <Check className="h-4 w-4 text-emerald-700 shrink-0" />
                       <span>
                         Up to <strong>{plan.limits.maxAiEmployees}</strong> AI employees
                       </span>
                     </div>
                     <div className="flex items-center gap-2 text-ink-secondary">
-                      <Check className="h-4 w-4 text-emerald-600 shrink-0" />
+                      <Check className="h-4 w-4 text-emerald-700 shrink-0" />
                       <span>
                         Up to <strong>{plan.limits.maxTeamMembers}</strong> team members
                       </span>
                     </div>
                     <div className="flex items-center gap-2 text-ink-secondary">
-                      <Check className="h-4 w-4 text-emerald-600 shrink-0" />
+                      <Check className="h-4 w-4 text-emerald-700 shrink-0" />
                       <span>
                         <strong>{plan.limits.messagesPerMonth.toLocaleString()}</strong> monthly messages
                       </span>
                     </div>
                     <div className="flex items-center gap-2 text-ink-secondary">
-                      <Check className="h-4 w-4 text-emerald-600 shrink-0" />
+                      <Check className="h-4 w-4 text-emerald-700 shrink-0" />
                       <span>
                         <strong>{plan.limits.knowledgeDocs}</strong> knowledge base documents
                       </span>
                     </div>
                     <div className="flex items-center gap-2 text-ink-secondary">
-                      <Check className="h-4 w-4 text-emerald-600 shrink-0" />
+                      <Check className="h-4 w-4 text-emerald-700 shrink-0" />
                       <span>{plan.limits.support} support</span>
                     </div>
                   </div>

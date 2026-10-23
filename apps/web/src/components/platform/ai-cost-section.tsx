@@ -27,7 +27,7 @@ export function AiCostSection() {
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <CardTitle>AI cost by business</CardTitle>
-          <select className="rounded-md border border-line px-2 py-1 text-sm" value={days} onChange={(e) => setDays(Number(e.target.value))}>
+          <select aria-label="Time period" className="rounded-md border border-line px-2 py-1 text-sm" value={days} onChange={(e) => setDays(Number(e.target.value))}>
             {[7, 30, 90].map((n) => (
               <option key={n} value={n}>
                 Last {n} days

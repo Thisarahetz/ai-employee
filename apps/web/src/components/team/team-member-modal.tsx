@@ -105,7 +105,7 @@ export function TeamMemberModal({ isOpen, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
-      <div className="w-full max-w-2xl overflow-hidden rounded-xl border border-line bg-surface-card shadow-2xl animate-in fade-in zoom-in-95">
+      <div role="dialog" aria-modal="true" aria-label="Add Team Member" className="w-full max-w-2xl overflow-hidden rounded-xl border border-line bg-surface-card shadow-2xl animate-in fade-in zoom-in-95">
         {/* Header */}
         <div className="border-b border-line bg-surface-page/50 px-6 py-4">
           <div className="flex items-center justify-between">

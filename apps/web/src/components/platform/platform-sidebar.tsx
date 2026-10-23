@@ -19,6 +19,7 @@ import {
 
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
+import { ResponsiveSidebar } from "@/components/layout/mobile-nav";
 
 interface NavGroup {
   title: string;
@@ -129,7 +130,7 @@ export function PlatformSidebar() {
   const { memberships } = useAuth();
 
   return (
-    <aside className="hidden w-64 shrink-0 flex-col border-r border-line bg-white px-4 py-5 sm:flex">
+    <ResponsiveSidebar className="w-64 shrink-0 flex-col border-r border-line bg-white px-4 py-5" label="Admin menu">
       <div className="mb-6 flex items-center gap-2.5 px-2">
         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-sm font-bold text-white shadow-sm">
           AI
@@ -189,7 +190,7 @@ export function PlatformSidebar() {
           </span>
         </div>
       </div>
-    </aside>
+    </ResponsiveSidebar>
   );
 }
 

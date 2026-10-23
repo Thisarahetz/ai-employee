@@ -454,7 +454,7 @@ export function EasySetupModal({
               </div>
             ) : isComplete ? (
               <div className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-emerald-800 text-xs font-bold">
-                <Check className="h-4 w-4 text-emerald-600" /> All documents created and indexed successfully!
+                <Check className="h-4 w-4 text-emerald-700" /> All documents created and indexed successfully!
               </div>
             ) : (
               <div className="flex items-center justify-between pt-2 border-t border-line">
@@ -588,7 +588,7 @@ export function EasySetupModal({
               </div>
             ) : isComplete ? (
               <div className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-emerald-800 text-xs font-bold">
-                <Check className="h-4 w-4 text-emerald-600" /> All documents compiled and indexed successfully!
+                <Check className="h-4 w-4 text-emerald-700" /> All documents compiled and indexed successfully!
               </div>
             ) : (
               <div className="flex items-center justify-between pt-2 border-t border-line">

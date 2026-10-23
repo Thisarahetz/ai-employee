@@ -43,3 +43,9 @@ n8n/data/
 
 # Uploaded files (local dev storage fallback)
 storage/
+
+# Browser (Playwright) tests
+apps/web/.next-e2e/
+apps/web/e2e-results/
+apps/web/e2e-report/
+apps/web/e2e/.auth/

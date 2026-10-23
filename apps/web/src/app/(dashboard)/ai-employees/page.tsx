@@ -102,9 +102,9 @@ export default function AiEmployeesPage() {
         <div className="rounded-xl border border-line bg-white p-4 shadow-xs">
           <div className="flex items-center justify-between text-xs text-ink-muted">
             <span className="font-medium">Active</span>
-            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+            <CheckCircle2 className="h-4 w-4 text-emerald-700" />
           </div>
-          <div className="mt-2 text-2xl font-bold text-emerald-600">
+          <div className="mt-2 text-2xl font-bold text-emerald-700">
             {stats.active}
           </div>
           <span className="text-[11px] text-emerald-700 font-medium">Handling customer tasks</span>
@@ -133,7 +133,7 @@ export default function AiEmployeesPage() {
             <span className="font-medium">Needs Approval</span>
             <ShieldAlert
               className={`h-4 w-4 ${
-                stats.needsApproval > 0 ? "text-amber-600" : "text-ink-muted"
+                stats.needsApproval > 0 ? "text-amber-700" : "text-ink-muted"
               }`}
             />
           </div>
@@ -205,7 +205,7 @@ export default function AiEmployeesPage() {
           >
             Approvals
             {stats.needsApproval > 0 && (
-              <span className="rounded-full bg-amber-500 px-1.5 py-0.2 text-[10px] text-white">
+              <span className="rounded-full bg-amber-700 px-1.5 py-0.2 text-[10px] text-white">
                 {stats.needsApproval}
               </span>
             )}
@@ -231,6 +231,7 @@ export default function AiEmployeesPage() {
               <div className="flex items-center gap-1.5 text-xs text-ink-secondary">
                 <Building2 className="h-3.5 w-3.5 text-ink-muted" />
                 <select
+                  aria-label="Filter by location"
                   value={selectedBranchId}
                   onChange={(e) => setSelectedBranchId(e.target.value)}
                   className="rounded-lg border border-line bg-white px-2.5 py-1 text-xs text-ink-primary focus:border-brand-500 focus:outline-none"
@@ -249,6 +250,7 @@ export default function AiEmployeesPage() {
             <div className="flex items-center gap-1.5 text-xs text-ink-secondary">
               <Filter className="h-3.5 w-3.5 text-ink-muted" />
               <select
+                aria-label="Filter by department"
                 value={selectedDept}
                 onChange={(e) => setSelectedDept(e.target.value)}
                 className="rounded-lg border border-line bg-white px-2.5 py-1 text-xs text-ink-primary focus:border-brand-500 focus:outline-none"

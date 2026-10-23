@@ -23,6 +23,8 @@ import { useAuth } from "@/lib/auth-context";
 import { useAiEmployeeApprovals } from "@/lib/hooks/use-ai-employees";
 import { useSoftwareRequired } from "@/components/integrations/software-required";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
+import { ResponsiveSidebar } from "@/components/layout/mobile-nav";
 
 const MAIN_NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -51,9 +53,14 @@ export function Sidebar() {
   const software = useSoftwareRequired();
 
   const isSuperAdmin = user?.platformRole === "SUPER_ADMIN";
+  const { t } = useI18n();
 
   return (
-    <aside className="hidden w-60 shrink-0 flex-col border-r border-line bg-white px-4 py-6 sm:flex justify-between">
+    <ResponsiveSidebar
+      className="w-60 shrink-0 flex-col justify-between overflow-y-auto border-r border-line bg-white px-4 py-6"
+      label={t("Main menu")}
+      closeLabel={t("Close menu")}
+    >
       <div>
         {/* Brand Header */}
         <div className="mb-6 flex items-center gap-2 px-2">
@@ -71,7 +78,7 @@ export function Sidebar() {
         {/* Main Section */}
         <nav className="flex flex-col gap-1">
           <div className="mb-1.5 px-2 text-[10px] font-bold uppercase tracking-wider text-ink-muted">
-            Main
+            {t("Main")}
           </div>
 
           {MAIN_NAV_ITEMS.map((item) => {
@@ -92,16 +99,16 @@ export function Sidebar() {
               >
                 <div className="flex items-center gap-2.5">
                   <Icon className="h-4 w-4 shrink-0" />
-                  <span>{item.label}</span>
+                  <span>{t(item.label)}</span>
                 </div>
                 {item.href === "/ai-employees" && pendingCount > 0 && (
-                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[9px] font-bold text-white">
+                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-amber-700 text-[9px] font-bold text-white">
                     {pendingCount}
                   </span>
                 )}
                 {item.href === "/integrations" && software.required && (
-                  <span className="rounded-full bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">
-                    Required
+                  <span className="rounded-full bg-amber-700 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">
+                    {t("Required")}
                   </span>
                 )}
               </Link>
@@ -110,7 +117,7 @@ export function Sidebar() {
 
           {/* Business Section */}
           <div className="mt-4 mb-1.5 px-2 text-[10px] font-bold uppercase tracking-wider text-ink-muted">
-            Business
+            {t("Business")}
           </div>
 
           {BUSINESS_NAV_ITEMS.map((item) => {
@@ -129,7 +136,7 @@ export function Sidebar() {
                 )}
               >
                 <Icon className="h-4 w-4 shrink-0" />
-                <span>{item.label}</span>
+                <span>{t(item.label)}</span>
               </Link>
             );
           })}
@@ -144,7 +151,7 @@ export function Sidebar() {
               href="/admin"
               className="block rounded-lg px-2 py-1.5 text-xs font-semibold text-ink-secondary transition-colors hover:bg-surface-page hover:text-ink-primary"
             >
-              Platform Console →
+              {t("Platform Console")} →
             </Link>
           </div>
         )}
@@ -154,6 +161,6 @@ export function Sidebar() {
           <span className="font-mono text-[10px]">v1.0</span>
         </div>
       </div>
-    </aside>
+    </ResponsiveSidebar>
   );
 }

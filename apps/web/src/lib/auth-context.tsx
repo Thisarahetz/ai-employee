@@ -44,6 +44,8 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<AuthResponse>;
   signup: (input: SignupInput) => Promise<void>;
   logout: () => void;
+  /** Update the cached active business (e.g. after a rename) so the shell shows it at once. */
+  updateActiveTenant: (patch: Partial<Tenant>) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -95,6 +97,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [persistSession],
   );
 
+  const updateActiveTenant = useCallback((patch: Partial<Tenant>) => {
+    setSession((prev) => {
+      if (!prev.activeTenantId) return prev;
+      const next: SessionInfo = {
+        ...prev,
+        memberships: prev.memberships.map((m) =>
+          m.tenantId === prev.activeTenantId ? { ...m, tenant: { ...m.tenant, ...patch } } : m,
+        ),
+      };
+      try {
+        window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // Storage blocked: the in-memory copy is still updated.
+      }
+      return next;
+    });
+  }, []);
+
+  // The cached business can be stale (renamed by another team member), so
+  // refresh it from the server once per page load.
+  const hasUser = !!user;
+  useEffect(() => {
+    if (!hasUser || !session.activeTenantId) return;
+    let cancelled = false;
+    apiClient
+      .get<Tenant>("/tenants")
+      .then(({ data }) => {
+        if (!cancelled && data?.id === session.activeTenantId) updateActiveTenant({ name: data.name });
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [hasUser, session.activeTenantId, updateActiveTenant]);
+
   const logout = useCallback(() => {
     clearStoredTokens();
     window.localStorage.removeItem(USER_STORAGE_KEY);
@@ -116,8 +153,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       signup,
       logout,
+      updateActiveTenant,
     }),
-    [user, session, activeTenant, isLoading, login, signup, logout],
+    [user, session, activeTenant, isLoading, login, signup, logout, updateActiveTenant],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

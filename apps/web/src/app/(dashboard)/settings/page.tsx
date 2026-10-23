@@ -21,9 +21,10 @@ import { useBusinesses, useUpdateBusiness } from "@/lib/hooks/use-businesses";
 import { apiClient } from "@/lib/api-client";
 import { getErrorMessage } from "@/lib/utils";
 import { useGettingStarted, useSetGettingStartedDismissed } from "@/lib/hooks/use-business-setup";
+import { LanguageSettingsCard } from "@/components/settings/language-settings-card";
 
 export default function SettingsPage() {
-  const { user, activeTenant } = useAuth();
+  const { user, activeTenant, updateActiveTenant } = useAuth();
   const businessesQuery = useBusinesses();
   const updateBusiness = useUpdateBusiness();
 
@@ -53,6 +54,7 @@ export default function SettingsPage() {
       // 1. Update Tenant Name
       try {
         await apiClient.patch("/tenants", { name: businessName.trim() });
+        updateActiveTenant({ name: businessName.trim() });
       } catch {
         // Fallback if tenant patch restricted
       }
@@ -96,10 +98,11 @@ export default function SettingsPage() {
 
         <form onSubmit={handleSaveProfile} className="space-y-4 max-w-xl">
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-ink-primary">
+            <label htmlFor="settings-business-name" className="text-xs font-bold text-ink-primary">
               Company / Business Name
             </label>
             <input
+              id="settings-business-name"
               type="text"
               value={businessName}
               onChange={(e) => setBusinessName(e.target.value)}
@@ -110,10 +113,11 @@ export default function SettingsPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-ink-primary">
+              <label htmlFor="settings-timezone" className="text-xs font-bold text-ink-primary">
                 Timezone
               </label>
               <select
+                id="settings-timezone"
                 value={timezone}
                 onChange={(e) => setTimezone(e.target.value)}
                 className="w-full rounded-xl border border-line bg-white px-3.5 py-2 text-xs text-ink-primary focus:border-brand-500 focus:outline-none"
@@ -150,10 +154,12 @@ export default function SettingsPage() {
         </form>
       </div>
 
+      <LanguageSettingsCard />
+
       {/* 2. Customer Channels Quick Link */}
       <div className="rounded-2xl border border-line bg-white p-6 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3.5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200">
             <Smartphone className="h-5 w-5" />
           </div>
           <div>
@@ -242,7 +248,7 @@ export default function SettingsPage() {
               className="rounded-xl border border-line bg-white p-4 hover:border-brand-500 hover:shadow-xs transition-all"
             >
               <div className="flex items-center gap-2 mb-1.5">
-                <SettingsIcon className="h-4 w-4 text-emerald-600" />
+                <SettingsIcon className="h-4 w-4 text-emerald-700" />
                 <h4 className="text-xs font-bold text-ink-primary">
                   API &amp; Webhooks
                 </h4>

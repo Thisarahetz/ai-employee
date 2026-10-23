@@ -4,6 +4,7 @@ import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
 import { useAuth } from "@/lib/auth-context";
+import { MobileNavProvider } from "@/components/layout/mobile-nav";
 import { PlatformSidebar } from "@/components/platform/platform-sidebar";
 import { PlatformTopbar } from "@/components/platform/platform-topbar";
 import { FullPageSpinner } from "@/components/ui/spinner";
@@ -38,12 +39,14 @@ export default function PlatformLayout({ children }: { children: ReactNode }) {
   }
 
   return (
+    <MobileNavProvider>
     <div className="flex min-h-screen bg-surface-page">
       <PlatformSidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <PlatformTopbar />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6">{children}</main>
       </div>
     </div>
+    </MobileNavProvider>
   );
 }

@@ -97,7 +97,7 @@ export function WhatsAppConnectPanel({
           placeholder="EAAG…"
         />
         {credError && <p className="text-sm text-status-critical">{credError}</p>}
-        {credSaved && <p className="text-sm text-status-good">Access token saved.</p>}
+        {credSaved && <p className="text-sm text-emerald-700">Access token saved.</p>}
         <Button type="submit" size="sm" variant="secondary" isLoading={setCredentials.isPending}>
           {channel.hasCredentials ? "Replace token" : "Save token"}
         </Button>

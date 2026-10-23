@@ -104,7 +104,7 @@ function ProfileCard() {
             <Button type="submit" isLoading={update.isPending}>
               Save profile
             </Button>
-            {saved && <span className="text-sm text-status-good">Saved</span>}
+            {saved && <span className="text-sm text-emerald-700">Saved</span>}
           </div>
         </form>
       </CardContent>

@@ -6,7 +6,7 @@ export type BadgeColor = "blue" | "green" | "amber" | "red" | "gray" | "purple";
 
 const colorClasses: Record<BadgeColor, string> = {
   blue: "bg-brand-50 text-brand-700 ring-brand-600/20",
-  green: "bg-status-good/10 text-status-good ring-status-good/25",
+  green: "bg-status-good/10 text-emerald-700 ring-status-good/25",
   amber: "bg-status-warning/15 text-[#8a5a00] ring-status-warning/30",
   red: "bg-status-critical/10 text-status-critical ring-status-critical/20",
   gray: "bg-ink-muted/10 text-ink-secondary ring-ink-muted/20",

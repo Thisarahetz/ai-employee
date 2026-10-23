@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { randomBytes } from 'node:crypto';
 import { BusinessType, PlatformRole, Tenant, TenantMembership, TenantRole, UserStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
@@ -120,12 +121,18 @@ export class AuthService {
     ownerPassword?: string;
     allowExistingUser: boolean;
   }) {
-    const slug = this.slugify(params.tenantSlug || params.tenantName);
     const email = params.ownerEmail.toLowerCase();
-
-    const existingTenant = await this.prisma.tenant.findUnique({ where: { slug } });
-    if (existingTenant) {
-      throw new BadRequestException('A tenant with this slug already exists');
+    let slug: string;
+    if (params.tenantSlug) {
+      // An admin picked this exact slug, so a clash is their mistake to fix.
+      slug = this.slugify(params.tenantSlug);
+      if (!slug) throw new BadRequestException('The tenant slug must contain letters or numbers.');
+      if (await this.prisma.tenant.findUnique({ where: { slug } })) {
+        throw new BadRequestException('A tenant with this slug already exists');
+      }
+    } else {
+      // Business names repeat (two owners named Nimal), so make the slug unique.
+      slug = await this.uniqueSlug(params.tenantName);
     }
 
     const existingUser = await this.prisma.user.findUnique({ where: { email } });
@@ -337,6 +344,18 @@ export class AuthService {
         platformRole: user.platformRole,
       },
     };
+  }
+
+  /** Slug from the name, with a short random ending when it is already taken. */
+  private async uniqueSlug(name: string): Promise<string> {
+    // Non-Latin names (e.g. Sinhala) slugify to nothing, so fall back to "business".
+    const base = this.slugify(name).slice(0, 40).replace(/-$/, '') || 'business';
+    if (!(await this.prisma.tenant.findUnique({ where: { slug: base } }))) return base;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const candidate = `${base}-${randomBytes(3).toString('hex').slice(0, 4)}`;
+      if (!(await this.prisma.tenant.findUnique({ where: { slug: candidate } }))) return candidate;
+    }
+    return `${base}-${randomBytes(6).toString('hex')}`;
   }
 
   private slugify(value: string): string {

@@ -66,7 +66,7 @@ export default function AdminHealthPage() {
       {diagnosticTime !== null && (
         <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-xs text-emerald-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+            <CheckCircle2 className="h-4 w-4 text-emerald-700" />
             <span>Diagnostic sweep completed successfully across database, Redis, and API endpoints.</span>
           </div>
           <span className="font-mono font-semibold">{diagnosticTime}ms roundtrip</span>
@@ -151,7 +151,7 @@ export default function AdminHealthPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-ink-secondary">Connection Pool</span>
-                <span className="font-semibold text-emerald-600">Healthy</span>
+                <span className="font-semibold text-emerald-700">Healthy</span>
               </div>
             </div>
           </Card>
@@ -193,7 +193,7 @@ export default function AdminHealthPage() {
           <Card className="p-5 space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="rounded-lg bg-emerald-50 p-2 text-emerald-600">
+                <div className="rounded-lg bg-emerald-50 p-2 text-emerald-700">
                   <Sparkles className="h-5 w-5" />
                 </div>
                 <div>
@@ -224,7 +224,7 @@ export default function AdminHealthPage() {
           <Card className="p-5 space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="rounded-lg bg-amber-50 p-2 text-amber-600">
+                <div className="rounded-lg bg-amber-50 p-2 text-amber-700">
                   <Sparkles className="h-5 w-5" />
                 </div>
                 <div>
@@ -277,7 +277,7 @@ export default function AdminHealthPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-ink-secondary">WhatsApp Webhook Ready</span>
-                <span className="font-semibold text-emerald-600">Yes</span>
+                <span className="font-semibold text-emerald-700">Yes</span>
               </div>
             </div>
           </Card>

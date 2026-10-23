@@ -140,7 +140,7 @@ export function UploadDocumentForm({
 
         {templateLoadedNotice && (
           <p className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1 animate-in fade-in">
-            <Check className="h-3.5 w-3.5 text-emerald-600" /> Template loaded below! Customize the text and pricing to match your business.
+            <Check className="h-3.5 w-3.5 text-emerald-700" /> Template loaded below! Customize the text and pricing to match your business.
           </p>
         )}
       </div>

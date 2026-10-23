@@ -162,7 +162,7 @@ export function TeamMemberProfile({ memberId, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/40 backdrop-blur-xs">
-      <div className="h-full w-full max-w-lg border-l border-line bg-surface-card shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
+      <div role="dialog" aria-modal="true" aria-label="Team member profile" className="h-full w-full max-w-lg border-l border-line bg-surface-card shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
         {/* Top Header */}
         <div className="flex items-center justify-between border-b border-line px-6 py-4">
           <div className="flex items-center gap-3">
@@ -182,7 +182,7 @@ export function TeamMemberProfile({ memberId, onClose }: Props) {
                     member?.status === "ACTIVE"
                       ? "bg-status-success/15 text-status-success"
                       : member?.status === "INVITED"
-                      ? "bg-status-warning/15 text-status-warning"
+                      ? "bg-status-warning/15 text-amber-700"
                       : "bg-status-critical/15 text-status-critical"
                   }`}
                 >
@@ -201,10 +201,12 @@ export function TeamMemberProfile({ memberId, onClose }: Props) {
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
+            aria-label="Close"
             className="rounded-lg p-1.5 text-ink-muted hover:bg-surface-page hover:text-ink-primary"
           >
-            <X className="h-5 w-5" />
+            <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
 

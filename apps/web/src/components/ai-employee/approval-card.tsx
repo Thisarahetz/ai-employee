@@ -56,7 +56,7 @@ export function ApprovalCard({ approval }: ApprovalCardProps) {
           <div
             className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
               isPending
-                ? "bg-amber-500 text-white"
+                ? "bg-amber-700 text-white"
                 : approval.status === "APPROVED"
                 ? "bg-emerald-600 text-white"
                 : "bg-red-500 text-white"

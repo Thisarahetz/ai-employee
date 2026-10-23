@@ -104,7 +104,7 @@ export default function AdminDashboardPage() {
 
       {/* System Alert Banner if applicable */}
       {stats.systemAlerts && stats.systemAlerts.length > 0 && (
-        <div className="flex items-center gap-3 rounded-lg border border-status-warning/20 bg-status-warning/10 px-4 py-3 text-sm text-status-warning">
+        <div className="flex items-center gap-3 rounded-lg border border-status-warning/20 bg-status-warning/10 px-4 py-3 text-sm text-amber-700">
           <AlertTriangle className="h-5 w-5 shrink-0" />
           <div className="flex-1 font-medium">{stats.systemAlerts.join(" · ")}</div>
           <Link href="/admin/ai-employees" className="text-xs font-semibold underline hover:opacity-80">
@@ -133,12 +133,12 @@ export default function AdminDashboardPage() {
               )}
             </div>
             <div className="mt-3 flex items-center gap-3 border-t border-line pt-2.5 text-xs text-ink-secondary">
-              <span className="flex items-center gap-1 font-medium text-emerald-600">
+              <span className="flex items-center gap-1 font-medium text-emerald-700">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                 {stats.tenants.active} active
               </span>
               <span>·</span>
-              <span className="text-amber-600 font-medium">{stats.tenants.trial} trial</span>
+              <span className="text-amber-700 font-medium">{stats.tenants.trial} trial</span>
               <span>·</span>
               <span className="text-rose-600 font-medium">{stats.tenants.suspended} suspended</span>
             </div>
@@ -161,7 +161,7 @@ export default function AdminDashboardPage() {
               <span className="text-xs text-ink-muted">deployed</span>
             </div>
             <div className="mt-3 flex items-center gap-3 border-t border-line pt-2.5 text-xs text-ink-secondary">
-              <span className="flex items-center gap-1 font-medium text-emerald-600">
+              <span className="flex items-center gap-1 font-medium text-emerald-700">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                 {stats.aiEmployees.active} active
               </span>
@@ -170,7 +170,7 @@ export default function AdminDashboardPage() {
               {stats.aiEmployees.needsAttention > 0 && (
                 <>
                   <span>·</span>
-                  <span className="text-amber-600 font-bold">{stats.aiEmployees.needsAttention} alerts</span>
+                  <span className="text-amber-700 font-bold">{stats.aiEmployees.needsAttention} alerts</span>
                 </>
               )}
             </div>
@@ -191,7 +191,7 @@ export default function AdminDashboardPage() {
               <span className="text-xs text-ink-muted">accounts</span>
             </div>
             <div className="mt-3 flex items-center gap-3 border-t border-line pt-2.5 text-xs text-ink-secondary">
-              <span className="font-medium text-emerald-600">{stats.users.active} active</span>
+              <span className="font-medium text-emerald-700">{stats.users.active} active</span>
               <span>·</span>
               <span className="text-purple-600 font-medium">{stats.users.superAdmins} super admins</span>
             </div>
@@ -203,7 +203,7 @@ export default function AdminDashboardPage() {
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-ink-muted">Conversations</span>
-              <div className="rounded-lg bg-emerald-50 p-2 text-emerald-600">
+              <div className="rounded-lg bg-emerald-50 p-2 text-emerald-700">
                 <Activity className="h-5 w-5" />
               </div>
             </div>
@@ -229,7 +229,7 @@ export default function AdminDashboardPage() {
             <div className="flex items-center gap-3">
               <div
                 className={`rounded-lg p-2 ${
-                  health?.status === "healthy" ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
+                  health?.status === "healthy" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
                 }`}
               >
                 <CheckCircle2 className="h-5 w-5" />
@@ -326,7 +326,7 @@ export default function AdminDashboardPage() {
               className="group rounded-xl border border-line bg-white p-4 transition-all hover:border-brand-300 hover:shadow-sm"
             >
               <div className="flex items-center justify-between">
-                <div className="rounded-lg bg-amber-50 p-2 text-amber-600 group-hover:bg-amber-100">
+                <div className="rounded-lg bg-amber-50 p-2 text-amber-700 group-hover:bg-amber-100">
                   <Sparkles className="h-5 w-5" />
                 </div>
                 <ArrowRight className="h-4 w-4 text-ink-muted group-hover:text-brand-600 transition-colors" />
@@ -362,7 +362,7 @@ export default function AdminDashboardPage() {
               className="group rounded-xl border border-line bg-white p-4 transition-all hover:border-brand-300 hover:shadow-sm"
             >
               <div className="flex items-center justify-between">
-                <div className="rounded-lg bg-emerald-50 p-2 text-emerald-600 group-hover:bg-emerald-100">
+                <div className="rounded-lg bg-emerald-50 p-2 text-emerald-700 group-hover:bg-emerald-100">
                   <CreditCard className="h-5 w-5" />
                 </div>
                 <ArrowRight className="h-4 w-4 text-ink-muted group-hover:text-brand-600 transition-colors" />

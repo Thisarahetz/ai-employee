@@ -120,6 +120,7 @@ export default function AdminAiEmployeesPage() {
         <div className="flex items-center gap-3">
           <div className="w-40">
             <Select
+              aria-label="Filter by status"
               value={statusFilter}
               onChange={(e) => {
                 setStatusFilter(e.target.value);
@@ -136,6 +137,7 @@ export default function AdminAiEmployeesPage() {
 
           <div className="w-48">
             <Select
+              aria-label="Filter by action level"
               value={actionLevelFilter}
               onChange={(e) => {
                 setActionLevelFilter(e.target.value);
@@ -264,7 +266,7 @@ export default function AdminAiEmployeesPage() {
                         <Button
                           variant={emp.status === "ACTIVE" ? "ghost" : "primary"}
                           size="sm"
-                          className={emp.status === "ACTIVE" ? "text-amber-600 hover:bg-amber-50" : ""}
+                          className={emp.status === "ACTIVE" ? "text-amber-700 hover:bg-amber-50" : ""}
                           isLoading={updateStatus.isPending}
                           onClick={() => handleToggleStatus(emp)}
                         >
@@ -315,7 +317,7 @@ export default function AdminAiEmployeesPage() {
       {/* Inspect Modal/Drawer */}
       {inspectEmployee && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl space-y-5">
+          <div role="dialog" aria-modal="true" aria-label="AI employee details" className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl space-y-5">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-100 text-purple-700">
@@ -329,10 +331,12 @@ export default function AdminAiEmployeesPage() {
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setInspectEmployee(null)}
+                aria-label="Close"
                 className="rounded-lg p-1 text-ink-muted hover:bg-surface-page hover:text-ink-primary"
               >
-                <X className="h-5 w-5" />
+                <X className="h-5 w-5" aria-hidden="true" />
               </button>
             </div>
 

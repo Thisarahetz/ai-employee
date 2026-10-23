@@ -269,7 +269,7 @@ export default function AiEmployeeDetailPage() {
             <span className="text-[10px] uppercase font-bold text-ink-muted block">
               Awaiting approval
             </span>
-            <span className="text-base font-bold text-amber-600">
+            <span className="text-base font-bold text-amber-700">
               {employee.stats?.pendingApprovals ?? 0}
             </span>
           </div>
@@ -724,7 +724,7 @@ export default function AiEmployeeDetailPage() {
               <span className="text-[10px] uppercase font-bold text-ink-muted block">
                 AI cost (30 days)
               </span>
-              <span className="text-2xl font-bold text-emerald-600">
+              <span className="text-2xl font-bold text-emerald-700">
                 ${(employee.stats?.costUsd30d ?? 0).toFixed(2)}
               </span>
             </div>
@@ -740,7 +740,7 @@ export default function AiEmployeeDetailPage() {
               <span className="text-[10px] uppercase font-bold text-ink-muted block">
                 Success Rate
               </span>
-              <span className="text-2xl font-bold text-emerald-600">
+              <span className="text-2xl font-bold text-emerald-700">
                 {employee.stats?.successRate == null ? "—" : `${employee.stats.successRate}%`}
               </span>
             </div>

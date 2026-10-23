@@ -44,9 +44,9 @@ export function ActivityTimeline({ employeeId }: ActivityTimelineProps) {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "SUCCESS":
-        return <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />;
+        return <CheckCircle2 className="h-3.5 w-3.5 text-emerald-700" />;
       case "PENDING_APPROVAL":
-        return <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />;
+        return <AlertTriangle className="h-3.5 w-3.5 text-amber-700" />;
       case "REJECTED":
         return <XCircle className="h-3.5 w-3.5 text-red-600" />;
       default:

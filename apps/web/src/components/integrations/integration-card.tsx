@@ -124,7 +124,7 @@ export function IntegrationCard({ integration }: { integration: Integration }) {
             </Button>
           </div>
         )}
-        {message && <p className={message.ok ? "text-status-good" : "text-status-critical"}>{message.text}</p>}
+        {message && <p className={message.ok ? "text-emerald-700" : "text-status-critical"}>{message.text}</p>}
         {kit && <DeveloperKitPanel kit={kit} />}
       </CardContent>
 

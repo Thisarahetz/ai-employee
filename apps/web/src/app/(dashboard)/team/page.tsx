@@ -140,8 +140,8 @@ export default function TeamPage() {
 
         <div className="rounded-xl border border-line bg-surface-card p-4 shadow-2xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-status-warning">Pending Invites</span>
-            <Clock className="h-4 w-4 text-status-warning" />
+            <span className="text-xs font-medium text-amber-700">Pending Invites</span>
+            <Clock className="h-4 w-4 text-amber-700" />
           </div>
           <div className="mt-2 text-2xl font-bold text-ink-primary">{pendingCount}</div>
           <p className="text-[11px] text-ink-muted mt-0.5">Awaiting first login</p>
@@ -322,7 +322,7 @@ export default function TeamPage() {
                             member.status === "ACTIVE"
                               ? "bg-status-success/15 text-status-success"
                               : member.status === "INVITED"
-                              ? "bg-status-warning/15 text-status-warning"
+                              ? "bg-status-warning/15 text-amber-700"
                               : "bg-status-critical/15 text-status-critical"
                           }`}
                         >

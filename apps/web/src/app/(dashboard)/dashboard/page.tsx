@@ -3,6 +3,7 @@
 import { useAiUsage } from "@/lib/hooks/use-ai-workforce";
 import { GettingStartedCard } from "@/components/getting-started/getting-started";
 import React, { useEffect, useState } from "react";
+import { useI18n } from "@/lib/i18n";
 import Link from "next/link";
 import {
   Bot,
@@ -40,6 +41,7 @@ import { formatDateTime } from "@/lib/utils";
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const { t } = useI18n();
   const { activeLocationId } = useActiveLocation();
   const businessesQuery = useBusinesses();
   const teamQuery = useTeam();
@@ -99,7 +101,7 @@ export default function DashboardPage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold text-ink-primary">
-              {greeting}, {ownerName} 👋
+              {t(greeting)}, {ownerName} 👋
             </h1>
           </div>
           <p className="text-xs text-ink-secondary mt-1 flex items-center gap-1.5">
@@ -107,7 +109,7 @@ export default function DashboardPage() {
             <span className="font-semibold text-ink-primary">
               {businessDisplayName}
             </span>
-            <span>· Live Operations Center</span>
+            <span>· {t("Live Operations Center")}</span>
           </p>
         </div>
 
@@ -116,7 +118,7 @@ export default function DashboardPage() {
             href="/onboarding"
             className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface-page px-3.5 py-2 text-xs font-semibold text-ink-secondary hover:bg-slate-100 hover:text-ink-primary transition-colors"
           >
-            <Sparkles className="h-3.5 w-3.5 text-brand-600" /> Setup Wizard
+            <Sparkles className="h-3.5 w-3.5 text-brand-600" /> {t("Setup Wizard")}
           </Link>
           <Link
             href="/ai-employees"
@@ -132,10 +134,10 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-ink-primary uppercase tracking-wider">
-              Needs Your Attention
+              {t("Needs Your Attention")}
             </span>
             {pendingApprovals.length > 0 && (
-              <span className="rounded-full bg-amber-500 px-2 py-0.2 text-[10px] font-bold text-white">
+              <span className="rounded-full bg-amber-700 px-2 py-0.2 text-[10px] font-bold text-white">
                 {pendingApprovals.length}
               </span>
             )}
@@ -158,7 +160,7 @@ export default function DashboardPage() {
                 <div>
                   <div className="flex items-center justify-between">
                     <span className="rounded bg-amber-200/80 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-900">
-                      Approval Required
+                      {t("Approval Required")}
                     </span>
                     <span className="text-[10px] text-amber-800">
                       {formatDateTime(appr.requestedAt)}
@@ -205,7 +207,7 @@ export default function DashboardPage() {
               href="/ai-employees"
               className="rounded-lg bg-brand-50 px-3 py-1.5 text-xs font-bold text-brand-700 border border-brand-200 hover:bg-brand-100"
             >
-              Resume
+              {t("Resume")}
             </Link>
           </div>
         ) : pendingTeamInvites.length > 0 ? (
@@ -219,7 +221,7 @@ export default function DashboardPage() {
                   {pendingTeamInvites.length} Team {pendingTeamInvites.length === 1 ? "Invitation" : "Invitations"} Waiting
                 </h4>
                 <p className="text-[11px] text-amber-800">
-                  Staff member accounts are waiting for their first login.
+                  {t("Staff member accounts are waiting for their first login.")}
                 </p>
               </div>
             </div>
@@ -227,18 +229,54 @@ export default function DashboardPage() {
               href="/team"
               className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-700 transition-colors shadow-xs"
             >
-              Review Team
+              {t("Review Team")}
+            </Link>
+          </div>
+        ) : employeesQuery.isLoading ? null : employees.length === 0 ? (
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-white p-4">
+            <div className="flex items-center gap-3">
+              <Bot className="h-5 w-5 shrink-0 text-ink-secondary" />
+              <div>
+                <h4 className="text-xs font-bold text-ink-primary">{t("No AI employees yet")}</h4>
+                <p className="text-[11px] text-ink-secondary">
+                  {t("Nobody is answering customers yet. Use the setup wizard to add your first AI employees.")}
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/onboarding"
+              className="shrink-0 rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-brand-700"
+            >
+              {t("Open setup wizard")}
+            </Link>
+          </div>
+        ) : activeEmployees.length === 0 ? (
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50/80 p-4">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="h-5 w-5 shrink-0 text-amber-700" />
+              <div>
+                <h4 className="text-xs font-bold text-amber-950">{t("All AI employees are paused")}</h4>
+                <p className="text-[11px] text-amber-800">
+                  {t("Customers are not getting answers until you resume at least one AI employee.")}
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/ai-employees"
+              className="shrink-0 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-700"
+            >
+              {t("Manage AI Employees")}
             </Link>
           </div>
         ) : (
           <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
-            <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+            <CheckCircle2 className="h-5 w-5 text-emerald-700 shrink-0" />
             <div>
               <h4 className="text-xs font-bold text-emerald-950">
-                All Systems Running Smoothly
+                {t("All Systems Running Smoothly")}
               </h4>
               <p className="text-[11px] text-emerald-800">
-                Your AI employees are autonomously handling inquiries. No pending approvals require action.
+                {t("Your AI employees are autonomously handling inquiries. No pending approvals require action.")}
               </p>
             </div>
           </div>
@@ -250,9 +288,9 @@ export default function DashboardPage() {
         <div className="rounded-2xl border border-line bg-white p-5 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold uppercase tracking-wider text-ink-muted">
-              AI spend this month
+              {t("AI spend this month")}
             </span>
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
               <TrendingUp className="h-4 w-4" />
             </div>
           </div>
@@ -269,7 +307,7 @@ export default function DashboardPage() {
         <div className="rounded-2xl border border-line bg-white p-5 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold uppercase tracking-wider text-ink-muted">
-              Tasks completed
+              {t("Tasks completed")}
             </span>
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
               <ShoppingBag className="h-4 w-4" />
@@ -284,7 +322,7 @@ export default function DashboardPage() {
         <div className="rounded-2xl border border-line bg-white p-5 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold uppercase tracking-wider text-ink-muted">
-              Conversations
+              {t("Conversations")}
             </span>
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-50 text-purple-600">
               <MessageSquare className="h-4 w-4" />
@@ -296,21 +334,21 @@ export default function DashboardPage() {
             </span>
           </div>
           <p className="text-[10px] text-ink-muted mt-1">
-            Customer inquiries answered
+            {t("Customer inquiries answered")}
           </p>
         </div>
 
         <div className="rounded-2xl border border-line bg-white p-5 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold uppercase tracking-wider text-ink-muted">
-              Task success rate
+              {t("Task success rate")}
             </span>
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
               <ShieldCheck className="h-4 w-4" />
             </div>
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-black text-emerald-600">
+            <span className="text-2xl font-black text-emerald-700">
               {successRate === null ? "—" : `${successRate}%`}
             </span>
           </div>
@@ -326,7 +364,7 @@ export default function DashboardPage() {
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-bold text-ink-primary uppercase tracking-wider">
-                Your AI Employees
+                {t("Your AI Employees")}
               </h3>
               <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
                 {activeEmployees.length} Working · {pausedEmployees.length} Paused
@@ -350,10 +388,10 @@ export default function DashboardPage() {
             <Bot className="mx-auto h-8 w-8 text-ink-muted" />
             <div>
               <h4 className="text-sm font-bold text-ink-primary">
-                No AI Employees Deployed Yet
+                {t("No AI Employees Deployed Yet")}
               </h4>
               <p className="text-xs text-ink-secondary mt-0.5">
-                Use the setup wizard to hire pre-configured staff tailored for your business.
+                {t("Use the setup wizard to hire pre-configured staff tailored for your business.")}
               </p>
             </div>
             <Link
@@ -442,14 +480,14 @@ export default function DashboardPage() {
         <div className="lg:col-span-2 rounded-2xl border border-line bg-white p-6 shadow-xs space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-ink-primary uppercase tracking-wider">
-              Recent Business Activity
+              {t("Recent Business Activity")}
             </h3>
-            <span className="text-xs text-ink-muted">Live Feed</span>
+            <span className="text-xs text-ink-muted">{t("Live Feed")}</span>
           </div>
 
           {recentActivities.length === 0 ? (
             <p className="text-xs text-ink-muted py-6 text-center">
-              No recent activity recorded yet.
+              {t("No recent activity recorded yet.")}
             </p>
           ) : (
             <div className="divide-y divide-line/60">
@@ -484,7 +522,7 @@ export default function DashboardPage() {
         {/* Quick Actions Card */}
         <div className="rounded-2xl border border-line bg-white p-6 shadow-xs space-y-4">
           <h3 className="text-sm font-bold text-ink-primary uppercase tracking-wider">
-            Quick Actions
+            {t("Quick Actions")}
           </h3>
 
           <div className="space-y-2.5">
@@ -495,7 +533,7 @@ export default function DashboardPage() {
               <div className="flex items-center gap-2.5">
                 <FileText className="h-4 w-4 text-brand-600" />
                 <span className="text-xs font-bold text-ink-primary">
-                  Upload Price Lists &amp; Menus
+                  {t("Upload Price Lists & Menus")}
                 </span>
               </div>
               <ArrowRight className="h-3.5 w-3.5 text-ink-muted" />
@@ -508,7 +546,7 @@ export default function DashboardPage() {
               <div className="flex items-center gap-2.5">
                 <MessageSquare className="h-4 w-4 text-purple-600" />
                 <span className="text-xs font-bold text-ink-primary">
-                  View Customer Inquiries
+                  {t("View Customer Inquiries")}
                 </span>
               </div>
               <ArrowRight className="h-3.5 w-3.5 text-ink-muted" />
@@ -519,9 +557,9 @@ export default function DashboardPage() {
               className="flex items-center justify-between rounded-xl border border-line p-3 hover:bg-surface-page transition-colors"
             >
               <div className="flex items-center gap-2.5">
-                <Smartphone className="h-4 w-4 text-emerald-600" />
+                <Smartphone className="h-4 w-4 text-emerald-700" />
                 <span className="text-xs font-bold text-ink-primary">
-                  Connect WhatsApp &amp; Chat
+                  {t("Connect WhatsApp & Chat")}
                 </span>
               </div>
               <ArrowRight className="h-3.5 w-3.5 text-ink-muted" />
@@ -534,7 +572,7 @@ export default function DashboardPage() {
               <div className="flex items-center gap-2.5">
                 <Building2 className="h-4 w-4 text-blue-600" />
                 <span className="text-xs font-bold text-ink-primary">
-                  Store &amp; Branch Locations
+                  {t("Store & Branch Locations")}
                 </span>
               </div>
               <ArrowRight className="h-3.5 w-3.5 text-ink-muted" />

@@ -191,7 +191,7 @@ export function EmployeeCard({ employee }: EmployeeCardProps) {
           </span>
           {employee.stats?.successRate && (
             <span className="flex items-center gap-1">
-              <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
+              <TrendingUp className="h-3.5 w-3.5 text-emerald-700" />
               <strong className="text-ink-primary font-semibold">
                 {employee.stats.successRate}%
               </strong>{" "}

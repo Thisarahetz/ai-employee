@@ -27,7 +27,7 @@ function Step({ n, title, done, active, children }: { n: number; title: string; 
   return (
     <li className="flex gap-3">
       {done ? (
-        <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-status-good" aria-label="Done" />
+        <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" aria-label="Done" />
       ) : (
         <Circle className={`mt-0.5 h-5 w-5 shrink-0 ${active ? "text-brand-600" : "text-ink-muted"}`} aria-label="Not done yet" />
       )}
@@ -183,7 +183,7 @@ function DeveloperPath({ onDone }: { onDone: () => void }) {
       </Step>
 
       <Step n={4} title="Connected" done={checks.eventArrived} active={checks.connected}>
-        <p className="text-sm text-status-good">{checks.result?.message}</p>
+        <p className="text-sm text-emerald-700">{checks.result?.message}</p>
         {checks.eventArrived ? (
           <ConnectedNote name={kit?.name ?? ""} type={checks.current?.lastEventType} at={checks.current?.lastEventAt} onDone={onDone} />
         ) : (
@@ -273,7 +273,7 @@ function DetailsPath({ onDone }: { onDone: () => void }) {
       </Step>
 
       <Step n={2} title="Give the software the webhook details" done={checks.eventArrived} active={checks.connected && !checks.eventArrived}>
-        <p className="text-sm text-status-good">{checks.result?.message}</p>
+        <p className="text-sm text-emerald-700">{checks.result?.message}</p>
         <p className="text-sm text-ink-secondary">These let the software tell AI Employee when things happen. The secret is shown only once.</p>
         {webhook && (
           <>

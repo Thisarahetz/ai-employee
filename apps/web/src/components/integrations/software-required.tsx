@@ -31,7 +31,7 @@ export function SoftwareRequiredBanner() {
 
   return (
     <div role="alert" className="flex flex-wrap items-center gap-3 border-b border-status-warning/30 bg-status-warning/10 px-6 py-3">
-      <Plug className="h-5 w-5 shrink-0 text-status-warning" aria-hidden="true" />
+      <Plug className="h-5 w-5 shrink-0 text-amber-700" aria-hidden="true" />
       <div className="min-w-0 flex-1 text-sm text-ink-primary">
         <strong>{started ? "Finish connecting your software." : "Connect your software to finish setup."}</strong>{" "}
         {started

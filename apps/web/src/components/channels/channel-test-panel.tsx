@@ -68,7 +68,7 @@ export function ChannelTestPanel({ channelId, channelType }: { channelId: string
       </Button>
 
       {result && (
-        <p className={`flex items-start gap-2 text-sm ${result.ok ? "text-status-good" : "text-status-critical"}`}>
+        <p className={`flex items-start gap-2 text-sm ${result.ok ? "text-emerald-700" : "text-status-critical"}`}>
           {result.ok ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /> : <XCircle className="mt-0.5 h-4 w-4 shrink-0" />}
           <span>{result.detail}</span>
         </p>

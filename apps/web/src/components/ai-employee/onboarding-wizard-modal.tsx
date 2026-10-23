@@ -59,7 +59,7 @@ const BUSINESS_TYPE_OPTIONS = [
     name: "Restaurant & Café",
     category: "Hospitality",
     icon: Utensils,
-    color: "bg-amber-50 text-amber-600 border-amber-200",
+    color: "bg-amber-50 text-amber-700 border-amber-200",
     desc: "Table reservations, takeout orders, daily specials & catering",
   },
   {
@@ -67,7 +67,7 @@ const BUSINESS_TYPE_OPTIONS = [
     name: "Grocery & Supermarket",
     category: "Retail",
     icon: ShoppingBag,
-    color: "bg-emerald-50 text-emerald-600 border-emerald-200",
+    color: "bg-emerald-50 text-emerald-700 border-emerald-200",
     desc: "Inventory tracking, grocery deliveries & reordering",
   },
   {

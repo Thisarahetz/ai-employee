@@ -78,7 +78,7 @@ export default function AdminUsagePage() {
             <Card className="p-5">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold uppercase tracking-wider text-ink-muted">Estimated AI Spend</span>
-                <div className="rounded-lg bg-emerald-50 p-2 text-emerald-600">
+                <div className="rounded-lg bg-emerald-50 p-2 text-emerald-700">
                   <DollarSign className="h-5 w-5" />
                 </div>
               </div>

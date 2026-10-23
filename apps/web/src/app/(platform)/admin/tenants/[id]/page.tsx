@@ -548,7 +548,7 @@ export default function AdminTenantDetailPage() {
 
           {diagResult && (
             <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-4 text-xs font-medium text-emerald-800 flex items-start gap-2">
-              <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+              <CheckCircle2 className="h-4 w-4 text-emerald-700 shrink-0 mt-0.5" />
               <div>{diagResult}</div>
             </div>
           )}

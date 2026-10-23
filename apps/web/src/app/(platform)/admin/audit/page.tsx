@@ -70,6 +70,7 @@ export default function AdminAuditPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="w-48">
           <Select
+            aria-label="Filter by record type"
             value={targetType}
             onChange={(e) => {
               setTargetType(e.target.value);
