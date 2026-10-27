@@ -9,6 +9,18 @@ import { Button } from "@/components/ui/button";
 type Guide = { steps: string[]; whyNotConnected: string; success: string };
 
 const GUIDES: Record<string, Guide> = {
+  VOICE: {
+    steps: [
+      "Paste your Twilio auth token above and save it, then set the voice webhook URL on your Twilio number.",
+      "Click \"Send test\" below to check the setup is ready.",
+      "Call your Twilio number from your phone and ask a question, for example \"What are your opening hours?\".",
+      "Say \"I want to talk to a person\" to check the transfer (or callback) works.",
+    ],
+    whyNotConnected:
+      "A phone line can't be sent a test message. The check confirms the token is saved, the channel is active and your public address is reachable by Twilio. The real proof is a call.",
+    success:
+      "The channel shows Working as soon as a call comes through, and the conversation appears under Conversations.",
+  },
   WEBSITE_CHAT: {
     steps: [
       "Copy the code snippet above and paste it into your website, just before the closing </body> tag. (To try it first, use the Preview above.)",

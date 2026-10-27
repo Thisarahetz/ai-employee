@@ -35,7 +35,7 @@ Or manually:
 ```bash
 cp .env.example .env        # fill in provider keys and secrets
 pnpm install
-docker compose up -d postgres redis n8n
+docker compose up -d postgres redis n8n rasa   # rasa is optional (see below)
 pnpm prisma:generate
 pnpm db:migrate:deploy      # applies prisma/migrations (never resets data)
 pnpm prisma:seed            # creates the first platform admin from BOOTSTRAP_ADMIN_* (nothing else)
@@ -48,9 +48,36 @@ create a real business; it then picks an industry template and configures itself
 - API: http://localhost:3001
 - Web dashboard: http://localhost:3000
 - n8n: http://localhost:5678
+- Rasa (intent classifier, internal only): http://localhost:5005
 
 To promote an existing user to platform super admin:
 `pnpm --filter @ai-employee/api run promote-admin <email>`.
+
+## Customer channels and replies
+
+Customers reach the business on **WhatsApp, website chat, email and phone calls**. Connect
+them in the dashboard under **Channels** (Add channel, then open it to finish setup). Each
+channel card shows **Active/Inactive**, **Connected / Setup needed**, the time of the last
+customer message (the real proof it works) and a **Send test** button.
+
+Every channel feeds the same reply pipeline, so a phone call is answered exactly like a chat:
+
+1. A person is asked for: handed to staff (no AI).
+2. Greetings and thanks: fixed reply (free).
+3. **Rasa** classifies the message and picks the agent without an LLM router call
+   (`docs/rasa-nlu.md`). Anything it is unsure about falls back to the LLM router.
+4. **Saved answers** the owner approved are used first; reply modes **Hybrid / No-AI / AI**
+   decide how much AI is used (`docs/reply-engine.md`).
+5. Knowledge, booking and support agents answer with real data through tools. When AI is
+   unavailable or the request can't be completed safely, a person is brought in.
+
+- **Languages** — English, Sinhala and Singlish replies, and a Sinhala dashboard.
+- **Phone calls (Twilio)** — Twilio ConversationRelay does speech-to-text and text-to-speech;
+  the API handles the call over a signed WebSocket. Supports a transfer number for handoffs,
+  a spoken clarification before handing over, and English/Sinhala speech. Add a
+  *Phone calls (Twilio)* channel, paste the webhook URL into Twilio and save the auth token.
+  Twilio needs a public HTTPS `API_URL` (for local testing, a tunnel such as ngrok).
+  See `docs/voice.md`.
 
 ## AI workforce
 
@@ -106,6 +133,9 @@ See `docs/architecture.md#monorepo-layout`.
 - [`docs/database-schema.md`](docs/database-schema.md)
 - [`docs/multi-agent-architecture.md`](docs/multi-agent-architecture.md)
 - [`docs/token-optimization-strategy.md`](docs/token-optimization-strategy.md)
+- [`docs/rasa-nlu.md`](docs/rasa-nlu.md) — Rasa-first intent routing with LLM fallback
+- [`docs/reply-engine.md`](docs/reply-engine.md) — saved answers and Hybrid / No-AI / AI reply modes
+- [`docs/voice.md`](docs/voice.md) — Twilio phone calls: setup, handoff, security, limits
 - [`docs/integration-sdk.md`](docs/integration-sdk.md)
 - [`packages/integration-sdk`](packages/integration-sdk/README.md) — Official `ai-employee-sdk` NPM package & documentation
 - [`docs/npm-publishing-guide.md`](docs/npm-publishing-guide.md) — NPM package release, CI/CD, and publishing guide

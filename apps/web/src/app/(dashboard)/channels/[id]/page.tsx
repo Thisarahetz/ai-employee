@@ -114,7 +114,6 @@ export default function ChannelDetailPage() {
         </Card>
       )}
 
-      {channel.type !== "VOICE" && (
       <Card>
         <CardHeader>
           <CardTitle>Test</CardTitle>
@@ -123,7 +122,6 @@ export default function ChannelDetailPage() {
           <ChannelTestPanel channelId={channel.id} channelType={channel.type} />
         </CardContent>
       </Card>
-      )}
 
       <Card className="border-status-critical/30">
         <CardHeader>

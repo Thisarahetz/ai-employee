@@ -525,6 +525,10 @@ export interface Channel {
   config: Record<string, unknown>;
   /** Present on `GET /channels/:id` — true when at least one credential is stored. */
   hasCredentials?: boolean;
+  /** Present on `GET /channels` — setup is complete (ids and keys are in place). */
+  connected?: boolean;
+  /** Present on `GET /channels` — when a customer last reached us on this channel. */
+  lastMessageAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }

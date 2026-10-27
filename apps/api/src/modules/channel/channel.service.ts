@@ -9,6 +9,21 @@ import { CreateChannelCredentialDto } from './dto/create-channel-credential.dto'
 /** Decrypted channel credential — `type` plus whatever payload fields were stored for it. */
 export type DecryptedChannelCredential = { type: CredentialType } & Record<string, unknown>;
 
+/** Is the channel's setup complete? (Says nothing about whether a message has arrived yet.) */
+export function isSetUp(type: string, config: Record<string, unknown>, hasKey: boolean): boolean {
+  const filled = (v: unknown) => typeof v === 'string' && v.trim().length > 0;
+  switch (type) {
+    case 'WHATSAPP':
+      return config.provider === 'waha' || filled(config.wahaSession) ? filled(config.wahaSession) : filled(config.phoneNumberId) && hasKey;
+    case 'VOICE':
+      return hasKey || filled(process.env.TWILIO_AUTH_TOKEN);
+    case 'WEBSITE_CHAT':
+      return true;
+    default:
+      return false;
+  }
+}
+
 @Injectable()
 export class ChannelService {
   private readonly logger = new Logger(ChannelService.name);
@@ -27,8 +42,24 @@ export class ChannelService {
     });
   }
 
-  findAll(tenantId: string) {
-    return this.prisma.channel.findMany({ where: { tenantId }, orderBy: { createdAt: 'desc' } });
+  /**
+   * Every channel with two derived facts for the dashboard: `connected` (setup is
+   * complete: ids and keys are in place) and `lastMessageAt` (the last time a
+   * customer actually reached us on it, which is the real proof it works).
+   */
+  async findAll(tenantId: string) {
+    const [channels, credentials, activity] = await Promise.all([
+      this.prisma.channel.findMany({ where: { tenantId }, orderBy: { createdAt: 'desc' } }),
+      this.prisma.channelCredential.groupBy({ by: ['channelId'], where: { tenantId }, _count: true }),
+      this.prisma.conversation.groupBy({ by: ['channelId'], where: { tenantId }, _max: { lastMessageAt: true } }),
+    ]);
+    const hasKey = new Set(credentials.map((c) => c.channelId));
+    const last = new Map(activity.map((a) => [a.channelId, a._max.lastMessageAt]));
+    return channels.map((c) => ({
+      ...c,
+      connected: isSetUp(c.type, (c.config ?? {}) as Record<string, unknown>, hasKey.has(c.id)),
+      lastMessageAt: last.get(c.id) ?? null,
+    }));
   }
 
   async findOne(tenantId: string, id: string) {

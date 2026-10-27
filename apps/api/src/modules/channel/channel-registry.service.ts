@@ -241,6 +241,18 @@ export class ChannelRegistryService {
           detail: 'Connected. A test message was sent to the latest website chat — it appears in that open chat within about 2 seconds.',
         };
       }
+      case 'VOICE': {
+        const key = await this.channelService.getDecryptedCredential(tenantId, channelId);
+        if (!key && !process.env.TWILIO_AUTH_TOKEN?.trim()) {
+          return { ok: false, detail: 'Not ready: save your Twilio auth token above, so calls can be checked as coming from Twilio.' };
+        }
+        if (channel.status !== 'ACTIVE') return { ok: false, detail: 'Not ready: this channel is inactive, so calls are turned away.' };
+        const apiBase = process.env.API_URL || 'http://localhost:3001';
+        if (/localhost|127\.0\.0\.1/.test(apiBase)) {
+          return { ok: false, detail: `Not ready: API_URL is ${apiBase}, which Twilio cannot reach. Set it to your public HTTPS address (for example an ngrok URL) and restart.` };
+        }
+        return { ok: true, detail: 'Ready. Call your Twilio number from your phone. The AI answers, and the conversation appears under Conversations.' };
+      }
       default:
         return { ok: false, detail: `Test delivery isn't supported for ${channel.type} channels yet.` };
     }

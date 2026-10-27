@@ -34,6 +34,10 @@ Voice-only behaviour: the first time the router cannot place what was said, the 
 3. In Twilio, set the number's **A call comes in** webhook to `POST {API_URL}/webhooks/voice/twilio/incoming/<channelId>` (the channel page shows it with a copy button).
 4. `API_URL` must be the public HTTPS URL; Twilio signs requests against it. `WEBHOOK_SIGNING_SECRET` signs the stream token.
 
+## Checking it works
+
+On **Channels**, each card shows `Active`, `Connected` / `Setup needed` (the Twilio auth token is saved) and, once a call has come through, `Working: last customer message …`. **Send test** checks the token is saved, the channel is active and `API_URL` is not `localhost`; the real proof is a call to the number.
+
 ## Handoff to a person
 
 When a reply is a handoff (the caller asked for a person, or two misses), the reply is spoken, the session ends, and Twilio calls `…/action/:channelId`:
