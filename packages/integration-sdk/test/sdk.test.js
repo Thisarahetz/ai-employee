@@ -18,10 +18,9 @@ const {
   handleIntegrationRequest,
   validateActionData,
   MemoryIdempotencyStore,
-  createExpressRouter,
-  AiActionsController,
-  AiActionsModule,
 } = require('../dist/index.js');
+const { createExpressRouter } = require('../dist/express-adapter.js');
+const { AiActionsController, AiActionsModule } = require('../dist/nestjs-adapter.js');
 
 describe('ai-employee-sdk', () => {
   beforeEach(() => {
