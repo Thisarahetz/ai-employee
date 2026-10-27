@@ -1,10 +1,10 @@
 # Database Schema
 
-Narrative walkthrough of [`prisma/schema.prisma`](../prisma/schema.prisma) — the single
+Narrative walkthrough of [`prisma/schema.prisma`](https://github.com/Thisarahetz/ai-employee/blob/main/prisma/schema.prisma) — the single
 source of truth for the data model. If this document and the schema ever disagree, the
 schema wins; please fix this doc in the same PR that changes the schema. The
 hand-maintained TypeScript mirror of these models lives in
-[`packages/types/src/entities.ts`](../packages/types/src/entities.ts).
+[`packages/types/src/entities.ts`](https://github.com/Thisarahetz/ai-employee/blob/main/packages/types/src/entities.ts).
 
 See also [`docs/architecture.md`](architecture.md) for the system-level picture these
 tables serve.
@@ -53,7 +53,7 @@ where a person's relationship to one specific tenant lives: `role`
 and `status` (`ACTIVE | INVITED | DISABLED`). One `User` can have many
 `TenantMembership` rows — the same person can own one business and be an `EMPLOYEE` on
 another. Default permission sets per `TenantRole` live in code, not the schema — see
-[`packages/shared/src/constants/permissions.ts`](../packages/shared/src/constants/permissions.ts)
+[`packages/shared/src/constants/permissions.ts`](https://github.com/Thisarahetz/ai-employee/blob/main/packages/shared/src/constants/permissions.ts)
 (mirrors `apps/api/src/modules/auth/auth.service.ts`'s `TENANT_ROLE_PERMISSIONS`, the
 actual source of truth enforced by `RolesGuard`).
 
@@ -139,7 +139,7 @@ AES-`encryptedPayload` — never stored or returned as plaintext; see
 manually-registered action (`GET /ai/actions` result, or an Integration SDK
 `registerAction()` call) with a JSON-schema-like `parameters` column matching the
 Integration API Contract (`ActionDefinitionDto['parameters']` in
-[`packages/types/src/integration-contract.ts`](../packages/types/src/integration-contract.ts)),
+[`packages/types/src/integration-contract.ts`](https://github.com/Thisarahetz/ai-employee/blob/main/packages/types/src/integration-contract.ts)),
 unique per `(integrationId, name)`. Full contract:
 [`docs/integration-api-contract.md`](integration-api-contract.md).
 
@@ -168,7 +168,7 @@ summary below for how it relates to `Conversation`/`Message`.
 
 `Workflow` maps a `triggerEventType` string (one of the values in
 `EVENT_TYPES`, see
-[`packages/shared/src/constants/event-types.ts`](../packages/shared/src/constants/event-types.ts))
+[`packages/shared/src/constants/event-types.ts`](https://github.com/Thisarahetz/ai-employee/blob/main/packages/shared/src/constants/event-types.ts))
 to an `n8nWorkflowId` in the n8n instance. `WorkflowExecution` is one run of that
 workflow, optionally linked back to the `Event` that triggered it, tracking
 `status` (`PENDING | RUNNING | SUCCESS | FAILED`), `input`/`output` JSON, and timing.

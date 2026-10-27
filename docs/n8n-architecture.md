@@ -24,7 +24,7 @@ into `apps/api`.
 1. Something happens inside AI Employee worth automating on — a message arrives, a
    conversation closes, an action executes, a handoff is requested, an integration
    connects (any of the `EVENT_TYPES` in
-   [`packages/shared/src/constants/event-types.ts`](../packages/shared/src/constants/event-types.ts)).
+   [`packages/shared/src/constants/event-types.ts`](https://github.com/Thisarahetz/ai-employee/blob/main/packages/shared/src/constants/event-types.ts)).
    The emitting module (conversation, ai-agent, external-action, etc.) persists an
    `Event` row (`type`, `payload`, `sourceService`, `tenantId`).
 2. `apps/api/src/modules/n8n`'s `N8nService` (or an event listener that calls into it)
@@ -102,7 +102,7 @@ workflow. Concretely:
 
 ## Worked example
 
-[`n8n/workflows/example-new-customer-lead.json`](../n8n/workflows/example-new-customer-lead.json)
+[`n8n/workflows/example-new-customer-lead.json`](https://github.com/Thisarahetz/ai-employee/blob/main/n8n/workflows/example-new-customer-lead.json)
 is the reference example: triggered on a new-customer/lead-style event (e.g.
 `customer.created`), it receives the standard envelope above and fans out to two
 downstream steps — creating a contact in a CRM and posting a Slack/email notification —
@@ -120,14 +120,14 @@ auth via `N8N_BASIC_AUTH_USER`/`N8N_BASIC_AUTH_PASSWORD`), reachable at
 `http://${N8N_HOST}:${N8N_PORT}` (default `http://localhost:5678`). `apps/api` talks to
 it via `N8N_API_URL`/`N8N_API_KEY` (REST API, for triggering/polling) and
 `N8N_WEBHOOK_URL` (for webhook-trigger-style workflows); all four are declared in
-[`.env.example`](../.env.example). Workflow JSON files under `./n8n/workflows` are
+[`.env.example`](https://github.com/Thisarahetz/ai-employee/blob/main/.env.example). Workflow JSON files under `./n8n/workflows` are
 mounted into the container at `/home/node/workflows` for import/reference.
 
 ## Related
 
 - [`docs/multi-agent-architecture.md`](multi-agent-architecture.md) — the
   `human_handoff.requested`/`.completed` events most commonly wired to n8n alerts.
-- [`docs/database-schema.md`](database-schema.md#n8n-workflows--workflow-workflowexecution) —
+- [`docs/database-schema.md`](database-schema.md#n8n-workflows-workflow-workflowexecution) —
   `Workflow`/`WorkflowExecution`/`Event` table details.
 - [`docs/integration-api-contract.md`](integration-api-contract.md) — the contract a
   workflow uses if it needs to call back into an external business system directly.

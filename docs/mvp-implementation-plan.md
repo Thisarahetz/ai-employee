@@ -4,7 +4,7 @@ The 8 MVP phases, as a checklist. Status reflects a **freshly-scaffolded monorep
 tooling, the Prisma schema, Docker Compose, and this design-doc set are in place; deep
 business logic inside `apps/api`/`apps/web`/`packages/*` is skeleton/in-progress per the
 concurrent workstreams described in [`docs/architecture.md`](architecture.md). This
-matches [`README.md`](../README.md)'s status note: "Core wiring ... is in place with
+matches [`README.md`](https://github.com/Thisarahetz/ai-employee/blob/main/README.md)'s status note: "Core wiring ... is in place with
 working skeleton logic; deep business logic and production hardening are follow-up work
 per phase." Update the checkboxes here as work actually lands — this doc exists so
 whoever picks up the next phase knows exactly what's real vs. still open, not to look

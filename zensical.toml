@@ -1,0 +1,92 @@
+# Documentation site, built with Zensical (https://zensical.org). Source: docs/
+[project]
+site_name = "AI Employee"
+site_description = "A reusable, multi-tenant AI Employee platform that connects to any business system."
+site_url = "https://thisarahetz.github.io/ai-employee/"
+repo_url = "https://github.com/Thisarahetz/ai-employee"
+repo_name = "Thisarahetz/ai-employee"
+edit_uri = "edit/main/docs/"
+docs_dir = "docs"
+site_dir = "site"
+# docs/index.html is the separate interactive site; keep it out of the build.
+exclude_docs = """
+index.html
+"""
+
+nav = [
+  { "Home" = "index.md" },
+  { "Getting started" = [
+    { "Quick start" = "getting-started.md" },
+    { "Production and integration" = "production-and-integration-guide.md" },
+  ] },
+  { "Customer channels" = [
+    { "Channels overview" = "channels.md" },
+    { "Phone calls (Twilio)" = "voice.md" },
+    { "Intent routing (Rasa)" = "rasa-nlu.md" },
+    { "Reply engine" = "reply-engine.md" },
+  ] },
+  { "Architecture" = [
+    { "Overview" = "architecture.md" },
+    { "Multi-agent pipeline" = "multi-agent-architecture.md" },
+    { "Database schema" = "database-schema.md" },
+    { "Token optimization" = "token-optimization-strategy.md" },
+    { "n8n automation" = "n8n-architecture.md" },
+  ] },
+  { "Integrations" = [
+    { "Integration API contract" = "integration-api-contract.md" },
+    { "Integration SDK" = "integration-sdk.md" },
+    { "Publishing the SDK" = "npm-publishing-guide.md" },
+  ] },
+  { "Project" = [
+    { "MVP implementation plan" = "mvp-implementation-plan.md" },
+    { "Research paper (TEO-PIPS)" = "research-paper-teo-pips.md" },
+  ] },
+]
+
+[project.theme]
+language = "en"
+features = [
+  "content.code.copy",
+  "content.action.edit",
+  "navigation.tabs",
+  "navigation.sections",
+  "navigation.footer",
+  "navigation.top",
+  "search.suggest",
+  "search.highlight",
+  "toc.follow",
+]
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+primary = "indigo"
+accent = "indigo"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+primary = "indigo"
+accent = "indigo"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to light mode"
+
+[project.markdown_extensions]
+admonition = {}
+attr_list = {}
+md_in_html = {}
+tables = {}
+toc.permalink = true
+pymdownx.details = {}
+pymdownx.emoji.emoji_generator = "zensical.extensions.emoji.to_svg"
+pymdownx.emoji.emoji_index = "zensical.extensions.emoji.twemoji"
+pymdownx.highlight.anchor_linenums = true
+pymdownx.highlight.line_spans = "__span"
+pymdownx.highlight.pygments_lang_class = true
+pymdownx.inlinehilite = {}
+pymdownx.superfences.custom_fences = [
+  { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" },
+]
+pymdownx.tabbed.alternate_style = true

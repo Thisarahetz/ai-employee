@@ -6,7 +6,7 @@ built in ([`docs/architecture.md`](architecture.md#vision)) — this small HTTP 
 (two required endpoints, plus an optional `GET /ai/knowledge`) is the entire surface
 area an external system needs to expose to become "AI-Employee-compatible." The
 corresponding TypeScript types live in
-[`packages/types/src/integration-contract.ts`](../packages/types/src/integration-contract.ts)
+[`packages/types/src/integration-contract.ts`](https://github.com/Thisarahetz/ai-employee/blob/main/packages/types/src/integration-contract.ts)
 and are the source of truth for field names/shapes; this doc gives the narrative +
 worked JSON examples.
 
@@ -14,7 +14,7 @@ Server-side, this contract is consumed by `apps/api/src/modules/external-action`
 (discovering and invoking actions on behalf of the Action Agent — see
 [`docs/multi-agent-architecture.md`](multi-agent-architecture.md#action-agent)) and
 persisted via the `Integration` / `IntegrationCredential` / `IntegrationAction` models
-(see [`docs/database-schema.md`](database-schema.md#integrations--integration-integrationcredential-integrationaction)).
+(see [`docs/database-schema.md`](database-schema.md#integrations-integration-integrationcredential-integrationaction)).
 
 ## `GET /ai/actions` — discovery
 
@@ -327,7 +327,7 @@ text from customers can't take control of an AI employee.
    business, not just *act* on it. Another pure read; skip it and those questions fall
    back to whatever documents the operator uploaded by hand.
 6. **If you're on Node/Express/NestJS**, skip steps 1–2 and 5 by using
-   [`packages/integration-sdk`](../packages/integration-sdk) — see
+   [`packages/integration-sdk`](https://github.com/Thisarahetz/ai-employee/blob/main/packages/integration-sdk) — see
    [`docs/integration-sdk.md`](integration-sdk.md) — and just call `registerAction()`
    for each capability and `registerKnowledge()` for the reference feed; the SDK
    exposes all three endpoints for you. **Any other language** (Python, PHP, Ruby, Go,

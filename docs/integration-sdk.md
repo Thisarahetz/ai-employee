@@ -1,6 +1,6 @@
 # Integration SDK
 
-Design and usage reference for [`packages/integration-sdk`](../packages/integration-sdk)
+Design and usage reference for [`packages/integration-sdk`](https://github.com/Thisarahetz/ai-employee/blob/main/packages/integration-sdk)
 (owned by the integration-layer workstream) — a TypeScript/Node package that lets an
 existing Express or NestJS system become AI-Employee-compatible by calling
 `registerAction()` (and, optionally, `registerKnowledge()`) a few times, instead of
@@ -158,6 +158,6 @@ the JSON contract is the only thing AI Employee actually depends on.
   path to compatibility; also useful for AI Employee's own example/demo integrations
   used in local development and docs.
 - **Related**: [`docs/integration-api-contract.md`](integration-api-contract.md) (the
-  contract this SDK implements), [`packages/types/src/integration-contract.ts`](../packages/types/src/integration-contract.ts)
+  contract this SDK implements), [`packages/types/src/integration-contract.ts`](https://github.com/Thisarahetz/ai-employee/blob/main/packages/types/src/integration-contract.ts)
   (the shared types), [`docs/n8n-architecture.md`](n8n-architecture.md) (a different,
   complementary integration path for automation rather than synchronous actions).

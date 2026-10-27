@@ -128,6 +128,16 @@ See `docs/architecture.md#monorepo-layout`.
 
 ## Docs
 
+The docs are a [Zensical](https://zensical.org) site (from the makers of Material for MkDocs) built
+from `docs/` (`zensical.toml`):
+
+```bash
+pip install -r requirements-docs.txt   # needs Python 3.10+
+zensical serve                         # live preview at http://localhost:8000
+zensical build --clean                 # static site into site/ (git-ignored)
+```
+
+
 - [🌐 **Live Interactive Web Documentation**](https://ai-employee-api-ivory.vercel.app) — Complete interactive documentation site with diagrams, architecture, integration SDK, and API contracts
 - [`docs/architecture.md`](docs/architecture.md) — includes "Platform Administration & Tenant Management"
 - [`docs/database-schema.md`](docs/database-schema.md)

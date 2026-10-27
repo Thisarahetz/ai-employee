@@ -74,7 +74,7 @@ Answers questions that require retrieval from a tenant's documents (RAG).
 
 - **Loads**: the top-K most relevant `DocumentChunk` rows for the query, retrieved via
   pgvector similarity search (see
-  [`docs/database-schema.md`](database-schema.md#knowledge-base--rag--knowledgebase-document-documentchunk)
+  [`docs/database-schema.md`](database-schema.md#knowledge-base-rag-knowledgebase-document-documentchunk)
   for why that's raw SQL, not the Prisma query builder), plus the same recent-message
   context window as Support.
 - **Does NOT load**: the full knowledge base (only the retrieved chunks), or the
@@ -152,7 +152,7 @@ that channels, agents, and the integration layer stay decoupled:
 1. A Channel Adapter (`packages/channel-sdk`) normalizes an inbound message and calls
    into the Conversation Service, which persists it as a `Message` (`sender:
    CUSTOMER`) and emits `message.received` (see `EVENT_TYPES` in
-   [`packages/shared/src/constants/event-types.ts`](../packages/shared/src/constants/event-types.ts)),
+   [`packages/shared/src/constants/event-types.ts`](https://github.com/Thisarahetz/ai-employee/blob/main/packages/shared/src/constants/event-types.ts)),
    also persisted as an `Event` row.
 2. `AgentOrchestratorService` (`apps/api/src/modules/ai-agent`) picks up
    `message.received`, loads the minimal context described above, and invokes the
