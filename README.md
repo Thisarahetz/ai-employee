@@ -8,6 +8,8 @@ system (salon, hotel, clinic, e-commerce, CRM, vehicle service, ERP, or custom a
 through a generic Integration Layer. See `docs/architecture.md` for the full design.
 
 > 📖 **Live Documentation & Interactive Architecture**: **[ai-employee-api-ivory.vercel.app](https://ai-employee-api-ivory.vercel.app)**
+>
+> 📚 **Documentation site**: **[thisarahetz.github.io/ai-employee](https://thisarahetz.github.io/ai-employee/)** (setup, channels, phone calls, architecture, integration API)
 
 
 ## Status
