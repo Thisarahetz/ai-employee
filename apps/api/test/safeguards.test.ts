@@ -125,6 +125,13 @@ describe('configuration safety', () => {
     assert.ok(p.some((x) => x.key === 'WEBHOOK_SIGNING_SECRET'));
   });
 
+  test('Rasa needs a real token in production, and nothing in dev', () => {
+    const prod = { ...good, NODE_ENV: 'production', WEBHOOK_SIGNING_SECRET: 'w'.repeat(30), REDIS_URL: 'redis://x', GEMINI_API_KEY: 'k', RASA_ENABLED: 'true', RASA_BASE_URL: 'http://rasa:5005' };
+    assert.ok(validateEnv({ ...prod, RASA_AUTH_TOKEN: 'change-me-rasa-token' }).some((x) => x.key === 'RASA_AUTH_TOKEN'));
+    assert.deepEqual(validateEnv({ ...prod, RASA_AUTH_TOKEN: 'r'.repeat(32) }), []);
+    assert.deepEqual(validateEnv({ ...good, RASA_ENABLED: 'true', RASA_AUTH_TOKEN: 'x' }), []);
+  });
+
   test('a complete dev config passes', () => {
     assert.deepEqual(validateEnv(good), []);
   });

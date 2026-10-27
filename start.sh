@@ -95,10 +95,10 @@ done
 # Infrastructure
 # ----------------------------------------
 
-echo "-- Ensuring postgres, redis, n8n are running"
+echo "-- Ensuring postgres, redis, n8n, rasa are running"
 
 # Stop old containers if needed and start infrastructure
-docker compose up -d postgres redis n8n
+docker compose up -d --build postgres redis n8n rasa
 
 # ----------------------------------------
 # Start API + Web

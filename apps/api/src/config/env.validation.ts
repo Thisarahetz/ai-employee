@@ -45,6 +45,13 @@ export function validateEnv(env: NodeJS.ProcessEnv = process.env): EnvProblem[] 
       problems.push({ key: 'WEBHOOK_SIGNING_SECRET', problem: 'must be a random value of at least 24 characters in production' });
     }
     if (!env.REDIS_URL && !env.REDIS_HOST) problems.push({ key: 'REDIS_URL', problem: 'is required in production (task queue)' });
+    if ((env.RASA_ENABLED ?? '').toLowerCase() === 'true') {
+      if (!env.RASA_BASE_URL?.trim()) problems.push({ key: 'RASA_BASE_URL', problem: 'is required when RASA_ENABLED=true' });
+      const rt = env.RASA_AUTH_TOKEN ?? '';
+      if (rt.length < 24 || PLACEHOLDER.test(rt)) {
+        problems.push({ key: 'RASA_AUTH_TOKEN', problem: 'must be a random value of at least 24 characters in production when RASA_ENABLED=true' });
+      }
+    }
     const hasAiKey = ['GEMINI_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY'].some((k) => env[k]?.trim());
     if (!hasAiKey) problems.push({ key: 'GEMINI_API_KEY | OPENAI_API_KEY | ANTHROPIC_API_KEY', problem: 'at least one AI provider key is required' });
   }

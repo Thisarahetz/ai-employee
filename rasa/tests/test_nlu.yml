@@ -1,0 +1,184 @@
+version: "3.1"
+# Held-out evaluation phrases. None of these appear in data/nlu.yml.
+# An out_of_scope phrase is also correct when the model returns nlu_fallback
+# (handled by the evaluator script; see scripts/evaluate.sh).
+nlu:
+- intent: greeting
+  examples: |
+    - good day
+    - hello hello
+    - hey whats up
+    - ayubowan sir
+    - ආයුබෝවන් සර්
+    - හෙලෝ සර්
+    - kohomada machan
+    - suba udesanak
+    - hi dear
+- intent: thanks
+  examples: |
+    - thanks very much
+    - thank you so much dear
+    - many thanks
+    - godak istuti
+    - bohoma sthuthi
+    - බොහොම ස්තූතියි
+    - ස්තුතියි සර්
+    - thanks a ton
+- intent: goodbye
+  examples: |
+    - ok bye then
+    - see you tomorrow
+    - bye for now
+    - hari passe hambemu
+    - ආයුබෝවන් බායි
+    - passe katha karamu
+    - bye bye machan
+- intent: request_human
+  examples: |
+    - I would like to speak with a real human
+    - please put me through to the manager
+    - get me an agent
+    - manussayek ekka katha karamu
+    - mata manager kenek ekka katha karanna ona
+    - මට කෙනෙක් එක්ක කතා කරන්න ඕන
+    - මැනේජර් කෙනෙක්ට දෙන්න
+    - agent kenek ekka kathaa karanna
+- intent: affirm
+  examples: |
+    - yes that works
+    - ok sure
+    - alright go ahead
+    - hari ela
+    - ela hari
+- intent: deny
+  examples: |
+    - no that's not right
+    - no don't
+    - epa na
+    - ona nee
+    - එපා කමක් නෑ
+    - නෑ එපා
+    - na epa
+- intent: ask_business_hours
+  examples: |
+    - until what time are you open
+    - what time do you start in the morning
+    - are you open on saturdays
+    - are you working on poya days
+    - ada kiyata wahanne
+    - kiyatada open karanne
+    - sunday wala open da
+    - අද කීයට වහනවද
+    - සෙනසුරාදා විවෘතද
+    - විවෘත වෙලාව කීයද
+- intent: ask_pricing
+  examples: |
+    - how much for a haircut and shave
+    - what do you charge for bridal makeup
+    - can I get the prices
+    - what is the fee
+    - haircut eka kiyada
+    - facial ekata kochchara weida
+    - mila monawada
+    - කොච්චරද ගාන
+    - බ්‍රයිඩල් එකට කීයද
+    - මිල කීයක්ද
+- intent: ask_location
+  examples: |
+    - where exactly is your shop
+    - what is your location
+    - can I have your contact number
+    - how do I reach your place
+    - oyalage address eka kiyanna
+    - kohedha thiyenne
+    - phone number ekak denna
+    - ඔයාලගේ ස්ථානය කොහෙද
+    - ලිපිනය කියන්න
+    - දුරකථන අංකයක් දෙන්න
+- intent: ask_services
+  examples: |
+    - which services are on offer
+    - do you do threading
+    - can you do hair straightening
+    - what treatments are available
+    - oyala hair straightening karanawada
+    - mona services thiyenawada
+    - threading karanawada
+    - ඔයාලා හෙයාර් ස්ට්‍රේටනින් කරනවද
+    - මොනවද ඔයාලගේ සේවාවන්
+    - ෆේෂල් කරනවද
+- intent: book_appointment
+  examples: |
+    - can I schedule an appointment for tomorrow
+    - I'd like to book a haircut for friday at 4
+    - please reserve a slot for me
+    - I want to make a booking
+    - mata heta appointment ekak ganna ona
+    - sathiyata booking ekak denna
+    - haircut ekak book karanna ona
+    - මට හෙට වෙලාවක් ගන්න ඕන
+    - මට බුකින් එකක් කරන්න ඕන
+    - වෙලාවක් වෙන් කරන්න ඕන
+- intent: check_availability
+  examples: |
+    - do you have any free times tomorrow
+    - what slots are open on thursday
+    - are you available on saturday afternoon
+    - any free time this week
+    - heta free welawa thiyenawada
+    - sanduda slots thiyenawada
+    - ada free welawal thiyenawada
+    - හෙට වෙලාවල් නිදහස්ද
+    - සිකුරාදා නිදහස් වෙලාවක් තියෙනවද
+- intent: cancel_appointment
+  examples: |
+    - please cancel my appointment
+    - I want to cancel my booking for tomorrow
+    - cancel it, I can't come
+    - mage booking eka cancel karanna
+    - heta enna ba appointment eka cancel karanna
+    - appointment eka awalangu karanna
+    - මගේ බුකින් එක cancel කරන්න
+    - appointment එක අවලංගු කරලා දෙන්න
+- intent: reschedule_appointment
+  examples: |
+    - I want to move my appointment to another day
+    - can I change the time of my booking
+    - please reschedule my appointment to monday
+    - mage appointment eka wena dawasakata maru karanna
+    - booking eke welawa wenas karanna puluwanda
+    - appointment eka passata danna
+    - මගේ වෙලාව වෙන දවසකට මාරු කරන්න
+    - වෙලාව වෙනස් කරන්න ඕන
+- intent: lookup_booking
+  examples: |
+    - what time is my appointment
+    - do I have a booking tomorrow
+    - can you check my reservation
+    - heta mage welawa kiyada
+    - මගේ වෙලාව කීයටද
+    - මගේ බුකින් එක තහවුරු වුණාද
+- intent: out_of_scope
+  examples: |
+    - who is the president of america
+    - what is the best phone to buy
+    - can you help me with my homework
+    - sing me a song
+    - gedara yanna bus eka kiyatada
+    - ape rata kohedha
+    - cricket eka kohomada giye
+    - අද කාලගුණය කොහොමද
+    - මගේ ගෙදර වැඩ කරලා දෙන්න
+    - how were sales today
+    - what is our revenue for the week
+    - show the orders list
+    - is the payment received
+    - create a new invoice
+    - sales kiyada ada
+    - ada orders monawada
+    - stock eka kiyada thiyenne
+    - invoice eka pay una da
+    - අද විකුණුම් මොකද්ද
+    - ඇණවුම් ලැයිස්තුව දෙන්න
+    - තොග තියෙනවද
+    - ආදායම කීයද

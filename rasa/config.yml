@@ -1,0 +1,27 @@
+# NLU-only pipeline. NestJS owns the dialogue and business actions; Rasa only
+# classifies. No pretrained/English-only models: Sinhala script, Singlish and
+# English are all handled by whitespace tokens + character n-grams, which
+# tolerate spelling variants and code-switching.
+recipe: default.v1
+language: en
+pipeline:
+  - name: WhitespaceTokenizer
+  - name: RegexFeaturizer
+  - name: LexicalSyntacticFeaturizer
+  - name: CountVectorsFeaturizer
+  - name: CountVectorsFeaturizer
+    analyzer: char_wb
+    min_ngram: 1
+    max_ngram: 4
+  - name: DIETClassifier
+    epochs: 120
+    entity_recognition: false
+    constrain_similarities: true
+    random_seed: 42
+  - name: RegexEntityExtractor
+    use_lookup_tables: false
+    use_regexes: true
+  - name: FallbackClassifier
+    threshold: 0.30
+    ambiguity_threshold: 0.05
+assistant_id: ai-employee-nlu

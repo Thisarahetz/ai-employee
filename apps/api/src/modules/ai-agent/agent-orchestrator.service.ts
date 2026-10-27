@@ -23,6 +23,8 @@ import {
   quickReplyKind,
 } from '../../common/reply/answer-matcher';
 import { fastPathRoute } from './fast-path-router.util';
+import { NluService } from '../nlu/nlu.service';
+import type { NluDecision, NluTrace } from '../nlu/nlu.types';
 import type { AgentTurn } from './agent-turn';
 
 const LOW_CONFIDENCE_THRESHOLD = 0.5;
@@ -36,6 +38,8 @@ interface TurnContext {
   content: string;
   language: LanguageTag;
   businessName: string;
+  /** What Rasa decided for this message; stored on the reply (no message text). */
+  nlu?: { decision: NluDecision; trace: NluTrace };
 }
 
 /**
@@ -65,6 +69,7 @@ export class AgentOrchestratorService {
     private readonly humanHandoffService: HumanHandoffService,
     private readonly replyPolicy: ReplyPolicyService,
     private readonly savedAnswers: SavedAnswerService,
+    private readonly nlu: NluService,
   ) {}
 
   @OnEvent(EVENT_TYPES.MESSAGE_RECEIVED)
@@ -80,7 +85,7 @@ export class AgentOrchestratorService {
           status: true,
           currentAgent: true,
           language: true,
-          tenant: { select: { name: true, defaultLanguage: true, matchCustomerLanguage: true } },
+          tenant: { select: { name: true, defaultLanguage: true, matchCustomerLanguage: true, smartRouting: true } },
         },
       });
       if (!conversation) return;
@@ -98,11 +103,18 @@ export class AgentOrchestratorService {
       }
 
       let hints: string[] = [];
+      // 2. Greeting or thanks on its own. The strict patterns come first (free);
+      // Rasa then classifies everything else, once, for every mode.
+      const quick = mode !== ReplyMode.AI ? quickReplyKind(content) : null;
+      if (quick) {
+        await this.send(ctx, customerMessage(quick, ctx.language, { business: ctx.businessName }), 'template', AgentType.SUPPORT);
+        return;
+      }
+      ctx.nlu = await this.nlu.classify(content, { previousAgent: conversation.currentAgent, enabled: conversation.tenant.smartRouting });
+      const decision = ctx.nlu.decision;
       if (mode !== ReplyMode.AI) {
-        // 2. Greeting or thanks on its own.
-        const quick = quickReplyKind(content);
-        if (quick) {
-          await this.send(ctx, customerMessage(quick, ctx.language, { business: ctx.businessName }), 'template', AgentType.SUPPORT);
+        if (decision.path === 'rasa' && decision.template) {
+          await this.send(ctx, customerMessage(decision.template, ctx.language, { business: ctx.businessName }), 'template', AgentType.SUPPORT);
           return;
         }
 
@@ -143,7 +155,7 @@ export class AgentOrchestratorService {
         return;
       }
 
-      await this.replyWithAi(ctx, conversation.currentAgent, hints);
+      await this.replyWithAi(ctx, conversation.currentAgent, hints, ctx.nlu?.decision);
     } catch (err) {
       this.logger.error(
         `Reply failed for tenant=${tenantId} conversation=${conversationId}: ${(err as Error).message}`,
@@ -158,9 +170,9 @@ export class AgentOrchestratorService {
     }
   }
 
-  private async replyWithAi(ctx: TurnContext, currentAgent: AgentType | null, hints: string[]) {
+  private async replyWithAi(ctx: TurnContext, currentAgent: AgentType | null, hints: string[], nlu?: NluDecision) {
     const { tenantId, conversationId, content } = ctx;
-    const route = await this.routerAgentService.route(tenantId, conversationId, content, currentAgent);
+    const route = await this.routerAgentService.route(tenantId, conversationId, content, currentAgent, nlu);
 
     if (route.agent === 'human_handoff' || route.confidence < LOW_CONFIDENCE_THRESHOLD) {
       await this.handOff(
@@ -253,7 +265,7 @@ export class AgentOrchestratorService {
       conversationId: ctx.conversationId,
       content,
       agentType,
-      metadata: { replySource: source, ...extra },
+      metadata: { replySource: source, ...(ctx.nlu ? { nlu: ctx.nlu.trace } : {}), ...extra },
     });
   }
 }

@@ -37,7 +37,7 @@ ${fence}
 Inside your backend project, after adding the settings above:
 
 ${fence}bash
-npx ai-employee-integration-sdk init
+npx ai-employee-sdk init
 ${fence}
 
 It installs the SDK and writes a starter file. Replace the example action with real ones that
@@ -62,7 +62,7 @@ ${fence}
 Report events after your database change is saved:
 
 ${fence}ts
-import { sendEvent } from 'ai-employee-integration-sdk/events';
+import { sendEvent } from 'ai-employee-sdk/events';
 await sendEvent('booking.cancelled', { bookingId, customerName, reason });
 ${fence}
 
@@ -98,7 +98,7 @@ ${fence}
 ## 4. Check your work
 
 ${fence}bash
-npx ai-employee-integration-sdk verify --url https://your-api.example.com
+npx ai-employee-sdk verify --url https://your-api.example.com
 ${fence}
 
 It checks the endpoints answer with the key, refuse requests without it, and that a signed

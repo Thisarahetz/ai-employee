@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { RequirePermissions } from '../../common/decorators/roles.decorator';
 import { CurrentTenant } from '../../common/tenant/current-tenant.decorator';
 import type { TenantContext } from '../../common/tenant/tenant-context';
@@ -58,7 +58,9 @@ export class ReplyEngineController {
 
   @RequirePermissions('ai:configure')
   @Patch('reply-settings')
-  setMode(@CurrentTenant() t: TenantContext, @Body() body: { mode?: unknown }) {
-    return this.policy.setMode(t.tenantId, body?.mode);
+  async setMode(@CurrentTenant() t: TenantContext, @Body() body: { mode?: unknown; smartRouting?: unknown }) {
+    if (body?.mode === undefined && body?.smartRouting === undefined) throw new BadRequestException('Nothing to change.');
+    if (body.smartRouting !== undefined) await this.policy.setSmartRouting(t.tenantId, body.smartRouting);
+    return body.mode !== undefined ? this.policy.setMode(t.tenantId, body.mode) : this.policy.getSettings(t.tenantId);
   }
 }

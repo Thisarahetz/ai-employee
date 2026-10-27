@@ -1,6 +1,6 @@
 {
-  "name": "ai-employee-integration-sdk",
-  "version": "0.2.0",
+  "name": "ai-employee-sdk",
+  "version": "0.2.1",
   "private": false,
   "description": "Official TypeScript/Node.js SDK to connect external business systems (salons, clinics, hotels, e-commerce, CRM, ERP, etc.) to the AI Employee platform via the Integration API Contract.",
   "license": "MIT",
@@ -125,6 +125,6 @@
     "typescript": "^5.6.3"
   },
   "bin": {
-    "ai-employee-integration-sdk": "dist/cli.js"
+    "ai-employee-sdk": "dist/cli.js"
   }
 }

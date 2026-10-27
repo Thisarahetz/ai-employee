@@ -1,6 +1,6 @@
-# ai-employee-integration-sdk
+# ai-employee-sdk
 
-[![npm version](https://img.shields.io/npm/v/ai-employee-integration-sdk.svg)](https://www.npmjs.com/package/ai-employee-integration-sdk)
+[![npm version](https://img.shields.io/npm/v/ai-employee-sdk.svg)](https://www.npmjs.com/package/ai-employee-sdk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen.svg)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue.svg)](https://www.typescriptlang.org/)
@@ -40,7 +40,7 @@ This SDK implements the 3 standard endpoints required by the AI Employee platfor
 Run this inside your backend project (NestJS, Next.js, Express or any Node.js server):
 
 ```bash
-npx ai-employee-integration-sdk init
+npx ai-employee-sdk init
 ```
 
 It installs the SDK, writes a starter file in your framework's style, creates a strong
@@ -54,7 +54,7 @@ It installs the SDK, writes a starter file in your framework's style, creates a 
 4. Check everything works:
 
 ```bash
-npx ai-employee-integration-sdk verify --url http://localhost:3000
+npx ai-employee-sdk verify --url http://localhost:3000
 ```
 
 `verify` checks that the endpoints answer with your key, refuse requests without it, and that
@@ -63,7 +63,7 @@ a signed test event reaches AI Employee.
 ### Reporting events
 
 ```ts
-import { sendEvent } from 'ai-employee-integration-sdk/events';
+import { sendEvent } from 'ai-employee-sdk/events';
 
 // After your database transaction commits:
 await sendEvent('booking.cancelled', { bookingId, customerName, reason });
@@ -84,16 +84,16 @@ every request is refused.
 
 ```bash
 # Using npm
-npm install ai-employee-integration-sdk
+npm install ai-employee-sdk
 
 # Using pnpm
-pnpm add ai-employee-integration-sdk
+pnpm add ai-employee-sdk
 
 # Using yarn
-yarn add ai-employee-integration-sdk
+yarn add ai-employee-sdk
 
 # Using bun
-bun add ai-employee-integration-sdk
+bun add ai-employee-sdk
 ```
 
 > **Peer Dependencies**: Install `express` if using the Express adapter, or `@nestjs/common` & `@nestjs/core` if using the NestJS adapter.
@@ -110,7 +110,7 @@ import {
   registerAction,
   registerKnowledge,
   createExpressRouter,
-} from 'ai-employee-integration-sdk/express-adapter';
+} from 'ai-employee-sdk/express-adapter';
 
 // 1. Register an action the AI Employee can call
 registerAction({
@@ -171,7 +171,7 @@ app.listen(4000, () => {
 
 ```ts
 import { Module } from '@nestjs/common';
-import { AiActionsModule, registerAction } from 'ai-employee-integration-sdk/nestjs-adapter';
+import { AiActionsModule, registerAction } from 'ai-employee-sdk/nestjs-adapter';
 
 // 1. Register actions during bootstrap or in a service constructor
 registerAction({
@@ -205,7 +205,7 @@ Use the framework-agnostic `handleIntegrationRequest` dispatcher:
 #### Next.js App Router (`app/api/ai/[...slug]/route.ts`):
 
 ```ts
-import { handleIntegrationRequest, registerAction } from 'ai-employee-integration-sdk';
+import { handleIntegrationRequest, registerAction } from 'ai-employee-sdk';
 import { NextRequest, NextResponse } from 'next/server';
 
 registerAction({
@@ -247,7 +247,7 @@ export { handler as GET, handler as POST };
 Actions represent capabilities the AI Employee's **Action Agent** can trigger when conversing with customers.
 
 ```ts
-import { registerAction } from 'ai-employee-integration-sdk';
+import { registerAction } from 'ai-employee-sdk';
 
 registerAction({
   name: 'cancel_booking',
@@ -310,7 +310,7 @@ handler: async (data) => {
 `registerKnowledge()` enables the AI Employee's **Knowledge Agent** to answer questions directly from your system's live documentation and branch locations.
 
 ```ts
-import { registerKnowledge } from 'ai-employee-integration-sdk';
+import { registerKnowledge } from 'ai-employee-sdk';
 
 registerKnowledge(async () => {
   // Fetch dynamic content from your database or CMS
@@ -392,7 +392,7 @@ createExpressRouter({
 Implement the simple `IdempotencyStore` interface:
 
 ```ts
-import type { IdempotencyStore, ExecuteActionResponse } from 'ai-employee-integration-sdk';
+import type { IdempotencyStore, ExecuteActionResponse } from 'ai-employee-sdk';
 import Redis from 'ioredis';
 
 const redis = new Redis(process.env.REDIS_URL);
@@ -537,9 +537,9 @@ jobs:
           node-version: 20
           registry-url: 'https://registry.npmjs.org'
       - run: pnpm install
-      - run: pnpm --filter ai-employee-integration-sdk build
-      - run: pnpm --filter ai-employee-integration-sdk test
-      - run: pnpm --filter ai-employee-integration-sdk publish --access public
+      - run: pnpm --filter ai-employee-sdk build
+      - run: pnpm --filter ai-employee-sdk test
+      - run: pnpm --filter ai-employee-sdk publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 ```

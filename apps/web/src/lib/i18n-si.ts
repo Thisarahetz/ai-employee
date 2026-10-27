@@ -128,6 +128,9 @@ export const SI: Record<string, string> = {
   // Settings → Languages
   Languages: "භාෂා",
   "Customer replies": "පාරිභෝගිකයන්ට පිළිතුරු",
+  "Smart message routing (Rasa)": "ස්මාර්ට් පණිවිඩ හඳුනාගැනීම (Rasa)",
+  "Understands common questions in English, Sinhala and Singlish without calling the AI to sort them first, which saves AI cost. Anything unclear still goes to the AI.": "ඉංග්‍රීසි, සිංහල සහ සිංග්ලිෂ් වලින් එන සාමාන්‍ය ප්‍රශ්න AI එකට නොයවා හඳුනාගනී, එමඟින් AI වියදම අඩු වේ. පැහැදිලි නැති ඒවා තවමත් AI එකට යයි.",
+  "Rasa is not set up on this server (RASA_BASE_URL).": "Rasa මෙම සර්වරයේ සකසා නැත (RASA_BASE_URL).",
   "The AI understands English, Sinhala and Singlish (Sinhala typed in English letters).":
     "AI එකට ඉංග්‍රීසි, සිංහල සහ Singlish (ඉංග්‍රීසි අකුරින් ලියූ සිංහල) තේරෙනවා.",
   "Reply in the customer's language": "පාරිභෝගිකයාගේ භාෂාවෙන්ම පිළිතුරු දෙන්න",

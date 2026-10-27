@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Check, MessageSquareReply } from "lucide-react";
 
-import { useReplySettings, useSetReplyMode } from "@/lib/hooks/use-saved-answers";
+import { useReplySettings, useSetReplyMode, useSetSmartRouting } from "@/lib/hooks/use-saved-answers";
 import { MODE_DETAILS } from "@/lib/reply-modes";
 import { cn, getErrorMessage } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
@@ -17,6 +17,7 @@ export function ReplyModeCard() {
   const { t } = useI18n();
   const settings = useReplySettings();
   const setMode = useSetReplyMode();
+  const setRouting = useSetSmartRouting();
   const [choice, setChoice] = useState<ReplyMode | null>(null);
   const [saved, setSaved] = useState(false);
 
@@ -87,6 +88,32 @@ export function ReplyModeCard() {
             );
           })}
         </div>
+      )}
+
+      {settings.data && (
+        <label className={cn("flex items-start gap-3 rounded-xl border border-line p-4 text-xs", !settings.data.smartRouting.available && "opacity-60")}>
+          <input
+            type="checkbox"
+            checked={settings.data.smartRouting.enabled && settings.data.smartRouting.available}
+            disabled={!settings.data.smartRouting.available || setRouting.isPending}
+            onChange={(e) => setRouting.mutate(e.target.checked)}
+            className="mt-0.5 h-4 w-4 rounded border-line text-brand-600 focus:ring-brand-500"
+          />
+          <span>
+            <span className="block font-bold text-ink-primary">{t("Smart message routing (Rasa)")}</span>
+            <span className="mt-1 block text-ink-secondary">
+              {t("Understands common questions in English, Sinhala and Singlish without calling the AI to sort them first, which saves AI cost. Anything unclear still goes to the AI.")}
+            </span>
+            {!settings.data.smartRouting.available && (
+              <span className="mt-1.5 block font-semibold text-amber-700">{t("Rasa is not set up on this server (RASA_BASE_URL).")}</span>
+            )}
+          </span>
+        </label>
+      )}
+      {setRouting.isError && (
+        <p role="alert" className="rounded-md bg-status-critical/10 px-3 py-2 text-xs text-status-critical">
+          {getErrorMessage(setRouting.error, t("Could not save your settings."))}
+        </p>
       )}
 
       {settings.data && settings.data.mode !== settings.data.effectiveMode && (

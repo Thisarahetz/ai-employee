@@ -23,7 +23,7 @@ const {
   AiActionsModule,
 } = require('../dist/index.js');
 
-describe('ai-employee-integration-sdk', () => {
+describe('ai-employee-sdk', () => {
   beforeEach(() => {
     clearRegisteredActions();
     clearRegisteredKnowledge();

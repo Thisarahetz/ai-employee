@@ -1109,6 +1109,7 @@ export interface ReplySettings {
   mode: ReplyMode;
   effectiveMode: ReplyMode;
   allowedModes: ReplyMode[];
+  smartRouting: { available: boolean; enabled: boolean };
 }
 
 export type SavedAnswerTestResult =

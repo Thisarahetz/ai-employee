@@ -70,6 +70,15 @@ export function useReplySettings() {
   });
 }
 
+export function useSetSmartRouting() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (smartRouting: boolean) =>
+      (await apiClient.patch<ReplySettings>("/reply-settings", { smartRouting })).data,
+    onSuccess: (data) => qc.setQueryData(["reply-settings"], data),
+  });
+}
+
 export function useSetReplyMode() {
   const qc = useQueryClient();
   return useMutation({

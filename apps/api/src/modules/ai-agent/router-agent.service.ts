@@ -4,6 +4,7 @@ import { AiProviderService } from '../ai-provider/ai-provider.service';
 import { MessageService } from '../message/message.service';
 import { TimeContextService } from './time-context.service';
 import { fastPathRoute } from './fast-path-router.util';
+import type { NluDecision } from '../nlu/nlu.types';
 
 export type RoutedAgent = 'support_agent' | 'knowledge_agent' | 'action_agent' | 'human_handoff';
 
@@ -72,6 +73,7 @@ export class RouterAgentService {
     conversationId: string,
     latestMessage: string,
     previousAgent?: AgentType | null,
+    nlu?: NluDecision,
   ): Promise<RouteResult> {
     // 1. Zero-Token Fast Path Check (MindStudio Technique 8 & Deterministic Filter)
     // Completely bypasses LLM call for greetings, handoff requests, and simple affirmations.
@@ -81,6 +83,17 @@ export class RouterAgentService {
         `[Zero-Token Route] Bypassed LLM for message="${latestMessage.slice(0, 30)}..." -> ${fastRoute.agent}`,
       );
       return fastRoute;
+    }
+
+    // 1b. Rasa recognised a supported intent with enough confidence: no LLM call.
+    if (nlu?.path === 'rasa') {
+      return {
+        intent: nlu.intent,
+        // Fixed-reply intents only reach here when the business wants the AI to write every reply.
+        agent: nlu.agent ?? 'support_agent',
+        confidence: nlu.confidence,
+        ...(nlu.searchQuery ? { searchQuery: nlu.searchQuery } : {}),
+      };
     }
 
     // 2. Fallback to lean LLM micro-classification (only 3 history turns, capped 60 tokens)

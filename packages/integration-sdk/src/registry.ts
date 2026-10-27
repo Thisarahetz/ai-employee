@@ -191,10 +191,10 @@ export async function checkAuth(
   if (!opts.apiKey && !opts.bearerToken && !opts.verifyAuth) {
     // No auth configured: allowed while developing, refused in production (fail closed).
     if (process.env.NODE_ENV === 'production') {
-      warnOnce('ai-employee-integration-sdk: no API key configured (set AI_EMPLOYEE_API_KEY). Refusing all /ai requests in production.');
+      warnOnce('ai-employee-sdk: no API key configured (set AI_EMPLOYEE_API_KEY). Refusing all /ai requests in production.');
       return false;
     }
-    warnOnce('ai-employee-integration-sdk: no API key configured (set AI_EMPLOYEE_API_KEY). /ai endpoints are open — development only.');
+    warnOnce('ai-employee-sdk: no API key configured (set AI_EMPLOYEE_API_KEY). /ai endpoints are open — development only.');
     return true;
   }
   options = opts;

@@ -36,6 +36,8 @@ model Tenant {
   matchCustomerLanguage Boolean      @default(true)
   /// How customer replies are produced. The plan can restrict this (PlanSettings).
   replyMode             ReplyMode    @default(HYBRID)
+  /// Let the intent classifier (Rasa) pick the agent before the LLM router. Needs RASA_ENABLED on the platform.
+  smartRouting          Boolean      @default(true)
   createdAt             DateTime     @default(now())
   updatedAt             DateTime     @updatedAt
 

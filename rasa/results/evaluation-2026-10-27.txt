@@ -1,0 +1,39 @@
+Threshold: confidence >= 0.8, margin >= 0.15
+
+intent                   support  precision  recall
+affirm                         5       1.00    1.00
+ask_business_hours            10       1.00    1.00
+ask_location                  10       0.91    1.00
+ask_pricing                   10       1.00    0.90
+ask_services                  10       1.00    0.90
+book_appointment              10       1.00    1.00
+cancel_appointment             8       1.00    1.00
+check_availability             9       1.00    1.00
+deny                           7       1.00    1.00
+goodbye                        7       0.86    0.86
+greeting                       9       0.90    1.00
+lookup_booking                 6       1.00    1.00
+request_human                  8       1.00    1.00
+reschedule_appointment         8       1.00    1.00
+thanks                         8       1.00    1.00
+
+Messages: 147 (125 in scope, 22 out of scope)
+Handled by Rasa (no router LLM call): 125/147 = 85%
+  of in-scope messages: 124/125 = 99%
+WRONG intent executed: 3 (2.4% of handled)
+Overall correct routing (incl. correct → LLM for out-of-scope): 143/147 = 97%
+
+In-scope by script (Latin = English + Singlish):
+  latin    n= 93 handled-correct=100% wrong=0
+  sinhala  n= 30 handled-correct=90% wrong=2
+  mixed    n=  2 handled-correct=100% wrong=0
+
+Wrongly handled:
+  [goodbye → greeting @1.00] ආයුබෝවන් බායි
+  [ask_services → goodbye @0.81] ඔයාලා හෙයාර් ස්ට්‍රේටනින් කරනවද
+  [out_of_scope → ask_location @0.95] ape rata kohedha
+
+Sent to LLM although in scope:
+  [ask_pricing top=ask_pricing @0.73] බ්‍රයිඩල් එකට කීයද
+
+Out-of-scope wrongly handled: [('ape rata kohedha', 'ask_location')]

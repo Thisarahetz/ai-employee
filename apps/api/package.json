@@ -39,7 +39,7 @@
     "@nestjs/swagger": "^7.4.2",
     "@nestjs/throttler": "^6.2.1",
     "@prisma/client": "^5.20.0",
-    "ai-employee-integration-sdk": "workspace:*",
+    "ai-employee-sdk": "workspace:*",
     "axios": "^1.7.7",
     "bcrypt": "^5.1.1",
     "bullmq": "^5.13.2",

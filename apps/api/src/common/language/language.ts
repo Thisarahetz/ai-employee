@@ -176,6 +176,7 @@ export type CustomerMessageKey =
   | 'ask_time'
   | 'greeting'
   | 'thanks'
+  | 'goodbye'
   | 'handoff_no_answer';
 
 const CUSTOMER_MESSAGES: Record<CustomerMessageKey, Record<LanguageTag, string>> = {
@@ -213,6 +214,11 @@ const CUSTOMER_MESSAGES: Record<CustomerMessageKey, Record<LanguageTag, string>>
     en: "You're welcome! Let us know if there's anything else we can help with.",
     si: 'ඔබව සාදරයෙන් පිළිගනිමු! තවත් උදව්වක් අවශ්‍ය නම් කියන්න.',
     'si-Latn': 'Welcome! Thawa monawa hari udawwak ona nam kiyanna.',
+  },
+  goodbye: {
+    en: 'Goodbye! Message us any time if you need anything.',
+    si: 'ආයුබෝවන්! ඕනෑම වෙලාවක අපිට පණිවිඩයක් එවන්න.',
+    'si-Latn': 'Bye! Ona welawakata ape ekka katha karanna.',
   },
   handoff_no_answer: {
     en: 'Thank you for your message! A member of our team will reply to you shortly.',

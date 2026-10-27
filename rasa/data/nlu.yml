@@ -1,0 +1,701 @@
+version: "3.1"
+# Training data for the customer-message intent model.
+# Three languages per intent: English, Sinhala script, Singlish (Sinhala typed
+# in Latin letters), including common spelling variants and code-switching.
+# Held-out evaluation phrases live in ../tests/test_nlu.yml; never copy them here.
+nlu:
+- intent: greeting
+  examples: |
+    - hi
+    - hello
+    - hey
+    - hey there
+    - good morning
+    - good evening
+    - good afternoon
+    - hi there
+    - hello there
+    - hiya
+    - ayubowan
+    - ayubovan
+    - ආයුබෝවන්
+    - හලෝ
+    - හායි
+    - හෙලෝ
+    - කොහොමද
+    - kohomada
+    - kohomada ado
+    - subha udesanak
+    - සුභ උදෑසනක්
+    - සුභ දවසක්
+    - suba dawasak
+    - hi machan
+    - hello sir
+    - hello madam
+    - hi bro
+    - hey kohomada
+    - හායි කොහොමද
+    - hello ayubowan
+    - hi good morning
+    - hellow
+    - helo
+    - hii
+    - good day to you
+    - hey hey
+    - hello friend
+    - ayubowan madam
+    - ආයුබෝවන් මැඩම්
+    - හායි සර්
+    - hi everyone
+    - kohomada sir
+- intent: thanks
+  examples: |
+    - thanks
+    - thank you
+    - thank you so much
+    - thanks a lot
+    - thx
+    - much appreciated
+    - cheers
+    - thanks bro
+    - thank you very much
+    - ස්තුතියි
+    - බොහොම ස්තුතියි
+    - ගොඩක් ස්තුතියි
+    - ස්තූතියි
+    - isthuthi
+    - isthuthiyi
+    - stuthi
+    - bohoma isthuthi
+    - godak isthuthi
+    - thanks machan
+    - thank u
+    - thnks
+    - thanku
+    - ස්තුතියි මචං
+    - bohoma sthuthiyi
+    - istuti
+    - thanks a lot man
+- intent: goodbye
+  examples: |
+    - bye
+    - goodbye
+    - see you
+    - see you later
+    - talk to you later
+    - have a nice day
+    - bye bye
+    - good night
+    - catch you later
+    - ok bye
+    - bubye
+    - හොඳයි ආයෙ හම්බෙමු
+    - පස්සේ හම්බෙමු
+    - සුභ රාත්‍රියක්
+    - bye machan
+    - passe hambemu
+    - aye hambemu
+    - yanawa bye
+    - hari bye
+    - ගිහින් එන්නම්
+    - gihin enna
+    - hari mama yanawa
+    - istuti bye
+    - good bye
+    - tata
+    - හරි bye
+    - ok see you then
+    - thanks bye
+    - talk later
+    - bye take care
+    - hari bye bye
+    - passe katha karanawa
+    - ayeth hambemu
+    - සුභ දවසක්, bye
+    - ගිහින් එන්නම් හරි
+    - ok hari bye
+- intent: request_human
+  examples: |
+    - I want to talk to a human
+    - connect me to a person
+    - let me speak to an agent
+    - can I talk to a real person
+    - agent please
+    - human please
+    - I need to speak to the manager
+    - talk to a representative
+    - get me a staff member
+    - I want customer service
+    - speak to someone please
+    - transfer me to your team
+    - මට මනුස්සයෙක් එක්ක කතා කරන්න ඕන
+    - කෙනෙක් එක්ක කතා කරන්න ඕන
+    - මැනේජර් එක්ක කතා කරන්න ඕන
+    - මිනිහෙක්ට කතා කරන්න පුළුවන්ද
+    - staff කෙනෙක් එක්ක කතා කරන්න
+    - manussayek ekka katha karanna ona
+    - kenek ekka katha karanna ona
+    - manager ekka katha karanna ona
+    - minihek ekka katha karanna puluwanda
+    - staff kenek ekka katha karanna
+    - mata kenekta katha karanna ona
+    - agent kenek denna
+    - real person kenek ekka katha karamu
+    - කණ්ඩායමේ කෙනෙක්ට දෙන්න
+    - මට නිලධාරියෙක් ඕන
+    - oya kenek ekka kathakaranna ona
+    - manager ta denna
+    - need a human not a bot
+    - I want to complain to the manager
+    - talk to owner
+    - I need a human to help me
+    - give me a human being
+    - can someone call me
+    - please connect me to staff
+    - staff member kenek ona
+    - manussayek denna
+    - කෙනෙක් අමතන්න
+    - මනුස්සයෙක් ඕන
+- intent: affirm
+  examples: |
+    - yes
+    - yeah
+    - yep
+    - sure
+    - ok
+    - okay
+    - go ahead
+    - please do
+    - confirm
+    - proceed
+    - that's right
+    - correct
+    - yes please
+    - sounds good
+    - ඔව්
+    - ඔව් හරි
+    - හරි
+    - හරි හරි
+    - එල
+    - හා
+    - ඔව් කරන්න
+    - ow
+    - ov
+    - hari
+    - hari hari
+    - ela
+    - elakiri
+    - ow karanna
+    - ow hari
+    - ha hari
+    - yes ow
+    - ඔව් ඒක හරි
+    - ow eka hari
+    - ela ela
+- intent: deny
+  examples: |
+    - no
+    - nope
+    - no thanks
+    - not now
+    - don't
+    - never mind
+    - no I don't want that
+    - that's wrong
+    - no thank you
+    - not really
+    - නෑ
+    - එපා
+    - නැහැ
+    - ඕන නෑ
+    - කමක් නෑ
+    - එපා එපා
+    - na
+    - nehe
+    - epa
+    - ona na
+    - ona ne
+    - kamak na
+    - nah epa
+    - ne ne
+    - epa epa
+    - no no
+    - නෑ ඕන නෑ
+    - epa thawa
+    - dan epa
+    - mama ona na
+    - no ona na
+- intent: ask_business_hours
+  examples: |
+    - what time do you open
+    - when do you close
+    - what are your opening hours
+    - what are your business hours
+    - are you open today
+    - are you open on sunday
+    - what time do you close today
+    - opening times please
+    - which days are you open
+    - are you open on public holidays
+    - do you open on weekends
+    - what are your working hours
+    - hours of operation
+    - when are you open
+    - open weekends
+    - ඔයාලා කීයටද විවෘත කරන්නේ
+    - කීයට වහනවද
+    - විවෘත වෙලාවල් මොනවද
+    - අද විවෘතද
+    - ඉරිදා විවෘතද
+    - සති අන්තයේ විවෘතද
+    - වැඩ කරන වේලාවන් කීයද
+    - කීයට ඇරෙනවද
+    - oyala kiyatada arinne
+    - kiyatada wahanne
+    - kiyata open wenne
+    - ada open da
+    - iridata open da
+    - open time eka kiyada
+    - wada karana welawan monawada
+    - sathi anthaye open da
+    - poya dawas wala open da
+    - kiyata close karanne
+    - ada kiyata thiyenne open
+    - open hours monawada
+    - opening hours kiyada
+    - ada open dha
+    - sunday open ද
+    - කීයට විවෘත වෙන්නේ
+    - koi welawata open wenne
+    - what time do you start in the day
+    - what time do you begin
+    - starting time
+    - when do you start
+    - ඔයාලා කීයටද පටන් ගන්නේ
+    - පටන් ගන්න වෙලාව කීයද
+    - kiyatada patan ganne
+    - patan gannne kiyatada
+    - closing time eka kiyada
+    - until when are you open
+- intent: ask_pricing
+  examples: |
+    - how much does it cost
+    - what are your prices
+    - what is the price
+    - how much is a haircut
+    - price list please
+    - how much do you charge
+    - what's the cost
+    - what are the rates
+    - do you have a price list
+    - how much for a facial
+    - cost for a massage
+    - is it expensive
+    - what does it cost for a full set
+    - මිල කීයද
+    - ගාන කීයද
+    - මිල ගණන් කීයද
+    - හෙයාර්කට් එකට කීයද
+    - පහසුකම් වල මිල කීයද
+    - කොච්චර වෙයිද
+    - කීයක් වෙයිද
+    - මිල ලැයිස්තුව දෙන්න
+    - gana kiyada
+    - mila kiyada
+    - price eka kiyada
+    - haircut ekata kiyada
+    - kochchara weida
+    - kiyak weida
+    - mila list eka denna
+    - facial ekata gana kiyada
+    - price list ekak denna
+    - ekata kiyada
+    - gaana kohomada
+    - rates monawada
+    - kochchara gana
+    - massage eka kiyada
+    - mila gana kiyada
+    - mage ekata kiyak gahanawada
+    - how much ද
+    - price ekak kiyanna
+    - what is the fee for a service
+    - how much is the charge
+    - what do you charge
+    - bridal makeup price
+    - cost of a hair treatment
+    - ගාස්තුව කීයද
+    - සේවාවට කීයක් අය කරනවද
+    - fee eka kiyada
+    - kiyak ayeth karanawada
+    - service ekata gana kiyada
+- intent: ask_location
+  examples: |
+    - where are you located
+    - what is your address
+    - where is your salon
+    - how do I get there
+    - can you send the location
+    - give me your location
+    - what's your phone number
+    - what is your contact number
+    - where can I find you
+    - is there parking
+    - directions please
+    - what is your email
+    - do you have a branch in colombo
+    - ඔයාලා ඉන්නේ කොහෙද
+    - ලිපිනය මොකක්ද
+    - ඔයාලගේ ලිපිනය දෙන්න
+    - ස්ථානය කොහෙද
+    - දුරකථන අංකය මොකක්ද
+    - ෆෝන් නම්බර් එක දෙන්න
+    - මාර්ගය කොහොමද
+    - වාහන නවත්තන්න ඉඩ තියෙනවද
+    - oyala inne koheda
+    - address eka monawada
+    - address eka denna
+    - location eka denna
+    - location eka evanna
+    - phone number eka monawada
+    - contact number eka denna
+    - mokada oyalage address eka
+    - enne kohomada
+    - parking thiyenawada
+    - colombo branch ekak thiyenawada
+    - inne koheda
+    - location pin eka evanna puluwanda
+    - ayala inne kohe
+    - ඔයාලගේ location එක දෙන්න
+- intent: ask_services
+  examples: |
+    - what services do you offer
+    - what do you do
+    - which treatments do you have
+    - do you do hair coloring
+    - do you offer bridal packages
+    - what packages do you have
+    - do you do nails
+    - do you have manicure
+    - tell me about your services
+    - what can you do for me
+    - do you do keratin treatment
+    - do you provide waxing
+    - what are the services available
+    - do you have a menu
+    - ඔයාලා මොනවද කරන්නේ
+    - මොන සේවාවන්ද තියෙන්නේ
+    - කොන්ඩේ ඩයි කරනවද
+    - මනාලියන්ට පැකේජ් තියෙනවද
+    - නියපොතු කරනවද
+    - මොනවද තියෙන්නේ
+    - මෙනු එක දෙන්න
+    - oyala monawada karanne
+    - mona services da thiyenne
+    - hair color karanawada
+    - bridal package thiyenawada
+    - nails karanawada
+    - manicure thiyenawada
+    - services monawada thiyenne
+    - menu eka denna
+    - mokakda thiyena treatments
+    - keratin karanawada
+    - waxing karanawada
+    - mona mona services thiyenawada
+    - kondaye dye karanawada
+    - facial thiyenawada
+    - oyalage packages mokakda
+    - oyala wax karanawada
+- intent: book_appointment
+  examples: |
+    - I want to book an appointment
+    - can I book a haircut
+    - book me in for tomorrow
+    - I'd like to make a reservation
+    - schedule an appointment for me
+    - I need an appointment for friday
+    - can I get a slot at 3pm
+    - make a booking please
+    - book a facial for saturday
+    - I want to reserve a time
+    - appointment for two people
+    - set up an appointment
+    - can you book me for next week
+    - I would like to come in tomorrow
+    - මට appointment එකක් ගන්න ඕන
+    - හෙට වෙලාවක් වෙන් කරන්න පුළුවන්ද
+    - බුක් කරන්න ඕන
+    - සිකුරාදා වෙලාවක් දෙන්න
+    - හෙට හවසට වෙලාවක් තියෙනවද
+    - මට වෙලාවක් වෙන් කරලා දෙන්න
+    - haircut එකක් බුක් කරන්න
+    - heta appointment ekak ona
+    - heta booking ekak danna puluwanda
+    - mata welawak ganna ona
+    - sikurada welawak denna
+    - book karanna ona
+    - heta udee welawak thiyenawada
+    - mata appointment ekak denna
+    - heta haircut ekak book karanna
+    - sathiyata welawak ganna puluwanda
+    - appointment ekak ganna
+    - hawasata welawak denna
+    - booking ekak karanna ona
+    - mata sanipaya welawak ona
+    - ada hawasa welawak ganna puluwanda
+- intent: check_availability
+  examples: |
+    - are you free tomorrow
+    - do you have any slots on friday
+    - what times are available
+    - is there a free slot this week
+    - any openings today
+    - do you have availability on saturday
+    - what slots do you have tomorrow
+    - are there any appointments available
+    - any time free on monday
+    - when is the next available time
+    - is 4pm free
+    - හෙට නිදහස් වෙලාවල් තියෙනවද
+    - සිකුරාදා වෙලාවල් තියෙනවද
+    - මොන වෙලාවල්ද නිදහස්
+    - අද නිදහස් වෙලාවක් තියෙනවද
+    - ඊළඟ නිදහස් වෙලාව කීයද
+    - හෙට හවසට පුළුවන්ද
+    - heta free welawal thiyenawada
+    - sikurada slots thiyenawada
+    - mona welawal da free
+    - ada free welawak thiyenawada
+    - ilagata free welawa kiyada
+    - heta 4ta puluwanda
+    - irida free da
+    - availability eka kohomada
+    - heta kiyatada free
+    - hawasata slot thiyenawada
+    - ada udee free da
+    - free welawal monawada
+    - sanduda welawal thiyenawada
+    - heta pas wa 3ta free da
+    - which slots are open this week
+    - any times open on thursday
+    - times available friday
+    - slots tomorrow
+    - thursday slots thiyenawada
+    - free times thiyenawada heta
+    - දවස් වල නිදහස් වෙලා තියෙනවද
+    - බ්‍රහස්පතින්දා වෙලාවල් තියෙනවද
+- intent: cancel_appointment
+  examples: |
+    - I want to cancel my appointment
+    - cancel my booking
+    - please cancel tomorrow's appointment
+    - I can't make it, cancel it
+    - cancel my reservation
+    - I need to cancel
+    - remove my booking
+    - call off my appointment
+    - cancel the appointment for friday
+    - please cancel my slot
+    - I won't be able to come, cancel please
+    - මගේ appointment එක cancel කරන්න
+    - බුකින් එක අවලංගු කරන්න
+    - හෙට appointment එක අවලංගු කරන්න
+    - මට එන්න බෑ cancel කරන්න
+    - මගේ වෙලාව අවලංගු කරලා දෙන්න
+    - වෙන් කරපු වෙලාව අවලංගු කරන්න
+    - mage appointment eka cancel karanna
+    - booking eka cancel karanna
+    - heta appointment eka cancel karala denna
+    - mata enna ba cancel karanna
+    - mage welawa awalangu karanna
+    - awalangu karala denna
+    - cancel karanna ona
+    - mama enne na cancel karanna
+    - booking eka cancel karala denna
+    - mage booking eka ain karanna
+    - sikurada appointment eka cancel
+    - cancel karanawa mage welawa
+    - mata awasara na appointment eka cancel
+    - heta enna ba cancel karanna
+- intent: reschedule_appointment
+  examples: |
+    - I need to reschedule my appointment
+    - can I change my booking time
+    - move my appointment to friday
+    - change my appointment to 5pm
+    - can we do a different day
+    - reschedule to next week
+    - I want to change the date of my booking
+    - postpone my appointment
+    - can I switch my slot to tomorrow
+    - move it to the afternoon
+    - change the time of my reservation
+    - push my booking back an hour
+    - මගේ appointment එක වෙනස් කරන්න ඕන
+    - වෙලාව වෙනස් කරන්න පුළුවන්ද
+    - සිකුරාදාට මාරු කරන්න
+    - වෙන දවසකට මාරු කරන්න පුළුවන්ද
+    - බුකින් එකේ වෙලාව වෙනස් කරන්න
+    - පස්සට දාන්න පුළුවන්ද
+    - mage appointment eka wenas karanna ona
+    - welawa wenas karanna puluwanda
+    - sikuradata maru karanna
+    - wena dawasakata maru karanna puluwanda
+    - booking eke welawa wenas karanna
+    - passata danna puluwanda
+    - reschedule karanna ona
+    - welawa maru karanna
+    - mage booking eka iridata maru karanna
+    - 4ta thibba eka 5ta karanna
+    - dawasa wenas karanna puluwanda
+    - ikmanata maru karanna ona
+    - eka passata ganna puluwanda
+- intent: lookup_booking
+  examples: |
+    - when is my appointment
+    - what time is my booking
+    - do I have an appointment tomorrow
+    - check my booking
+    - show my upcoming appointments
+    - is my appointment confirmed
+    - what's my reservation time
+    - remind me of my appointment
+    - did my booking go through
+    - my appointment details please
+    - when is my next visit
+    - confirm my appointment time
+    - මගේ appointment එක කීයටද
+    - මගේ බුකින් එක තියෙනවද
+    - හෙට මගේ වෙලාවක් තියෙනවද
+    - මගේ වෙලාව තහවුරු වුණාද
+    - මගේ ඊළඟ වෙලාව කීයද
+    - මම වෙන් කරපු වෙලාව මොකක්ද
+    - mage appointment eka kiyatada
+    - mage booking eka thiyenawada
+    - heta mage welawak thiyenawada
+    - mage booking eka confirm da
+    - mage ilagata welawa kiyada
+    - mama gaththa welawa mokakda
+    - mage booking eka balanna
+    - appointment eka confirm unada
+    - mage welawa kiyada
+    - booking eka una da
+    - mage appointments monawada
+    - mama book karapu welawa kiyada
+    - mage welawa remind karanna
+- intent: out_of_scope
+  examples: |
+    - what is the capital of france
+    - tell me a joke
+    - who won the cricket match
+    - what's the weather like
+    - how do I fix my laptop
+    - write me a poem
+    - what is bitcoin trading at
+    - I want a refund for my order
+    - my package has not arrived
+    - my invoice has a mistake
+    - can you hire me
+    - how do I reset my password
+    - what is the meaning of life
+    - can you recommend a good restaurant
+    - what is two plus two
+    - translate this to french
+    - ප්‍රංශයේ අගනුවර කොහෙද
+    - විහිළුවක් කියන්න
+    - ක්‍රිකට් තරගය කවුද දිනුවේ
+    - කාලගුණය කොහොමද
+    - මගේ ලැප්ටොප් එක හදන්නේ කොහොමද
+    - කවියක් ලියන්න
+    - මගේ ඇණවුම තාම ආවේ නෑ
+    - cricket match eka kawda jayagrahanaya kale
+    - joke ekak kiyanna
+    - kalagunaya kohomada
+    - mage laptop eka hadanne kohomada
+    - kavi ekak liyanna
+    - mage order eka thama awe na
+    - refund ekak ona
+    - bitcoin eke gana kiyada
+    - mata job ekak ona
+    - password eka reset karanne kohomada
+    - nuwara hodama restaurant ekak monawada
+    - dekata dekak keeyada
+    - who is the prime minister
+    - what is the best laptop to buy
+    - help me with my math homework
+    - play some music
+    - sing a song
+    - what time is it in london
+    - how do I get to the airport by bus
+    - which bus goes to kandy
+    - what is the price of petrol
+    - tell me a story
+    - recommend a movie
+    - what is the exchange rate for dollars
+    - how to cook rice
+    - i am feeling sad
+    - what do you think about politics
+    - how old are you
+    - are you a robot
+    - can you drive
+    - how tall is mount everest
+    - what's the news today
+    - ජනාධිපති කවුද
+    - හොඳම ෆෝන් එක මොකක්ද
+    - ගීතයක් කියන්න
+    - මගේ ගෙදර වැඩ කරන්න උදව් කරන්න
+    - කොළඹ යන්න බස් එක කීයටද
+    - පෙට්‍රල් මිල කීයද
+    - කතාවක් කියන්න
+    - ඩොලර් එකේ අගය කීයද
+    - බත් උයන්නේ කොහොමද
+    - ඔයාට අවුරුදු කීයද
+    - ඔයා රොබෝ කෙනෙක්ද
+    - අද පුවත් මොනවද
+    - mage ammata sanipa nadda
+    - bus eka kiyatada yanne
+    - colombo yana bus eka monawada
+    - petrol gana kiyada
+    - katha ekak kiyanna
+    - dollar eke agaya kiyada
+    - bath uyanne kohomada
+    - oyata aurudu kiyada
+    - oya robot kenek da
+    - ada pawathe monawada
+    - nidimathai mata
+    - mama bus ekak balan inne
+    - ape gedara hari dura
+    - gedara wada karala denna
+    - mage phone eka hadanna puluwanda
+    - laptop ekak ganna hodama ekak monawada
+    - thaththa hospital eke inne
+    - film ekak recommend karanna
+    - what are today's sales
+    - show me the sales report
+    - how many orders came in today
+    - check inventory levels
+    - how much stock is left
+    - create an invoice for me
+    - has the invoice been paid
+    - give me a business summary
+    - how much did we earn this week
+    - total revenue for this month
+    - ada sales kiyada
+    - ada vikunum kiyada
+    - ada vikunum monawada
+    - sales report eka denna
+    - orders kiyak ada awe
+    - stock kiyak thiyenawada
+    - invoice ekak hadanna
+    - mudal kiyak ada hambuna
+    - masa wala income eka kiyada
+    - business summary eka denna
+    - අද විකුණුම් කීයද
+    - විකුණුම් වාර්තාව දෙන්න
+    - අද ඇණවුම් කීයක්ද
+    - තොග කීයක් තියෙනවද
+    - ඉන්වොයිසියක් හදන්න
+    - මේ මාසේ ආදායම කීයද
+    - අද උපයපු මුදල කීයද
+- regex: phone
+  examples: |
+    - (\+94|0)\s?7\d[\s-]?\d{3}[\s-]?\d{4}

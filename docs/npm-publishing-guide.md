@@ -1,12 +1,12 @@
 # NPM Package Release & Publishing Guide
 
-This guide covers how to setup, test, version, and publish the `ai-employee-integration-sdk` npm package to the official npm registry for production use.
+This guide covers how to setup, test, version, and publish the `ai-employee-sdk` npm package to the official npm registry for production use.
 
 ---
 
 ## 1. Package Overview
 
-- **Package Name**: `ai-employee-integration-sdk`
+- **Package Name**: `ai-employee-sdk`
 - **Location**: `packages/integration-sdk`
 - **Access Level**: Public (`--access public`)
 - **License**: MIT
@@ -98,7 +98,7 @@ To automate publishing on GitHub Releases, configure GitHub Actions:
 Create `.github/workflows/publish-sdk.yml`:
 
 ```yaml
-name: Publish ai-employee-integration-sdk
+name: Publish ai-employee-sdk
 
 on:
   release:
@@ -141,10 +141,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build SDK
-        run: pnpm --filter ai-employee-integration-sdk build
+        run: pnpm --filter ai-employee-sdk build
 
       - name: Run Tests
-        run: pnpm --filter ai-employee-integration-sdk test
+        run: pnpm --filter ai-employee-sdk test
 
       - name: Publish to NPM
         working-directory: packages/integration-sdk
@@ -160,11 +160,11 @@ jobs:
 Once published, any external developer or business system can install and use it immediately:
 
 ```bash
-npm install ai-employee-integration-sdk
+npm install ai-employee-sdk
 ```
 
 ```ts
-import { registerAction, createExpressRouter } from 'ai-employee-integration-sdk/express-adapter';
+import { registerAction, createExpressRouter } from 'ai-employee-sdk/express-adapter';
 import express from 'express';
 
 registerAction({

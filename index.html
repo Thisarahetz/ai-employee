@@ -1064,7 +1064,7 @@
     <div class="header-actions">
       <a href="#business-roi" class="header-btn roi-btn">💰 Business ROI & Numbers</a>
       <button id="themeToggle" class="header-btn" title="Toggle Theme">🌓 Theme</button>
-      <a href="https://www.npmjs.com/package/ai-employee-integration-sdk" target="_blank" class="header-btn">
+      <a href="https://www.npmjs.com/package/ai-employee-sdk" target="_blank" class="header-btn">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M0 7.334v8h6.666v1.332H12v-1.332h12v-8H0zm6.666 6.664H4v-4h2.666v4zm4 0H8v-4h2.666v4zm9.334 0h-2.666v-4h2.666v4z"/></svg>
         NPM SDK
       </a>
@@ -1135,7 +1135,7 @@
           <a href="#architecture" class="hero-cta-btn secondary">
             🏗️ Explore Technical Architecture
           </a>
-          <a href="https://www.npmjs.com/package/ai-employee-integration-sdk" target="_blank" class="hero-cta-btn secondary">
+          <a href="https://www.npmjs.com/package/ai-employee-sdk" target="_blank" class="hero-cta-btn secondary">
             📦 NPM SDK
           </a>
         </div>
@@ -1480,7 +1480,7 @@
           <div class="doc-card">
             <div class="card-icon">🔌</div>
             <div class="card-title">Generic Integration SDK</div>
-            <div class="card-desc">Official <code>ai-employee-integration-sdk</code> for Express, NestJS, Next.js, and Fastify with schema validation and idempotency.</div>
+            <div class="card-desc">Official <code>ai-employee-sdk</code> for Express, NestJS, Next.js, and Fastify with schema validation and idempotency.</div>
           </div>
           <div class="doc-card">
             <div class="card-icon">🏢</div>
@@ -1784,7 +1784,7 @@ sequenceDiagram
 
       <!-- Section: Integration SDK -->
       <section id="integration-sdk" class="doc-section">
-        <h2>📦 NPM Integration SDK: <code>ai-employee-integration-sdk</code></h2>
+        <h2>📦 NPM Integration SDK: <code>ai-employee-sdk</code></h2>
         <p>The official TypeScript/Node.js package eliminates manual HTTP routing, validation boilerplate, idempotency caching, and authentication checks.</p>
 
         <div class="code-wrapper">
@@ -1792,9 +1792,9 @@ sequenceDiagram
             <span>Terminal</span>
             <button class="copy-btn" onclick="copyCode(this)">Copy</button>
           </div>
-          <pre><code class="language-bash">npm install ai-employee-integration-sdk express
+          <pre><code class="language-bash">npm install ai-employee-sdk express
 # or with pnpm:
-pnpm add ai-employee-integration-sdk express</code></pre>
+pnpm add ai-employee-sdk express</code></pre>
         </div>
       </section>
 
@@ -1820,7 +1820,7 @@ import {
   registerAction,
   registerKnowledge,
   createExpressRouter,
-} from 'ai-employee-integration-sdk/express-adapter';
+} from 'ai-employee-sdk/express-adapter';
 
 // 1. Register an action the AI Employee can call
 registerAction({
@@ -1876,7 +1876,7 @@ app.listen(4000, () => console.log('SDK listening on port 4000'));</code></pre>
                 <button class="copy-btn" onclick="copyCode(this)">Copy</button>
               </div>
               <pre><code class="language-typescript">import { Module } from '@nestjs/common';
-import { AiActionsModule, registerAction } from 'ai-employee-integration-sdk/nestjs-adapter';
+import { AiActionsModule, registerAction } from 'ai-employee-sdk/nestjs-adapter';
 
 registerAction({
   name: 'check_inventory',
@@ -1906,7 +1906,7 @@ export class AppModule {}</code></pre>
                 <span>app/api/ai/[...slug]/route.ts (Next.js App Router)</span>
                 <button class="copy-btn" onclick="copyCode(this)">Copy</button>
               </div>
-              <pre><code class="language-typescript">import { handleIntegrationRequest, registerAction } from 'ai-employee-integration-sdk';
+              <pre><code class="language-typescript">import { handleIntegrationRequest, registerAction } from 'ai-employee-sdk';
 import { NextRequest, NextResponse } from 'next/server';
 
 registerAction({
@@ -2071,7 +2071,7 @@ pnpm start</code></pre>
       <!-- Section: NPM Release -->
       <section id="npm-publishing" class="doc-section">
         <h2>🚀 NPM Release & Publishing</h2>
-        <p>To release new versions of <code>ai-employee-integration-sdk</code> to the npm registry:</p>
+        <p>To release new versions of <code>ai-employee-sdk</code> to the npm registry:</p>
 
         <div class="code-wrapper">
           <div class="code-header">

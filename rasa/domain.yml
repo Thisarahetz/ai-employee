@@ -1,0 +1,20 @@
+version: "3.1"
+intents:
+  - greeting
+  - thanks
+  - goodbye
+  - request_human
+  - affirm
+  - deny
+  - ask_business_hours
+  - ask_pricing
+  - ask_location
+  - ask_services
+  - book_appointment
+  - check_availability
+  - cancel_appointment
+  - reschedule_appointment
+  - lookup_booking
+  - out_of_scope
+entities:
+  - phone

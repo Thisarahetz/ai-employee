@@ -76,6 +76,31 @@ services:
     depends_on:
       - postgres
 
+  # Intent classifier (Rasa Open Source, NLU only). Internal service: the port is
+  # published on 127.0.0.1 only so the API can reach it when it runs on the host
+  # (start.sh); inside Compose the API uses http://rasa:5005. The trained model is
+  # baked into the image, so it starts with no external LLM or API key.
+  rasa:
+    build:
+      context: ./rasa
+    image: ai-employee-rasa:${RASA_MODEL_VERSION:-latest}
+    container_name: ai-employee-rasa
+    restart: unless-stopped
+    environment:
+      RASA_AUTH_TOKEN: ${RASA_AUTH_TOKEN:-change-me-rasa-token}
+    ports:
+      - "127.0.0.1:${RASA_PORT:-5005}:5005"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:5005/version', timeout=3).status == 200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 1536M
+
   api:
     build:
       context: .
@@ -89,6 +114,8 @@ services:
       REDIS_HOST: redis
       REDIS_URL: redis://redis:6379
       N8N_API_URL: http://n8n:5678/api/v1
+      # Rasa is optional at runtime: if it is down the API answers through the LLM.
+      RASA_BASE_URL: http://rasa:5005
     ports:
       - "${API_PORT:-3001}:3001"
     healthcheck:

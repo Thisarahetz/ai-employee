@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { ReplyMode } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UsageLimitsService } from '../ai-workforce/usage-limits.service';
+import { nluConfig } from '../nlu/nlu.config';
 
 export const ALL_REPLY_MODES: ReplyMode[] = [ReplyMode.AI, ReplyMode.HYBRID, ReplyMode.NO_AI];
 
@@ -32,6 +33,12 @@ export interface ReplySettings {
   /** What is actually used (the plan may not allow `mode`). */
   effectiveMode: ReplyMode;
   allowedModes: ReplyMode[];
+  smartRouting: {
+    /** The platform has the classifier switched on (RASA_ENABLED). */
+    available: boolean;
+    /** This business's own switch. */
+    enabled: boolean;
+  };
 }
 
 @Injectable()
@@ -49,7 +56,7 @@ export class ReplyPolicyService {
   async getSettings(tenantId: string): Promise<ReplySettings> {
     const tenant = await this.prisma.tenant.findUniqueOrThrow({
       where: { id: tenantId },
-      select: { plan: true, replyMode: true },
+      select: { plan: true, replyMode: true, smartRouting: true },
     });
     const allowedModes = await this.allowedModesForPlan(tenant.plan);
     return {
@@ -57,7 +64,14 @@ export class ReplyPolicyService {
       mode: tenant.replyMode,
       effectiveMode: effectiveReplyMode(tenant.replyMode, allowedModes),
       allowedModes,
+      smartRouting: { available: nluConfig().enabled, enabled: tenant.smartRouting },
     };
+  }
+
+  async setSmartRouting(tenantId: string, enabled: unknown): Promise<ReplySettings> {
+    if (typeof enabled !== 'boolean') throw new BadRequestException('smartRouting must be true or false.');
+    await this.prisma.tenant.update({ where: { id: tenantId }, data: { smartRouting: enabled } });
+    return this.getSettings(tenantId);
   }
 
   async setMode(tenantId: string, mode: unknown): Promise<ReplySettings> {

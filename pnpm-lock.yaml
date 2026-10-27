@@ -78,7 +78,7 @@ importers:
       '@prisma/client':
         specifier: ^5.20.0
         version: 5.22.0(prisma@5.22.0)
-      ai-employee-integration-sdk:
+      ai-employee-sdk:
         specifier: workspace:*
         version: link:../../packages/integration-sdk
       axios:

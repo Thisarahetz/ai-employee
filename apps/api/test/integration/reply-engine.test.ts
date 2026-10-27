@@ -277,7 +277,7 @@ describe('Reply settings and plans over HTTP', () => {
     const owner = await userIn(b.tenantId, 'OWNER');
 
     const settings = await (await api('/reply-settings', owner)).json();
-    assert.deepEqual(settings, { plan, mode: 'HYBRID', effectiveMode: 'NO_AI', allowedModes: ['NO_AI'] });
+    assert.deepEqual(settings, { plan, mode: 'HYBRID', effectiveMode: 'NO_AI', allowedModes: ['NO_AI'], smartRouting: { available: false, enabled: true } });
     assert.equal((await api('/reply-settings', owner, { method: 'PATCH', body: JSON.stringify({ mode: 'AI' }) })).status, 400);
     assert.equal((await api('/reply-settings', owner, { method: 'PATCH', body: JSON.stringify({ mode: 'NO_AI' }) })).status, 200);
 
