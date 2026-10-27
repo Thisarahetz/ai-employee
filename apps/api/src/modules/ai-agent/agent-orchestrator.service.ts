@@ -30,7 +30,7 @@ import type { AgentTurn } from './agent-turn';
 const LOW_CONFIDENCE_THRESHOLD = 0.5;
 
 /** Where a reply came from; stored on the message for the savings report. */
-type ReplySource = 'ai' | 'saved_answer' | 'template' | 'handoff';
+type ReplySource = 'ai' | 'saved_answer' | 'template' | 'handoff' | 'clarify';
 
 interface TurnContext {
   tenantId: string;
@@ -38,6 +38,8 @@ interface TurnContext {
   content: string;
   language: LanguageTag;
   businessName: string;
+  /** The customer is on a phone call: replies are spoken, and unclear speech is asked about again. */
+  voice?: boolean;
   /** What Rasa decided for this message; stored on the reply (no message text). */
   nlu?: { decision: NluDecision; trace: NluTrace };
 }
@@ -85,6 +87,7 @@ export class AgentOrchestratorService {
           status: true,
           currentAgent: true,
           language: true,
+          channel: { select: { type: true } },
           tenant: { select: { name: true, defaultLanguage: true, matchCustomerLanguage: true, smartRouting: true } },
         },
       });
@@ -94,6 +97,7 @@ export class AgentOrchestratorService {
 
       ctx.language = resolveReplyLanguage(conversation.language, conversation.tenant);
       ctx.businessName = conversation.tenant.name;
+      ctx.voice = conversation.channel?.type === 'VOICE';
       const { effectiveMode: mode } = await this.replyPolicy.getSettings(tenantId);
 
       // 1. The customer asked for a person — same in every mode, no AI.
@@ -174,6 +178,12 @@ export class AgentOrchestratorService {
     const { tenantId, conversationId, content } = ctx;
     const route = await this.routerAgentService.route(tenantId, conversationId, content, currentAgent, nlu);
 
+    if (route.agent !== 'human_handoff' && route.confidence < LOW_CONFIDENCE_THRESHOLD && ctx.voice && !(await this.justAskedToRepeat(ctx))) {
+      // Speech is often misheard: ask once before bringing in a person.
+      await this.send(ctx, customerMessage('clarify', ctx.language), 'clarify', AgentType.SUPPORT);
+      return;
+    }
+
     if (route.agent === 'human_handoff' || route.confidence < LOW_CONFIDENCE_THRESHOLD) {
       await this.handOff(
         ctx,
@@ -184,7 +194,7 @@ export class AgentOrchestratorService {
       return;
     }
 
-    const turn: AgentTurn = { language: ctx.language, searchQuery: route.searchQuery, approvedAnswers: hints };
+    const turn: AgentTurn = { language: ctx.language, searchQuery: route.searchQuery, approvedAnswers: hints, spoken: ctx.voice };
     let replyContent: string;
     let agentType: AgentType;
     switch (route.agent) {
@@ -210,6 +220,16 @@ export class AgentOrchestratorService {
 
     // Summarise older turns in the background so prompts stay small.
     void this.conversationSummaryService.maybeSummarize(tenantId, conversationId);
+  }
+
+  /** True when our last reply in this conversation was already "could you say that again?". */
+  private async justAskedToRepeat(ctx: TurnContext): Promise<boolean> {
+    const last = await this.prisma.message.findFirst({
+      where: { tenantId: ctx.tenantId, conversationId: ctx.conversationId, sender: 'AI' },
+      orderBy: { createdAt: 'desc' },
+      select: { metadata: true },
+    });
+    return (last?.metadata as { replySource?: string } | null)?.replySource === 'clarify';
   }
 
   /** AI unavailable (budget used up or it failed): a saved answer if one fits, else staff. */

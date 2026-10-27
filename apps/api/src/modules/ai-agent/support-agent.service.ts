@@ -4,7 +4,7 @@ import { AiProviderService } from '../ai-provider/ai-provider.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MessageService } from '../message/message.service';
 import { TimeContextService } from './time-context.service';
-import { AgentTurn, DEFAULT_TURN } from './agent-turn';
+import { AgentTurn, DEFAULT_TURN, spokenSuffix } from './agent-turn';
 import { replyLanguageInstruction } from '../../common/language/language';
 
 const DEFAULT_SUPPORT_PROMPT =
@@ -43,7 +43,7 @@ export class SupportAgentService {
     const persona = aiAgent?.systemPrompt?.trim() || DEFAULT_SUPPORT_PROMPT;
     // Static prompt prefix: persona + guardrails (100% cacheable across all requests)
     // Static prompt prefix: persona + guardrails + reply language (cacheable per language)
-    const staticSystemPrompt = `${persona}\n\n${CAVEMAN_SUPPORT_GUARDRAIL}\n\n${replyLanguageInstruction(turn.language)}`;
+    const staticSystemPrompt = `${persona}\n\n${CAVEMAN_SUPPORT_GUARDRAIL}\n\n${replyLanguageInstruction(turn.language)}${spokenSuffix(turn)}`;
     const approved = (turn.approvedAnswers ?? []).filter(Boolean);
     const approvedBlock = approved.length
       ? `\n[Approved answers from the business — use these facts if they fit the question:\n${approved.map((a) => `- ${a}`).join('\n')}]`

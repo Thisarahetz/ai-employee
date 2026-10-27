@@ -5,7 +5,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { MessageService } from '../message/message.service';
 import { RagService } from '../rag/rag.service';
 import { TimeContextService } from './time-context.service';
-import { AgentTurn, DEFAULT_TURN } from './agent-turn';
+import { AgentTurn, DEFAULT_TURN, spokenSuffix } from './agent-turn';
 import { replyLanguageInstruction } from '../../common/language/language';
 
 const DEFAULT_KNOWLEDGE_PROMPT =
@@ -62,7 +62,7 @@ export class KnowledgeAgentService {
 
     const persona = aiAgent?.systemPrompt?.trim() || DEFAULT_KNOWLEDGE_PROMPT;
     // Static prompt prefix: persona + guardrails (100% cacheable across requests)
-    const staticSystemPrompt = `${persona}\n\n${KNOWLEDGE_GUARDRAIL}\n\n${replyLanguageInstruction(turn.language)}`;
+    const staticSystemPrompt = `${persona}\n\n${KNOWLEDGE_GUARDRAIL}\n\n${replyLanguageInstruction(turn.language)}${spokenSuffix(turn)}`;
 
     const temporalContext = [
       'TEMPORAL CONTEXT:',

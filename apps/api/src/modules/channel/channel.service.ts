@@ -111,6 +111,10 @@ export class ChannelService {
       };
     }
 
+    if (channel.type === 'VOICE') {
+      return { ...base, webhookUrl: `${apiBase}/webhooks/voice/twilio/incoming/${channel.id}` };
+    }
+
     return base;
   }
 

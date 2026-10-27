@@ -12,7 +12,7 @@ import { TimeContextService } from './time-context.service';
 import { DynamicSagaService } from '../saga/dynamic-saga.service';
 import { PolicySynthesisService } from '../policy-synthesis/policy-synthesis.service';
 import { ToolOutputCompressorService } from './tool-output-compressor.service';
-import { AgentTurn, DEFAULT_TURN } from './agent-turn';
+import { AgentTurn, DEFAULT_TURN, SPOKEN_REPLY_INSTRUCTION } from './agent-turn';
 import { claimsBooking, customerMessage, replyLanguageInstruction, wantsRollback } from '../../common/language/language';
 
 const DEFAULT_ACTION_PROMPT =
@@ -135,7 +135,7 @@ export class ActionAgentService {
       .join('\n');
 
     // 1. Static prompt prefix: persona + guardrails + invariants (100% cacheable across calls)
-    const staticSystemPrompt = [persona, ACTION_GUARDRAIL, invariantsContext, replyLanguageInstruction(turn.language)]
+    const staticSystemPrompt = [persona, ACTION_GUARDRAIL, invariantsContext, replyLanguageInstruction(turn.language), turn.spoken ? SPOKEN_REPLY_INSTRUCTION : '']
       .filter(Boolean)
       .join('\n\n');
 

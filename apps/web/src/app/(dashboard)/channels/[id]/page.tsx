@@ -21,6 +21,7 @@ import { ErrorState } from "@/components/ui/error-state";
 import { FullPageSpinner } from "@/components/ui/spinner";
 import { WhatsAppConnectPanel } from "@/components/channels/whatsapp-connect-panel";
 import { WebsiteChatConnectPanel } from "@/components/channels/website-chat-connect-panel";
+import { VoiceConnectPanel } from "@/components/channels/voice-connect-panel";
 import { ChannelTestPanel } from "@/components/channels/channel-test-panel";
 
 export default function ChannelDetailPage() {
@@ -77,6 +78,8 @@ export default function ChannelDetailPage() {
             <WhatsAppConnectPanel channel={channel} connectionInfo={connectionInfo} />
           ) : channel.type === "WEBSITE_CHAT" ? (
             <WebsiteChatConnectPanel channel={channel} connectionInfo={connectionInfo} />
+          ) : channel.type === "VOICE" ? (
+            <VoiceConnectPanel channel={channel} connectionInfo={connectionInfo} />
           ) : (
             <p className="text-sm text-ink-secondary">
               Connecting {channel.type.replace(/_/g, " ")} channels isn&apos;t supported yet.
@@ -111,6 +114,7 @@ export default function ChannelDetailPage() {
         </Card>
       )}
 
+      {channel.type !== "VOICE" && (
       <Card>
         <CardHeader>
           <CardTitle>Test</CardTitle>
@@ -119,6 +123,7 @@ export default function ChannelDetailPage() {
           <ChannelTestPanel channelId={channel.id} channelType={channel.type} />
         </CardContent>
       </Card>
+      )}
 
       <Card className="border-status-critical/30">
         <CardHeader>

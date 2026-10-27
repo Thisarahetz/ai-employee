@@ -15,6 +15,7 @@ const CHANNEL_TYPES: { value: ChannelType; label: string }[] = [
   { value: "WEBSITE_CHAT", label: "Website Chat" },
   { value: "WHATSAPP", label: "WhatsApp" },
   { value: "EMAIL", label: "Email" },
+  { value: "VOICE", label: "Phone calls (Twilio)" },
   { value: "SMS", label: "SMS" },
 ];
 

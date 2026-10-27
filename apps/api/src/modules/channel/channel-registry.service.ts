@@ -3,6 +3,7 @@ import { CredentialType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { WhatsAppAdapterService } from '../whatsapp/whatsapp-adapter.service';
 import { ResendService } from '../notification/resend.service';
+import { VoiceSessionRegistry } from '../voice/voice-session.registry';
 import { ChannelService } from './channel.service';
 
 export interface ChannelSendParams {
@@ -14,6 +15,10 @@ export interface ChannelSendParams {
    * id for website chat, email address for email.
    */
   destination?: string;
+  /** How the reply was produced (ai, saved_answer, template, handoff); a voice call ends on a handoff. */
+  replySource?: string;
+  /** The conversation's language, so a voice call can switch the spoken language. */
+  language?: string | null;
 }
 
 /**
@@ -33,6 +38,7 @@ export class ChannelRegistryService {
     private readonly whatsAppAdapter: WhatsAppAdapterService,
     private readonly channelService: ChannelService,
     private readonly resendService: ResendService,
+    private readonly voiceSessions: VoiceSessionRegistry,
   ) {}
 
   async send(params: ChannelSendParams): Promise<void> {
@@ -91,8 +97,23 @@ export class ChannelRegistryService {
           }
           return;
         }
+        case 'VOICE': {
+          // Spoken on the caller's open call. If the call has ended there is nobody
+          // to speak to; the reply is already saved on the conversation.
+          const transfer = (channel.config as Record<string, unknown> | null)?.transferNumber;
+          const spoken = this.voiceSessions.deliver({
+            channelId,
+            destination: params.destination,
+            content,
+            replySource: params.replySource,
+            language: params.language,
+            canTransfer: typeof transfer === 'string' && transfer.trim().length > 0,
+          });
+          if (!spoken) this.logger.log(`[VOICE no live call] channel=${channelId}`);
+          return;
+        }
         default:
-          // FACEBOOK_MESSENGER / INSTAGRAM / TELEGRAM / SMS / VOICE — no adapter built yet.
+          // FACEBOOK_MESSENGER / INSTAGRAM / TELEGRAM / SMS — no adapter built yet.
           this.logger.log(`[${channel.type} no-op] channel=${channelId} content="${content}"`);
           return;
       }

@@ -177,7 +177,10 @@ export type CustomerMessageKey =
   | 'greeting'
   | 'thanks'
   | 'goodbye'
-  | 'handoff_no_answer';
+  | 'handoff_no_answer'
+  | 'clarify'
+  | 'voice_slow'
+  | 'voice_callback';
 
 const CUSTOMER_MESSAGES: Record<CustomerMessageKey, Record<LanguageTag, string>> = {
   handoff_connected: {
@@ -224,6 +227,21 @@ const CUSTOMER_MESSAGES: Record<CustomerMessageKey, Record<LanguageTag, string>>
     en: 'Thank you for your message! A member of our team will reply to you shortly.',
     si: 'ඔබගේ පණිවිඩයට ස්තූතියි! අපේ කණ්ඩායමේ කෙනෙක් ඉක්මනින්ම ඔබට පිළිතුරු දෙයි.',
     'si-Latn': 'Oyage message ekata sthuthi! Ape team eke kenek ikmanata oyata reply karai.',
+  },
+  clarify: {
+    en: "Sorry, I didn't quite catch that. Could you say it again in a different way?",
+    si: 'සමාවෙන්න, මට හරියටම තේරුණේ නැහැ. ඔබට ආයෙත් වෙනත් විදියකට කියන්න පුළුවන්ද?',
+    'si-Latn': 'Samawenna, mata hariyatama therune na. Oyata aye wenath widihakata kiyanna puluwanda?',
+  },
+  voice_slow: {
+    en: "Sorry, that's taking longer than expected. Could you please say that again?",
+    si: 'සමාවෙන්න, ටිකක් වෙලා යනවා. කරුණාකර ආයෙත් කියන්න පුළුවන්ද?',
+    'si-Latn': 'Samawenna, tikak welawa yanawa. Karunakara aye kiyanna puluwanda?',
+  },
+  voice_callback: {
+    en: "I've passed your request to our team, and someone will get back to you soon. Thank you for calling.",
+    si: 'ඔබගේ ඉල්ලීම අපේ කණ්ඩායමට යොමු කළා, ඉක්මනින්ම කෙනෙක් ඔබව සම්බන්ධ කර ගනීවි. ඇමතුමට ස්තූතියි.',
+    'si-Latn': 'Oyage request eka ape team ekata yomu kala, ikmanata kenek oyawa contact karai. Call ekata sthuthi.',
   },
   ask_time: {
     en: 'What time would you prefer for your appointment?',

@@ -62,6 +62,8 @@ export class ResponseService {
       // WhatsApp stores the customer's phone as `externalId`; website chat as
       // the session id. Either way it's the address to deliver back to.
       destination: conversation.customer?.phone ?? conversation.customer?.externalId ?? undefined,
+      replySource: typeof metadata?.replySource === 'string' ? metadata.replySource : undefined,
+      language: conversation.language,
     });
 
     return message;
